@@ -166,7 +166,7 @@ def plans_by_day(events):
             continue
         steps = parse_workout(e.get("description") or "")
         out.setdefault(d, []).append({
-            "name": e.get("name") or "Workout", "type": e.get("type"),
+            "id": e.get("id"), "name": e.get("name") or "Workout", "type": e.get("type"),
             "minutes": round(sum(x["min"] for x in steps)) or round((e.get("moving_time") or 0) / 60) or None,
             "steps": steps})
     return out
