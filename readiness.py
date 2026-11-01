@@ -18,6 +18,7 @@ import json
 import math
 import os
 import statistics as st
+import urllib.error
 import urllib.request
 from zoneinfo import ZoneInfo
 
@@ -40,8 +41,15 @@ def fetch(path, params):
     req = urllib.request.Request(url)
     tok = base64.b64encode(f"API_KEY:{key}".encode()).decode()
     req.add_header("Authorization", f"Basic {tok}")
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r)
+    req.add_header("User-Agent", "readiness-score/1.0 (+github.com/fulviot20/Readiness)")
+    req.add_header("Accept", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        body = e.read()[:300].decode(errors="replace")
+        hint = " (controlla INTERVALS_API_KEY e INTERVALS_ATHLETE_ID nei segreti)" if e.code in (401, 403) else ""
+        raise SystemExit(f"Intervals ha risposto {e.code}{hint}: {body}")
 
 
 def load_data(today):
