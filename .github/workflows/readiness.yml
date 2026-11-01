@@ -1,0 +1,59 @@
+name: Readiness
+
+on:
+  schedule:
+    # ogni ora dalle 5 alle 21 UTC (6-22 in Italia d'inverno, 7-23 d'estate)
+    - cron: "7 5-21 * * *"
+  push:
+    paths:
+      - "answers/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: readiness
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Calcola lo score
+        env:
+          INTERVALS_API_KEY: ${{ secrets.INTERVALS_API_KEY }}
+          INTERVALS_ATHLETE_ID: ${{ secrets.INTERVALS_ATHLETE_ID }}
+          READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
+        run: |
+          pip install --quiet cryptography
+          python readiness.py
+
+      # salva solo l'impronta dei dati (nessun dato personale) quando cambia:
+      # tiene attivo il repository, così GitHub non sospende la pianificazione
+      - name: Registra l'aggiornamento
+        run: |
+          if ! git diff --quiet -- data.hash || ! git ls-files --error-unmatch data.hash >/dev/null 2>&1; then
+            git config user.name "readiness-bot"
+            git config user.email "readiness-bot@users.noreply.github.com"
+            git add data.hash
+            git commit -m "Aggiornamento score"
+            git pull --rebase
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4

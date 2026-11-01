@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Readiness">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Readiness</title>
+<style>
+:root{
+  --bg:#0b0f14;--card:#131a22;--card2:#18212b;--line:#232e3a;
+  --text:#e9eef4;--muted:#8a98a8;--faint:#5b6878;
+  --c-vlow:#ef4444;--c-low:#f97316;--c-mod:#eab308;--c-high:#22c55e;--c-top:#2dd4bf;
+  --accent:#2dd4bf;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body{padding:env(safe-area-inset-top) 16px calc(28px + env(safe-area-inset-bottom))}
+main{max-width:520px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 0 6px}
+header h1{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+header .date{font-size:20px;font-weight:700;margin-top:2px;text-transform:capitalize}
+.iconbtn{background:var(--card);border:1px solid var(--line);color:var(--muted);width:40px;height:40px;border-radius:12px;display:grid;place-items:center;cursor:pointer}
+.iconbtn svg{width:20px;height:20px}
+.hero{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px}
+.ring{position:relative;width:240px;height:240px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .track{stroke:var(--card2)}
+.ring .bar{transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1),stroke .4s}
+.ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .num{font-size:76px;font-weight:800;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.ring .band{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-top:6px}
+.ring .sub{font-size:12px;color:var(--muted);margin-top:4px;min-height:16px}
+.advice{text-align:center;font-size:16px;font-weight:600;margin:14px 8px 4px}
+.why{text-align:center;color:var(--muted);font-size:13.5px;margin:0 12px 6px}
+.pending{text-align:center;color:var(--muted);font-size:13px;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:10px;margin:10px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.metric .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.metric .value{font-size:24px;font-weight:750;margin-top:4px;font-variant-numeric:tabular-nums}
+.metric .value small{font-size:13px;font-weight:600;color:var(--muted);margin-left:3px}
+.metric .ref{font-size:12px;color:var(--faint);margin-top:2px;min-height:17px}
+.meter{height:6px;background:var(--card2);border-radius:99px;margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;border-radius:99px;transition:width .8s}
+section h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 4px 10px;font-weight:600}
+.q{margin-bottom:16px}
+.q:last-of-type{margin-bottom:6px}
+.q .qt{font-weight:650;margin-bottom:8px}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.scale.two{grid-template-columns:1fr 1fr}
+.scale button{background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:10px 0 8px;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.scale button b{font-size:18px}
+.scale button span{font-size:10.5px;color:var(--muted)}
+.scale button.on{background:var(--accent);border-color:var(--accent);color:#04201c}
+.scale button.on span{color:#0b3d36}
+.scale.two button{padding:12px 0;font-weight:650}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:12px}
+.btn{background:var(--accent);color:#04201c;border:0;border-radius:12px;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.note{font-size:12.5px;color:var(--muted)}
+.chart{padding:12px 10px 8px}
+.chart svg{width:100%;height:120px;display:block}
+.chart .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);padding:4px 2px 0}
+.workout{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.workout:first-child{border-top:0}
+.workout .w2{color:var(--muted);white-space:nowrap}
+.daynav{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 0}
+.daynav button{background:none;border:0;color:var(--accent);font:inherit;font-weight:650;cursor:pointer;padding:6px}
+.setup{max-width:420px;margin:12vh auto 0}
+.setup h2{font-size:24px;margin:0 0 6px}
+.setup p{color:var(--muted);margin:0 0 18px}
+.setup label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 6px;font-weight:600}
+.setup input{width:100%;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:13px 14px;font:inherit}
+.setup .btn{width:100%;margin-top:20px;padding:14px}
+.err{color:var(--c-vlow);font-size:13px;margin-top:10px;min-height:18px}
+.foot{text-align:center;font-size:11.5px;color:var(--faint);margin-top:22px}
+.hidden{display:none!important}
+@media (prefers-reduced-motion:reduce){.ring .bar,.meter i{transition:none}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script>
+"use strict";
+const LS = {
+  get(k){try{return localStorage.getItem(k)}catch(e){return null}},
+  set(k,v){try{localStorage.setItem(k,v)}catch(e){}},
+  del(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+const $app = document.getElementById("app");
+const BANDS = [
+  [95,"Ottima","var(--c-top)"],[75,"Alta","var(--c-high)"],[50,"Moderata","var(--c-mod)"],
+  [25,"Bassa","var(--c-low)"],[0,"Molto bassa","var(--c-vlow)"]];
+const ADVICE = {
+  "Ottima":"Giornata perfetta per la qualità o un test.",
+  "Alta":"Via libera alla qualità come da piano.",
+  "Moderata":"Segui il piano; ascolta le sensazioni nella qualità.",
+  "Bassa":"Meglio endurance facile al posto della qualità.",
+  "Molto bassa":"Riposo o seduta molto leggera."};
+const FEEL = {1:"Forte",2:"Bene",3:"Normale",4:"Scarso",5:"Debole"};
+const bandOf = s => BANDS.find(b => s >= b[0]);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const clip = (x,a,b) => Math.max(a, Math.min(b, x));
+
+/* ---------- cifratura (identica allo script Python) ---------- */
+const b64 = { dec: s => Uint8Array.from(atob(s), c => c.charCodeAt(0)),
+              enc: u => btoa(String.fromCharCode(...u)) };
+async function keyFor(pass, salt){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:200000, hash:"SHA-256"},
+    base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function decryptEnv(env, pass){
+  const key = await keyFor(pass, b64.dec(env.salt));
+  const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64.dec(env.iv)}, key, b64.dec(env.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function encryptObj(obj, pass){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await keyFor(pass, salt);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(obj))));
+  return {v:1, salt:b64.enc(salt), iv:b64.enc(iv), ct:b64.enc(ct)};
+}
+
+/* ---------- correttivo (identico allo script Python) ---------- */
+function applyAnswers(day, ans){
+  if (day.score == null) return day;
+  let mod = 0, sick = false;
+  if (ans){
+    if (ans.feel) mod += (ans.feel - 3) * 5;
+    if (ans.sleep) mod += (ans.sleep - 3) * 2.5;
+    if (ans.sick){ sick = true; mod -= 10; }
+  }
+  mod = clip(mod, -15, 15);
+  let s = clip(day.base + mod, 1, 100);
+  if (sick || day.alarm) s = Math.min(s, 49);
+  s = Math.round(s);
+  const band = bandOf(s)[1];
+  return {...day, score:s, mod:Math.round(mod), band, advice:ADVICE[band], answers:ans || null};
+}
+
+/* ---------- stato ---------- */
+let DATA = null, sel = null, draft = {};
+const todayISO = () => new Date().toLocaleDateString("sv-SE", {timeZone:"Europe/Rome"});
+
+function repoInfo(){
+  const owner = location.hostname.split(".")[0];
+  const repo = location.pathname.split("/").filter(Boolean)[0] || "";
+  return {owner, repo};
+}
+
+async function load(){
+  const pass = LS.get("rd_pass");
+  if (!pass) return setup();
+  $app.innerHTML = '<div class="pending" style="margin-top:40vh">Carico i dati…</div>';
+  try{
+    const r = await fetch("data.enc?t=" + Date.now(), {cache:"no-store"});
+    if (!r.ok) throw new Error("dati non ancora pubblicati (" + r.status + ")");
+    DATA = await decryptEnv(await r.json(), pass);
+  }catch(e){
+    if (e.name === "OperationError") return setup("Frase segreta non corretta.");
+    $app.innerHTML = `<div class="pending" style="margin-top:30vh">Impossibile caricare i dati: ${esc(e.message)}</div>`;
+    return;
+  }
+  // risposte salvate solo su questo telefono (non ancora elaborate dal server)
+  for (const d of DATA.days){
+    const loc = LS.get("ans:" + d.date);
+    if (loc && !d.answers) Object.assign(d, applyAnswers(d, JSON.parse(loc)));
+  }
+  const scored = DATA.days.filter(d => d.score != null);
+  sel = DATA.days.findIndex(d => d.date === todayISO());
+  if (sel < 0 || DATA.days[sel].score == null) sel = DATA.days.indexOf(scored[scored.length - 1]);
+  draft = {...(DATA.days[sel]?.answers || {})};
+  render();
+}
+
+/* ---------- schermata iniziale ---------- */
+function setup(msg){
+  $app.innerHTML = `
+  <div class="setup">
+    <h2>Readiness</h2>
+    <p>Inserisci la frase segreta scelta durante la configurazione. Resta salvata solo su questo dispositivo.</p>
+    <label for="pw">Frase segreta</label>
+    <input id="pw" type="password" autocomplete="current-password" value="${esc(LS.get("rd_pass") || "")}">
+    <label for="tk">Token GitHub (per salvare il questionario)</label>
+    <input id="tk" type="password" placeholder="facoltativo" value="${esc(LS.get("rd_token") || "")}">
+    <button class="btn" id="go">Entra</button>
+    <div class="err">${esc(msg || "")}</div>
+  </div>`;
+  document.getElementById("go").onclick = () => {
+    const pw = document.getElementById("pw").value.trim();
+    const tk = document.getElementById("tk").value.trim();
+    if (!pw) return;
+    LS.set("rd_pass", pw);
+    tk ? LS.set("rd_token", tk) : LS.del("rd_token");
+    load();
+  };
+}
+
+/* ---------- rendering ---------- */
+function ringSVG(score, color){
+  const r = 104, c = 2 * Math.PI * r, off = c * (1 - (score ?? 0) / 100);
+  return `<svg viewBox="0 0 240 240" aria-hidden="true">
+    <circle class="track" cx="120" cy="120" r="${r}" fill="none" stroke-width="16"/>
+    <circle class="bar" id="ringbar" cx="120" cy="120" r="${r}" fill="none" stroke="${color}" stroke-width="16"
+      stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}" data-off="${off}"/>
+  </svg>`;
+}
+
+function metric(label, value, unit, ref, subv){
+  const col = subv == null ? "var(--faint)" : bandOf(subv)[2];
+  return `<div class="card metric">
+    <div class="label">${label}</div>
+    <div class="value">${value ?? "–"}${value != null && unit ? `<small>${unit}</small>` : ""}</div>
+    <div class="ref">${ref || ""}</div>
+    <div class="meter"><i style="width:${subv ?? 0}%;background:${col}"></i></div>
+  </div>`;
+}
+
+function chart(){
+  const days = DATA.days.slice(-30);
+  const w = 300, h = 110, bw = w / days.length;
+  const bars = days.map((d, i) => {
+    const s = d.score, x = i * bw + 1.5, bh = s ? Math.max(4, s / 100 * (h - 6)) : 3;
+    const col = s ? bandOf(s)[2] : "var(--line)";
+    const isSel = DATA.days.indexOf(d) === sel;
+    return `<rect data-i="${DATA.days.indexOf(d)}" x="${x}" y="${h - bh}" width="${bw - 3}" height="${bh}" rx="2.5"
+      fill="${col}" opacity="${isSel ? 1 : .55}" style="cursor:pointer"/>
+      ${isSel ? `<rect x="${x}" y="${h + 3}" width="${bw - 3}" height="3" rx="1.5" fill="var(--text)"/>` : ""}`;
+  }).join("");
+  const fmt = s => new Date(s + "T12:00").toLocaleDateString("it-IT", {day:"numeric", month:"short"});
+  return `<div class="card chart">
+    <svg viewBox="0 0 ${w} ${h + 8}" preserveAspectRatio="none">
+      <line x1="0" x2="${w}" y1="${h - .70 * (h - 6)}" y2="${h - .70 * (h - 6)}" stroke="var(--line)" stroke-dasharray="3 4"/>
+      ${bars}
+    </svg>
+    <div class="axis"><span>${fmt(days[0].date)}</span><span>linea = 70, la tua norma</span><span>${fmt(days[days.length - 1].date)}</span></div>
+  </div>`;
+}
+
+function questionnaire(day){
+  const opts = (key, labels) => labels.map((l, i) =>
+    `<button data-k="${key}" data-v="${i + 1}" class="${draft[key] === i + 1 ? "on" : ""}"><b>${i + 1}</b><span>${l}</span></button>`).join("");
+  const hasToken = !!LS.get("rd_token");
+  const saved = day.answers && JSON.stringify(day.answers) === JSON.stringify(draft);
+  return `<section><h2>Questionario del mattino · facoltativo</h2>
+  <div class="card">
+    <div class="q"><div class="qt">Come hai dormito?</div>
+      <div class="scale">${opts("sleep", ["Malissimo","Male","Così così","Bene","Benissimo"])}</div></div>
+    <div class="q"><div class="qt">Come ti senti?</div>
+      <div class="scale">${opts("feel", ["A pezzi","Stanco","Normale","Bene","Al top"])}</div></div>
+    <div class="q"><div class="qt">Sintomi di malattia? <span class="note">(mal di gola, naso chiuso…)</span></div>
+      <div class="scale two">
+        <button data-k="sick" data-v="0" class="${draft.sick === false ? "on" : ""}">No</button>
+        <button data-k="sick" data-v="1" class="${draft.sick === true ? "on" : ""}">Sì</button>
+      </div></div>
+    <div class="row">
+      <span class="note" id="qnote">${saved ? "Risposte salvate." : hasToken ? "Al salvataggio lo score si aggiorna anche sul server." : "Senza token le risposte restano su questo telefono."}</span>
+      <button class="btn" id="qsave">${saved ? "Aggiorna" : "Salva"}</button>
+    </div>
+  </div></section>`;
+}
+
+function render(){
+  const raw = DATA.days[sel];
+  const isToday = raw.date === todayISO();
+  const day = isToday ? applyAnswers(raw, Object.keys(draft).length ? draft : raw.answers) : raw;
+  const [, bandName, color] = day.score != null ? bandOf(day.score) : [0, "—", "var(--faint)"];
+  const c = day.comp || {};
+  const dlabel = new Date(day.date + "T12:00").toLocaleDateString("it-IT", {weekday:"long", day:"numeric", month:"long"});
+  const todayMissing = DATA.days[DATA.days.length - 1].date !== todayISO() || DATA.days[DATA.days.length - 1].score == null;
+  const modTxt = day.score != null && day.mod ? `base ${day.base} · questionario ${day.mod > 0 ? "+" : ""}${day.mod}` : "";
+  const wk = (day.workouts || []).filter(w => w.type);
+
+  $app.innerHTML = `
+  <header>
+    <div><h1>Readiness</h1><div class="date">${isToday ? "Oggi" : esc(dlabel)}</div></div>
+    <button class="iconbtn" id="settings" aria-label="Impostazioni">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  ${todayMissing && !isToday ? `<div class="pending">Lo score di oggi arriva dopo la sincronizzazione del Garmin. Intanto vedi l'ultimo disponibile.</div>` : ""}
+
+  <div class="hero">
+    <div class="ring">${ringSVG(day.score, color)}
+      <div class="center">
+        <div class="num" style="color:${color}">${day.score ?? "–"}</div>
+        <div class="band" style="color:${color}">${esc(bandName)}</div>
+        <div class="sub">${esc(modTxt)}</div>
+      </div>
+    </div>
+    <div class="daynav">
+      <button id="prev" ${sel <= 0 ? "disabled" : ""}>‹ giorno prima</button>
+      ${!isToday ? `<button id="next">giorno dopo ›</button>` : ""}
+    </div>
+  </div>
+  ${day.score != null ? `<div class="advice">${esc(day.advice)}</div><div class="why">${esc(day.why)}</div>` : ""}
+
+  <div class="grid">
+    ${metric("HRV", c.hrv?.value, "ms", c.hrv ? `media 7 gg ${c.hrv.avg7} · norma ${c.hrv.base}` : "", c.hrv?.sub)}
+    ${metric("FC a riposo", c.rhr?.value, "bpm", c.rhr ? `norma ${c.rhr.base}` : "", c.rhr?.sub)}
+    ${metric("Sonno", c.sleep ? hm(c.sleep.value) : null, "", c.sleep ? `media 3 notti ${hm(c.sleep.avg3)}` : "dato non valido", c.sleep?.sub)}
+    ${metric("Carico", c.load ? (c.load.form > 0 ? "+" : "") + c.load.form : null, "% form", c.load ? `fitness ${c.load.ctl} · fatica ${c.load.atl}` : "", c.load?.sub)}
+  </div>
+
+  ${isToday && day.score != null ? questionnaire(raw) : ""}
+
+  ${wk.length ? `<section><h2>Allenamento del giorno</h2><div class="card">${wk.map(w => `
+    <div class="workout"><span>${esc(w.name || w.type)} · ${w.minutes}′</span>
+    <span class="w2">${w.feel ? `sensazione ${w.feel}/5 · ${FEEL[w.feel] || ""}` : "sensazione non inserita"}</span></div>`).join("")}</div></section>` : ""}
+
+  <section><h2>Ultimi 30 giorni</h2>${chart()}</section>
+
+  <div class="foot">Aggiornato ${esc(new Date(DATA.generated_at).toLocaleString("it-IT", {weekday:"short", hour:"2-digit", minute:"2-digit"}))}
+   · taratura su ${DATA.calibration.n} giorni</div>`;
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const b = document.getElementById("ringbar"); if (b) b.style.strokeDashoffset = b.dataset.off;
+  }));
+  bind(raw, isToday);
+}
+
+function hm(h){ const m = Math.round(h * 60); return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`; }
+
+function bind(raw, isToday){
+  document.getElementById("settings").onclick = () => setup();
+  const prev = document.getElementById("prev"), next = document.getElementById("next");
+  if (prev) prev.onclick = () => go(sel - 1);
+  if (next) next.onclick = () => go(sel + 1);
+  document.querySelectorAll(".chart rect[data-i]").forEach(r => r.onclick = () => go(+r.dataset.i));
+  document.querySelectorAll(".scale button").forEach(b => b.onclick = () => {
+    const k = b.dataset.k, v = +b.dataset.v;
+    if (k === "sick") draft.sick = draft.sick === !!v ? undefined : !!v;
+    else draft[k] = draft[k] === v ? undefined : v;
+    Object.keys(draft).forEach(x => draft[x] === undefined && delete draft[x]);
+    render();
+  });
+  const save = document.getElementById("qsave");
+  if (save) save.onclick = () => saveAnswers(raw);
+}
+
+function go(i){
+  if (i < 0 || i >= DATA.days.length) return;
+  sel = i;
+  draft = {...(DATA.days[sel].answers || {})};
+  render();
+}
+
+async function saveAnswers(raw){
+  const note = document.getElementById("qnote");
+  const ans = {date: raw.date, ...draft};
+  LS.set("ans:" + raw.date, JSON.stringify(draft));
+  Object.assign(raw, applyAnswers(raw, {...draft}));
+  const token = LS.get("rd_token");
+  if (!token){ render(); return; }
+  note.textContent = "Salvataggio…";
+  try{
+    const {owner, repo} = repoInfo();
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/answers/${raw.date}.json`;
+    const hdr = {Authorization: "Bearer " + token, Accept: "application/vnd.github+json"};
+    let sha;
+    const cur = await fetch(url, {headers: hdr});
+    if (cur.ok) sha = (await cur.json()).sha;
+    const env = await encryptObj(ans, LS.get("rd_pass"));
+    const content = btoa(JSON.stringify(env));
+    const r = await fetch(url, {method: "PUT", headers: {...hdr, "Content-Type": "application/json"},
+      body: JSON.stringify({message: "Questionario " + raw.date, content, ...(sha ? {sha} : {})})});
+    if (!r.ok) throw new Error("GitHub " + r.status);
+    render();
+    document.getElementById("qnote").textContent = "Salvato. Il server ricalcola in 1–2 minuti.";
+  }catch(e){
+    render();
+    document.getElementById("qnote").textContent = "Salvato solo sul telefono (" + e.message + ").";
+  }
+}
+
+load();
+</script>
+</body>
+</html>
