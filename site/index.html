@@ -41,11 +41,11 @@ button{font:inherit;color:inherit}
 .gear{background:none;border:0;color:var(--muted);width:40px;height:40px;display:grid;place-items:center;cursor:pointer;border-radius:12px}
 
 /* gauge */
-.gauge{position:relative;margin:4px auto 0;max-width:340px}
+.gauge{position:relative;display:block;margin:6px auto 0;max-width:340px;width:100%;background:none;border:0;padding:0;cursor:pointer}
 .gauge svg{display:block;width:100%;height:auto;overflow:visible}
 .g-num{font-family:var(--cond);font-weight:300;font-size:84px;letter-spacing:-.02em;fill:var(--text)}
 .g-band{font-family:var(--cond);font-weight:500;font-size:21px;letter-spacing:.02em}
-.g-tick{stroke:var(--faint)}
+.g-sub{font-size:13.5px;fill:var(--muted);font-family:var(--ui)}
 .g-lab{font-family:var(--cond);font-size:12px;fill:var(--faint)}
 .adj{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-top:6px}
 .verdict{text-align:center;font-size:18px;font-weight:500;margin:14px 10px 4px;text-wrap:balance}
@@ -118,7 +118,7 @@ button{font:inherit;color:inherit}
 .sh-top h2{font-family:var(--cond);font-size:28px;font-weight:500;margin:0}
 .sh-top .x{background:var(--surface2);border:0;width:34px;height:34px;border-radius:50%;cursor:pointer;color:var(--muted);display:grid;place-items:center}
 .sh-big{font-family:var(--cond);font-size:56px;font-weight:300;line-height:1;margin:10px 0 2px}
-.sh-big small{font-size:20px;color:var(--muted);margin-left:4px;font-weight:400}
+.sh-big small{font-size:20px;color:var(--muted);margin-left:8px;font-weight:400}
 .sh-desc{color:var(--muted);font-size:14.5px;margin:8px 0 16px}
 .range{display:inline-flex;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:12px}
 .range button{background:none;border:0;padding:6px 14px;border-radius:8px;font-size:14px;color:var(--muted);cursor:pointer}
@@ -134,6 +134,19 @@ button{font:inherit;color:inherit}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid;margin-right:6px;vertical-align:0}
 .legend i.ln{width:16px;height:0;border-radius:0;border:0;border-top:2px solid var(--glacier);opacity:.7;vertical-align:3px}
 .sh-chart .lg{font-size:12.5px;color:var(--faint);margin-top:8px}
+.sh-h3{font-family:var(--cond);font-size:21px;font-weight:500;margin:28px 0 4px}
+.sh-note{font-size:14px;color:var(--muted);margin:0 0 14px}
+.sh-note.warn{color:var(--amber)}
+.bd{margin-bottom:14px}
+.bd-t{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.bd-t span{font-weight:600}
+.bd-t i{font-style:normal;font-weight:400;color:var(--faint);font-size:13px;margin-left:8px}
+.bd-t b{font-family:var(--cond);font-size:22px;font-weight:500}
+.bd-bar{position:relative;height:6px;border-radius:99px;background:var(--surface2)}
+.bd-bar span{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.bd-bar em{position:absolute;top:-3px;width:2px;height:12px;background:var(--muted);border-radius:1px}
+.bd-adj{display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid var(--line);margin-top:4px}
+.bd-adj b{font-family:var(--cond);font-size:22px;font-weight:500}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:16px 12px;margin-top:20px}
 .stats div span{display:block;font-size:13px;color:var(--muted)}
 .stats div b{font-family:var(--cond);font-size:24px;font-weight:500}
@@ -248,35 +261,87 @@ function lock(msg){
 }
 
 /* ------------------------------------------------------------ gauge */
-const CX=170,CY=150,R=118,A0=150,SWEEP=240,STROKE=18;
+const CX=170,CY=152,R=122,A0=150,SWEEP=240,NT=61;
 const pol=(a,r)=>[CX+r*Math.cos(a*Math.PI/180),CY+r*Math.sin(a*Math.PI/180)];
 const ang=v=>A0+SWEEP*clip(v,0,100)/100;
-function arc(v1,v2,r){const[x1,y1]=pol(ang(v1),r),[x2,y2]=pol(ang(v2),r);
-  return `M${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${ang(v2)-ang(v1)>180?1:0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;}
 const SEGS=[[0,25,"var(--rose)","Very low"],[25,50,"var(--amber)","Low"],[50,75,"var(--sand)","Moderate"],[75,95,"var(--alpine)","High"],[95,100,"var(--glacier)","Peak"]];
-function gaugeSVG(score,color,band){
-  const g=.9; // gap between bands, in score points
-  const segs=SEGS.map(([a,b,c,n])=>{const on=score!=null&&score>=a&&(score<b||b===100);
-    return `<path d="${arc(a+(a?g:0),b-(b<100?g:0),R)}" stroke="${c}" stroke-width="${STROKE}" fill="none" opacity="${score==null?.25:on?1:.32}"/>`;}).join("");
-  const lab=[0,25,50,75,95].map(v=>{const[x,y]=pol(ang(v),R+STROKE/2+12);return `<text class="g-lab" x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle">${v}</text>`;}).join("");
-  const [m1x,m1y]=pol(ang(0),R-STROKE/2-7),[m2x,m2y]=pol(ang(0),R+STROKE/2+5);
-  return `<svg viewBox="0 0 340 222" aria-label="Readiness ${score??"pending"} of 100, ${esc(band)}">
-    ${segs}${lab}
-    <g id="g-mark" style="transform-origin:${CX}px ${CY}px">
-      <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="var(--bg)" stroke-width="9" stroke-linecap="round"/>
-      <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="var(--text)" stroke-width="4" stroke-linecap="round"/>
+const segColor=v=>SEGS.find(s=>v<s[1]||s[1]===100)[2];
+function gaugeSVG(score,band,color,sub){
+  let ticks="";
+  for(let i=0;i<NT;i++){const v=i*100/(NT-1),a=ang(v),[x1,y1]=pol(a,R-11),[x2,y2]=pol(a,R+11);
+    ticks+=`<line class="tk" data-v="${v.toFixed(2)}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${segColor(v)}" stroke-width="3.4" stroke-linecap="round" opacity=".16"/>`;}
+  const marks=[25,50,75,95].map(v=>{const[x1,y1]=pol(ang(v),R-17),[x2,y2]=pol(ang(v),R-21),[lx,ly]=pol(ang(v),R-34);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--faint)" stroke-width="1.2"/>
+      <text class="g-lab" x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="middle">${v}</text>`;}).join("");
+  const [p1x,p1y]=pol(ang(0),R+16),[p2x,p2y]=pol(ang(0)-2.6,R+27),[p3x,p3y]=pol(ang(0)+2.6,R+27);
+  return `<svg viewBox="0 0 340 236" aria-label="Readiness ${score??"pending"} of 100, ${esc(band)}">
+    ${ticks}${marks}
+    <g id="g-mark" style="transform-origin:${CX}px ${CY}px;opacity:${score==null?0:1}">
+      <polygon points="${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y}" fill="var(--text)"/>
     </g>
-    <text class="g-num" id="g-num" x="${CX}" y="${CY+26}" text-anchor="middle">${score??"–"}</text>
-    <text class="g-band" x="${CX}" y="${CY+56}" text-anchor="middle" fill="${color}">${esc(band)}</text>
+    <text class="g-num" id="g-num" x="${CX}" y="${CY+24}" text-anchor="middle">${score??"–"}</text>
+    <text class="g-band" x="${CX}" y="${CY+52}" text-anchor="middle" fill="${color}">${esc(band)}</text>
+    <text class="g-sub" x="${CX}" y="${CY+74}" text-anchor="middle">${esc(sub||"")}</text>
   </svg>`;
 }
 function animateGauge(from,to){
-  const mark=$("g-mark"),num=$("g-num"); if(!mark) return;
-  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce?0:1000,t0=performance.now();
+  const mark=$("g-mark"),num=$("g-num"),tks=[...document.querySelectorAll(".gauge .tk")]; if(!mark) return;
+  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce?0:1100,t0=performance.now();
   const step=now=>{const k=T?clip((now-t0)/T,0,1):1,e=1-Math.pow(1-k,3),v=from+(to-from)*e;
-    mark.style.transform=`rotate(${SWEEP*v/100}deg)`; num.textContent=Math.round(v); if(k<1) requestAnimationFrame(step);};
+    mark.style.transform=`rotate(${SWEEP*v/100}deg)`; num.textContent=Math.round(v);
+    for(const t of tks) t.setAttribute("opacity",+t.dataset.v<=v+.01?1:.16);
+    if(k<1) requestAnimationFrame(step);};
   requestAnimationFrame(step);
 }
+
+/* ------------------------------------------------------------ score sheet */
+let scorePick=null;
+function scoreChart(n){
+  const s=DATA.days.slice(Math.max(0,sel-n+1),sel+1);
+  if(s.filter(d=>d.score!=null).length<2) return "<p class='sh-desc'>Not enough data yet.</p>";
+  const W=320,H=170,PL=4,PR=30,PT=8,PB=8,y=v=>PT+(100-v)/100*(H-PT-PB),x=i=>PL+(i+.5)*((W-PL-PR)/s.length);
+  const pick=scorePick==null||scorePick>=s.length||s[scorePick].score==null?s.map(d=>d.score!=null).lastIndexOf(true):scorePick;
+  const zones=SEGS.map(([a,b,c])=>`<rect x="${PL}" y="${y(b)}" width="${W-PL-PR}" height="${y(a)-y(b)}" fill="${c}" opacity=".07"/>
+    <line x1="${PL}" x2="${W-PR+4}" y1="${y(a)}" y2="${y(a)}" stroke="var(--muted)" stroke-dasharray="3 4" opacity="${a?.35:0}"/>
+    ${a?`<text class="rl" x="${W-PR+8}" y="${y(a)+4}">${a}</text>`:""}`).join("");
+  const line=s.map((d,i)=>d.score!=null?`${x(i).toFixed(1)},${y(d.score).toFixed(1)}`:null).filter(Boolean).join(" ");
+  const r=n>7?3.2:4.6;
+  const dots=s.map((d,i)=>d.score==null?"":`<circle cx="${x(i)}" cy="${y(d.score)}" r="${i===pick?r+2:r}" fill="${i===pick?segColor(d.score):"var(--surface)"}" stroke="${segColor(d.score)}" stroke-width="2"/>`).join("");
+  const hits=s.map((d,i)=>`<rect data-si="${i}" x="${x(i)-(W-PL-PR)/s.length/2}" y="0" width="${(W-PL-PR)/s.length}" height="${H}" fill="transparent" style="cursor:pointer"/>`).join("");
+  const pk=s[pick];
+  return `<div class="readout"><span>${fmtDay(pk.date,{weekday:"short",day:"numeric",month:"short"})}</span><b>${pk.score}</b><em style="color:${segColor(pk.score)}">${pk.band}</em></div>
+    <div class="sh-chart"><svg viewBox="0 0 ${W} ${H}">${zones}
+      <line x1="${x(pick)}" x2="${x(pick)}" y1="${PT}" y2="${H-PB}" stroke="var(--muted)" opacity=".5"/>
+      <polyline points="${line}" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linejoin="round" opacity=".85"/>${dots}${hits}</svg>
+    <div class="ax"><span>${fmtDay(s[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(s[s.length-1].date,{day:"numeric",month:"short"})}</span></div></div>`;
+}
+function openScore(n=30,keep=false){
+  if(!keep) scorePick=null;
+  const raw=DATA.days[sel],isT=raw.date===todayISO(),day=isT?applyAnswers(raw,Object.keys(draft).length?draft:raw.answers):raw;
+  if(day.score==null) return;
+  const c=day.comp||{},order=[["hrv","HRV"],["load","Training load"],["sleep","Sleep"],["rhr","Resting HR"]];
+  const rows=order.map(([k,name])=>{const v=c[k],w=Math.round(DATA.weights[k]*100);
+    if(!v) return `<div class="bd"><div class="bd-t"><span>${name}<i>${w}%</i></span><b>–</b></div><div class="bd-bar"></div></div>`;
+    return `<div class="bd"><div class="bd-t"><span>${name}<i>${w}%</i></span><b>${v.sub}</b></div>
+      <div class="bd-bar"><span style="width:${v.sub}%;background:${segColor(v.sub)}"></span><em style="left:70%"></em></div></div>`;}).join("");
+  const keepScroll=$("sheet").scrollTop;
+  openSheet(`<div class="sh-top"><h2>Readiness</h2>${X}</div>
+    <div class="sh-big" style="color:${segColor(day.score)}">${day.score}<small>${esc(day.band)}</small></div>
+    <p class="sh-desc">${esc(day.advice)} ${esc(day.why)}</p>
+    <div class="range"><button data-n="7" class="${n===7?"on":""}">7 days</button><button data-n="30" class="${n===30?"on":""}">30 days</button></div>
+    ${scoreChart(n)}
+    <h3 class="sh-h3">What makes up the score</h3>
+    <p class="sh-note">Each signal scored against your own history. 70, the tick on each bar, is a normal day for you.</p>
+    ${rows}
+    ${day.mod?`<div class="bd-adj"><span>Morning check-in</span><b>${day.mod>0?"+":""}${day.mod}</b></div>`:""}
+    ${day.alarm?`<p class="sh-note warn">Low HRV and high resting HR on the same night: the score is capped at 49.</p>`:""}
+    <h3 class="sh-h3">How it works</h3>
+    <p class="sh-note">Signals are combined with the weights shown, then scaled on the last ${DATA.calibration.n} days of your data so that a typical day lands around 70 and only your best few days reach 95 and above. Bands: 0–24 very low, 25–49 low, 50–74 moderate, 75–94 high, 95–100 peak.</p>`);
+  if(keep) $("sheet").scrollTop=keepScroll;
+  $("sheet").querySelectorAll(".range button").forEach(b=>b.onclick=()=>openScore(+b.dataset.n));
+  $("sheet").querySelectorAll("rect[data-si]").forEach(r=>r.onclick=()=>{scorePick=+r.dataset.si; openScore(n,true);});
+}
+
 /* ------------------------------------------------------------ signals */
 const SIG={
   hrv:{name:"HRV",unit:"ms",fmt:v=>Math.round(v),weight:"40%",
@@ -329,11 +394,11 @@ function sessions(day){
   const done=(day.workouts||[]).filter(w=>w.type);
   done.forEach(w=>out.push(sessionLink(label,w.name||w.type,
     `${dur(w.minutes)}${w.feel?` · felt <span class="feelpip">${FEEL[w.feel]||w.feel}</span>`:""}`,
-    w.id?`${INTERVALS}/activities/${encodeURIComponent(w.id)}`:`${INTERVALS}/calendar`)));
-  if(!done.length) (day.plan||[]).forEach(p=>out.push(sessionLink(label,p.name,"Planned",`${INTERVALS}/calendar`)));
+    w.id?`${INTERVALS}/activities/${encodeURIComponent(w.id)}`:`${INTERVALS}/`)));
+  if(!done.length) (day.plan||[]).forEach(p=>out.push(sessionLink(label,p.name,"Planned",`${INTERVALS}/`)));
   if(isT||sel===DATA.days.length-1){
     const tm=new Date(new Date(day.date+"T12:00").getTime()+864e5).toLocaleDateString("sv-SE");
-    (DATA.upcoming?.[tm]||[]).forEach(p=>out.push(sessionLink("Tomorrow",p.name,"Planned",`${INTERVALS}/calendar`)));
+    (DATA.upcoming?.[tm]||[]).forEach(p=>out.push(sessionLink("Tomorrow",p.name,"Planned",`${INTERVALS}/`)));
   }
   return out.length?`<section class="sec"><div class="sec-h"><h2>Sessions</h2><span>Opens Intervals</span></div>${out.join("")}</section>`:"";
 }
@@ -373,6 +438,13 @@ function trend(){
 }
 
 /* ------------------------------------------------------------ main render */
+function deltaTxt(day){
+  const i=DATA.days.indexOf(DATA.days.find(d=>d.date===day.date)),prev=DATA.days.slice(0,i).reverse().find(d=>d.score!=null);
+  const parts=[];
+  if(day.mod) parts.push(`check-in ${day.mod>0?"+":""}${day.mod}`);
+  if(prev){const d=day.score-prev.score; parts.push(d===0?"same as yesterday":`${d>0?"+":""}${d} vs yesterday`);}
+  return parts.join(", ");
+}
 function render(){
   const raw=DATA.days[sel],isToday=raw.date===todayISO();
   const day=isToday?applyAnswers(raw,Object.keys(draft).length?draft:raw.answers):raw;
@@ -391,8 +463,7 @@ function render(){
     </div>
     <button class="gear" id="gear" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
   </div>
-  <div class="gauge">${gaugeSVG(has?day.score:null,color,band)}</div>
-  <div class="adj">${has&&day.mod?`Signals ${day.base}, check-in ${day.mod>0?"+":""}${day.mod}`:""}</div>
+  <button class="gauge" id="gauge" aria-label="Score details">${gaugeSVG(has?day.score:null,band,color,has?deltaTxt(day):"")}</button>
   ${has?`<p class="verdict">${esc(day.advice)}</p><p class="why">${esc(day.why)}</p>`:""}
   ${todayPending&&sel===DATA.days.length-1?`<p class="notice">Today's score appears once your Garmin has synced to Intervals.</p>`:""}
 
@@ -410,7 +481,7 @@ function render(){
 
 function bind(raw){
   $("prev").onclick=()=>go(sel-1); $("next").onclick=()=>go(sel+1);
-  $("gear").onclick=openSettings;
+  $("gear").onclick=openSettings; $("gauge").onclick=()=>openScore();
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));
   document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
