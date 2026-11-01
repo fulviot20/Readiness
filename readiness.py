@@ -305,7 +305,7 @@ def build(wellness, activities, events, answers, today):
         d = (a.get("start_date_local") or "")[:10]
         if d:
             done.setdefault(d, []).append({
-                "type": a.get("type"), "name": a.get("name"), "feel": a.get("feel"),
+                "id": a.get("id"), "type": a.get("type"), "name": a.get("name"), "feel": a.get("feel"),
                 "load": a.get("icu_training_load"), "minutes": round((a.get("moving_time") or 0) / 60)})
     plans = plans_by_day(events)
 

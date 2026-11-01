@@ -43,8 +43,8 @@ button{font:inherit;color:inherit}
 /* gauge */
 .gauge{position:relative;margin:4px auto 0;max-width:340px}
 .gauge svg{display:block;width:100%;height:auto;overflow:visible}
-.g-num{font-family:var(--cond);font-weight:300;font-size:88px;letter-spacing:-.02em;fill:var(--text)}
-.g-band{font-family:var(--cond);font-weight:500;font-size:20px;letter-spacing:.02em}
+.g-num{font-family:var(--cond);font-weight:300;font-size:84px;letter-spacing:-.02em;fill:var(--text)}
+.g-band{font-family:var(--cond);font-weight:500;font-size:21px;letter-spacing:.02em}
 .g-tick{stroke:var(--faint)}
 .g-lab{font-family:var(--cond);font-size:12px;fill:var(--faint)}
 .adj{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-top:6px}
@@ -70,14 +70,13 @@ button{font:inherit;color:inherit}
 .sig .v small{font-size:14px;color:var(--muted);margin-left:2px}
 
 /* sessions */
-.session{background:var(--surface);border-radius:18px;padding:16px 16px 14px;margin-bottom:10px}
-.session .t{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
-.session .t b{font-weight:600}
-.session .t span{color:var(--muted);font-size:14px;white-space:nowrap}
-.session .k{font-size:13px;color:var(--faint);margin-bottom:4px}
-.blocks{width:100%;height:58px;display:block;margin-top:12px}
-.done{display:flex;justify-content:space-between;gap:10px;font-size:14.5px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-.done span:last-child{color:var(--muted)}
+.session{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-radius:18px;
+  padding:14px 16px;margin-bottom:10px;color:var(--text);text-decoration:none}
+.session:active{background:var(--surface2)}
+.session .k{font-size:13px;color:var(--faint);margin-bottom:2px}
+.session b{font-weight:600;font-size:16.5px}
+.session .m{font-size:14px;color:var(--muted);margin-top:3px}
+.session .go{width:36px;height:36px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;color:var(--muted);flex:none}
 .feelpip{display:inline-block;padding:2px 8px;border-radius:99px;background:var(--surface2);color:var(--text);font-size:13px;margin-left:6px}
 
 /* check-in */
@@ -124,8 +123,16 @@ button{font:inherit;color:inherit}
 .range{display:inline-flex;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:12px}
 .range button{background:none;border:0;padding:6px 14px;border-radius:8px;font-size:14px;color:var(--muted);cursor:pointer}
 .range button.on{background:var(--bg);color:var(--text)}
-.sh-chart svg{width:100%;height:170px;display:block}
+.sh-chart svg{width:100%;height:auto;display:block;overflow:visible}
 .sh-chart .ax{display:flex;justify-content:space-between;font-size:12px;color:var(--faint);margin-top:4px}
+.readout{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-height:30px;margin-bottom:4px}
+.readout span{font-size:14px;color:var(--muted)}
+.readout b{font-family:var(--cond);font-size:24px;font-weight:500}
+.readout em{font-style:normal;font-size:14px}
+.sh-chart .rl{font-family:var(--cond);font-size:13px;fill:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid;margin-right:6px;vertical-align:0}
+.legend i.ln{width:16px;height:0;border-radius:0;border:0;border-top:2px solid var(--glacier);opacity:.7;vertical-align:3px}
 .sh-chart .lg{font-size:12.5px;color:var(--faint);margin-top:8px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:16px 12px;margin-top:20px}
 .stats div span{display:block;font-size:13px;color:var(--muted)}
@@ -241,44 +248,35 @@ function lock(msg){
 }
 
 /* ------------------------------------------------------------ gauge */
-const CX=170,CY=150,R=124,A0=150,SWEEP=240;
+const CX=170,CY=150,R=118,A0=150,SWEEP=240,STROKE=18;
 const pol=(a,r)=>[CX+r*Math.cos(a*Math.PI/180),CY+r*Math.sin(a*Math.PI/180)];
 const ang=v=>A0+SWEEP*clip(v,0,100)/100;
 function arc(v1,v2,r){const[x1,y1]=pol(ang(v1),r),[x2,y2]=pol(ang(v2),r);
   return `M${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${ang(v2)-ang(v1)>180?1:0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;}
+const SEGS=[[0,25,"var(--rose)","Very low"],[25,50,"var(--amber)","Low"],[50,75,"var(--sand)","Moderate"],[75,95,"var(--alpine)","High"],[95,100,"var(--glacier)","Peak"]];
 function gaugeSVG(score,color,band){
-  const segs=[[0,24.4,"var(--rose)"],[25.6,49.4,"var(--amber)"],[50.6,74.4,"var(--sand)"],[75.6,94.4,"var(--alpine)"],[95.6,100,"var(--glacier)"]];
-  let ticks="";
-  for(let v=0;v<=100;v+=2.5){const major=v%25===0,[x1,y1]=pol(ang(v),R-20),[x2,y2]=pol(ang(v),R-(major?32:25));
-    ticks+=`<line class="g-tick" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${major?1.6:1}" opacity="${major?.9:.45}"/>`;
-    if(major){const[lx,ly]=pol(ang(v),R-44);ticks+=`<text class="g-lab" x="${lx}" y="${ly+4}" text-anchor="middle">${v}</text>`;}}
-  const [nx,ny]=pol(ang(score??0),R-10);
-  return `<svg viewBox="0 0 340 262" aria-label="Readiness ${score??"pending"} of 100">
-    <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter></defs>
-    ${segs.map(s=>`<path d="${arc(s[0],s[1],R)}" stroke="${s[2]}" stroke-width="4" fill="none" opacity=".28" stroke-linecap="round"/>`).join("")}
-    <path id="g-fill-glow" d="${arc(0,Math.max(score??0,.5),R)}" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round" filter="url(#glow)" opacity=".55"/>
-    <path id="g-fill" d="${arc(0,Math.max(score??0,.5),R)}" stroke="${color}" stroke-width="6" fill="none" stroke-linecap="round"/>
-    ${ticks}
-    <g id="g-needle" style="transform-origin:${CX}px ${CY}px">
-      <line x1="${CX}" y1="${CY}" x2="${pol(ang(0),R-10)[0]}" y2="${pol(ang(0),R-10)[1]}" stroke="var(--text)" stroke-width="2.4" stroke-linecap="round"/>
-      <circle cx="${pol(ang(0),R)[0]}" cy="${pol(ang(0),R)[1]}" r="6" fill="var(--bg)" stroke="${color}" stroke-width="3"/>
+  const g=.9; // gap between bands, in score points
+  const segs=SEGS.map(([a,b,c,n])=>{const on=score!=null&&score>=a&&(score<b||b===100);
+    return `<path d="${arc(a+(a?g:0),b-(b<100?g:0),R)}" stroke="${c}" stroke-width="${STROKE}" fill="none" opacity="${score==null?.25:on?1:.32}"/>`;}).join("");
+  const lab=[0,25,50,75,95].map(v=>{const[x,y]=pol(ang(v),R+STROKE/2+12);return `<text class="g-lab" x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle">${v}</text>`;}).join("");
+  const [m1x,m1y]=pol(ang(0),R-STROKE/2-7),[m2x,m2y]=pol(ang(0),R+STROKE/2+5);
+  return `<svg viewBox="0 0 340 222" aria-label="Readiness ${score??"pending"} of 100, ${esc(band)}">
+    ${segs}${lab}
+    <g id="g-mark" style="transform-origin:${CX}px ${CY}px">
+      <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="var(--bg)" stroke-width="9" stroke-linecap="round"/>
+      <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="var(--text)" stroke-width="4" stroke-linecap="round"/>
     </g>
-    <circle cx="${CX}" cy="${CY}" r="7" fill="var(--surface2)" stroke="var(--text)" stroke-width="2"/>
-    <text class="g-num" id="g-num" x="${CX}" y="${CY+90}" text-anchor="middle">${score??"–"}</text>
-    <text class="g-band" x="${CX}" y="${CY+112}" text-anchor="middle" fill="${color}">${esc(band)}</text>
+    <text class="g-num" id="g-num" x="${CX}" y="${CY+26}" text-anchor="middle">${score??"–"}</text>
+    <text class="g-band" x="${CX}" y="${CY+56}" text-anchor="middle" fill="${color}">${esc(band)}</text>
   </svg>`;
 }
 function animateGauge(from,to){
-  const needle=$("g-needle"),fill=$("g-fill"),glow=$("g-fill-glow"),num=$("g-num");
-  if(!needle) return;
-  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce?0:1100,t0=performance.now();
+  const mark=$("g-mark"),num=$("g-num"); if(!mark) return;
+  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce?0:1000,t0=performance.now();
   const step=now=>{const k=T?clip((now-t0)/T,0,1):1,e=1-Math.pow(1-k,3),v=from+(to-from)*e;
-    needle.style.transform=`rotate(${SWEEP*v/100}deg)`;
-    const d=arc(0,Math.max(v,.5),R); fill.setAttribute("d",d); glow.setAttribute("d",d);
-    num.textContent=Math.round(v); if(k<1) requestAnimationFrame(step);};
+    mark.style.transform=`rotate(${SWEEP*v/100}deg)`; num.textContent=Math.round(v); if(k<1) requestAnimationFrame(step);};
   requestAnimationFrame(step);
 }
-
 /* ------------------------------------------------------------ signals */
 const SIG={
   hrv:{name:"HRV",unit:"ms",fmt:v=>Math.round(v),weight:"40%",
@@ -318,36 +316,27 @@ function signalRow(key,c){
 }
 
 /* ------------------------------------------------------------ workouts */
-const zoneOf=p=>p<56?1:p<76?2:p<91?3:p<106?4:p<121?5:p<151?6:7;
-function blocksSVG(steps){
-  const tot=steps.reduce((a,s)=>a+s.min,0); if(!tot) return "";
-  const W=320,H=58,gap=steps.length>40?.5:1.2; let x=0;
-  const rects=steps.map(s=>{const mid=(s.lo+s.hi)/2,w=s.min/tot*W,h=clip(mid/135,.18,1)*H,z=zoneOf(mid);
-    const r=`<rect x="${(x+gap/2).toFixed(2)}" y="${(H-h).toFixed(2)}" width="${Math.max(.6,w-gap).toFixed(2)}" height="${h.toFixed(2)}" rx="1.5" fill="var(--z${z})"/>`;
-    x+=w; return r;}).join("");
-  return `<svg class="blocks" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${rects}</svg>`;
-}
+const INTERVALS="https://intervals.icu";
 const dur=m=>m>=60?`${Math.floor(m/60)}h${m%60?String(Math.round(m%60)).padStart(2,"0"):""}`:`${Math.round(m)} min`;
-function sessionCard(label,plan,done){
-  const p=plan||{},d=done||[];
-  return `<div class="session"><div class="k">${esc(label)}</div>
-    <div class="t"><b>${esc(p.name||d[0]?.name||d[0]?.type||"Session")}</b><span>${p.minutes?dur(p.minutes):d[0]?.minutes?dur(d[0].minutes):""}</span></div>
-    ${p.steps?.length?blocksSVG(p.steps):""}
-    ${d.map(w=>`<div class="done"><span>Done · ${dur(w.minutes)}</span><span>${w.feel?`Felt <span class="feelpip">${FEEL[w.feel]||w.feel}</span>`:"No feel logged in Intervals"}</span></div>`).join("")}
-  </div>`;
+const arrow=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>`;
+function sessionLink(label,title,meta,href){
+  return `<a class="session" href="${href}" target="_blank" rel="noopener">
+    <div><div class="k">${esc(label)}</div><b>${esc(title)}</b>${meta?`<div class="m">${meta}</div>`:""}</div>
+    <span class="go">${arrow}</span></a>`;
 }
 function sessions(day){
-  const out=[]; const done=(day.workouts||[]).filter(w=>w.type);
-  const plans=day.plan||[];
-  if(plans.length) plans.forEach((p,i)=>out.push(sessionCard(day.date===todayISO()?"Today":fmtDay(day.date,{weekday:"long"}),p,i===0?done:[])));
-  else if(done.length) out.push(sessionCard(day.date===todayISO()?"Today":fmtDay(day.date,{weekday:"long"}),null,done));
-  if(day.date===todayISO()||sel===DATA.days.length-1){
+  const out=[],isT=day.date===todayISO(),label=isT?"Today":fmtDay(day.date,{weekday:"long"});
+  const done=(day.workouts||[]).filter(w=>w.type);
+  done.forEach(w=>out.push(sessionLink(label,w.name||w.type,
+    `${dur(w.minutes)}${w.feel?` · felt <span class="feelpip">${FEEL[w.feel]||w.feel}</span>`:""}`,
+    w.id?`${INTERVALS}/activities/${encodeURIComponent(w.id)}`:`${INTERVALS}/calendar`)));
+  if(!done.length) (day.plan||[]).forEach(p=>out.push(sessionLink(label,p.name,"Planned",`${INTERVALS}/calendar`)));
+  if(isT||sel===DATA.days.length-1){
     const tm=new Date(new Date(day.date+"T12:00").getTime()+864e5).toLocaleDateString("sv-SE");
-    (DATA.upcoming?.[tm]||[]).forEach(p=>out.push(sessionCard("Tomorrow",p,[])));
+    (DATA.upcoming?.[tm]||[]).forEach(p=>out.push(sessionLink("Tomorrow",p.name,"Planned",`${INTERVALS}/calendar`)));
   }
-  return out.length?`<section class="sec"><div class="sec-h"><h2>Sessions</h2><span>Intervals plan</span></div>${out.join("")}</section>`:"";
+  return out.length?`<section class="sec"><div class="sec-h"><h2>Sessions</h2><span>Opens Intervals</span></div>${out.join("")}</section>`:"";
 }
-
 /* ------------------------------------------------------------ check-in */
 function checkin(raw){
   const scale=key=>{const q=Q[key],v=draft[key];
@@ -441,39 +430,69 @@ function closeSheet(){ $("sheet").classList.remove("open"); $("scrim").classList
 $("scrim").onclick=closeSheet; addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 const X=`<button class="x" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
 
-function sigChart(key,n){
-  const s=series(key,n),pts=s.filter(p=>p.c); if(pts.length<2) return "<p class='sh-desc'>Not enough data yet.</p>";
-  const W=320,H=150,last=pts[pts.length-1].c;
-  const vals=pts.flatMap(p=>[p.c.value,p.c.lo??p.c.value,p.c.hi??p.c.value,p.c.avg7??p.c.value]);
-  let lo=Math.min(...vals),hi=Math.max(...vals); const pad=(hi-lo)*.12||1; lo-=pad; hi+=pad;
-  const y=v=>H-(v-lo)/(hi-lo)*H,x=i=>(i+.5)*(W/s.length),bw=Math.min(14,W/s.length*.55);
-  const bandPath=()=>{const top=s.map((p,i)=>p.c?.hi!=null?`${x(i)},${y(p.c.hi)}`:null).filter(Boolean),
-    bot=s.map((p,i)=>p.c?.lo!=null?`${x(i)},${y(p.c.lo)}`:null).filter(Boolean).reverse();
-    return top.length>1?`<polygon points="${top.concat(bot).join(" ")}" fill="var(--alpine)" opacity=".10"/>`:"";};
-  const marks=s.map((p,i)=>{if(!p.c) return ""; const v=p.c.value,inR=p.c.lo==null||(v>=p.c.lo&&v<=p.c.hi);
-    const good=key==="rhr"?v<=p.c.hi:key==="load"?v>=-30:v>=p.c.lo;
-    const col=inR?"var(--muted)":good?"var(--alpine)":"var(--amber)";
-    return `<line x1="${x(i)}" x2="${x(i)}" y1="${H}" y2="${y(v)}" stroke="${col}" stroke-width="${bw}" stroke-linecap="round" opacity="${i===s.length-1?1:.7}"/>`;}).join("");
-  const avg=key==="hrv"?`<polyline points="${s.map((p,i)=>p.c?`${x(i)},${y(p.c.avg7)}`:null).filter(Boolean).join(" ")}" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linejoin="round"/>`:"";
-  return `<div class="sh-chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bandPath()}${marks}${avg}</svg>
-    <div class="ax"><span>${fmtDay(s[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(s[s.length-1].date,{day:"numeric",month:"short"})}</span></div>
-    <div class="lg">${key==="hrv"?"Bars are single nights, the line is the 7-day average, the shaded band is your normal range.":key==="sleep"?"The shaded band marks 7 to 9 hours.":key==="load"?"The shaded band is the productive range, −30% to −10%.":"The shaded band is your normal range."}</div></div>`;
+const BETTER={hrv:1,rhr:-1,sleep:1,load:1};
+function sigClass(key,v,c){
+  if(key==="load") return v< -30?"worse":v> -10?"better":"in";
+  if(key==="sleep") return v<7?"worse":"in";
+  if(v>=c.lo&&v<=c.hi) return "in";
+  return (v>c.hi)===(BETTER[key]>0)?"better":"worse";
 }
-function openSignal(key,n=7){
+const CLS_COL={in:"var(--text)",better:"var(--alpine)",worse:"var(--amber)"};
+const CLS_TXT={in:"within your normal",better:"better than normal",worse:"worse than normal"};
+const fmtVal=(key,v)=>key==="sleep"?hm(v):key==="load"?`${v>0?"+":""}${Math.round(v)}%`:`${Math.round(v)} ${SIG[key].unit}`;
+let chartPick=null;
+function sigChart(key,n){
+  const s=series(key,n),cur=DATA.days[sel].comp[key];
+  if(s.filter(p=>p.c).length<2) return "<p class='sh-desc'>Not enough data yet.</p>";
+  const W=320,H=170,PL=4,PR=62,PT=12,PB=8;
+  const refs=key==="sleep"?[[7,"7:00","dash"],[9,"9:00","dash"]]:key==="load"?[[-10,"−10%","dash"],[-30,"−30%","dash"]]
+    :[[cur.hi,fmtNum(cur.hi),"dash"],[cur.base,"avg "+fmtNum(cur.base),"solid"],[cur.lo,fmtNum(cur.lo),"dash"]];
+  const vals=s.filter(p=>p.c).map(p=>p.c.value).concat(refs.map(r=>r[0]),key==="hrv"?s.filter(p=>p.c).map(p=>p.c.avg7):[]);
+  let lo=Math.min(...vals),hi=Math.max(...vals); const pad=(hi-lo)*.1||1; lo-=pad; hi+=pad;
+  const y=v=>PT+(hi-v)/(hi-lo)*(H-PT-PB),x=i=>PL+(i+.5)*((W-PL-PR)/s.length);
+  const bandTop=key==="load"?-10:key==="sleep"?9:cur.hi,bandBot=key==="load"?-30:key==="sleep"?7:cur.lo;
+  const pick=chartPick==null||chartPick>=s.length||!s[chartPick].c?s.map(p=>!!p.c).lastIndexOf(true):chartPick;
+  const line=s.map((p,i)=>p.c?`${x(i).toFixed(1)},${y(p.c.value).toFixed(1)}`:null).filter(Boolean).join(" ");
+  const avg=key==="hrv"?`<polyline points="${s.map((p,i)=>p.c?`${x(i).toFixed(1)},${y(p.c.avg7).toFixed(1)}`:null).filter(Boolean).join(" ")}" fill="none" stroke="var(--glacier)" stroke-width="1.6" stroke-dasharray="1 0" opacity=".55"/>`:"";
+  const r=n>7?3.2:4.6;
+  const dots=s.map((p,i)=>{if(!p.c) return ""; const k=sigClass(key,p.c.value,cur);
+    return `<circle cx="${x(i)}" cy="${y(p.c.value)}" r="${i===pick?r+2:r}" fill="${i===pick?CLS_COL[k]:"var(--surface)"}" stroke="${CLS_COL[k]}" stroke-width="2"/>`;}).join("");
+  const hits=s.map((p,i)=>`<rect data-pi="${i}" x="${x(i)-(W-PL-PR)/s.length/2}" y="0" width="${(W-PL-PR)/s.length}" height="${H}" fill="transparent" style="cursor:pointer"/>`).join("");
+  const pk=s[pick],pc=sigClass(key,pk.c.value,cur);
+  return `<div class="readout"><span>${fmtDay(pk.date,{weekday:"short",day:"numeric",month:"short"})}</span>
+      <b>${fmtVal(key,pk.c.value)}</b><em style="color:${CLS_COL[pc]}">${CLS_TXT[pc]}</em></div>
+    <div class="sh-chart"><svg viewBox="0 0 ${W} ${H}">
+      <rect x="${PL}" y="${y(bandTop)}" width="${W-PL-PR}" height="${Math.max(0,y(bandBot)-y(bandTop))}" fill="var(--alpine)" opacity=".08"/>
+      ${refs.map(([v,l,t])=>`<line x1="${PL}" x2="${W-PR+4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--muted)" stroke-width="1" ${t==="dash"?'stroke-dasharray="3 4"':""} opacity=".6"/>
+        <text x="${W-PR+8}" y="${y(v)+4}" class="rl">${l}</text>`).join("")}
+      <line x1="${x(pick)}" x2="${x(pick)}" y1="${PT}" y2="${H-PB}" stroke="var(--muted)" stroke-width="1" opacity=".5"/>
+      ${avg}<polyline points="${line}" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linejoin="round" opacity=".85"/>
+      ${dots}${hits}
+    </svg>
+    <div class="ax"><span>${fmtDay(s[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(s[s.length-1].date,{day:"numeric",month:"short"})}</span></div>
+    <div class="legend"><span><i style="border-color:var(--text)"></i>Within normal</span><span><i style="border-color:var(--alpine)"></i>Better</span><span><i style="border-color:var(--amber)"></i>Worse</span>${key==="hrv"?`<span><i class="ln"></i>7-day average</span>`:""}</div>
+    <div class="lg">${key==="sleep"?"Dashed lines mark 7 and 9 hours.":key==="load"?"Dashed lines mark the productive range, −10% to −30%.":"Dashed lines mark the edges of your normal range, the solid line your average. Tap a point to read it."}</div></div>`;
+}
+function fmtNum(v){return Number.isInteger(v)?String(v):v.toFixed(1).replace(/\.0$/,"");}
+function openSignal(key,n=7,keepPick=false){
+  if(!keepPick) chartPick=null;
   const m=SIG[key],c=DATA.days[sel].comp[key];
   const stats={
     hrv:[["Last night",`${Math.round(c.value)} ms`],["7-day average",`${c.avg7} ms`],["Your normal",`${Math.round(c.lo)}–${Math.round(c.hi)} ms`],["Weight in score",m.weight]],
     rhr:[["Last night",`${c.value} bpm`],["Your average",`${c.base} bpm`],["Your normal",`${c.lo}–${c.hi} bpm`],["Weight in score",m.weight]],
     sleep:[["Last night",hm(c.value)],["3-night average",hm(c.avg3)],["Target","7:00 or more"],["Weight in score",m.weight]],
-    load:[["Form",`${c.value>0?"+":""}${c.value}%`],["Fitness · fatigue",`${c.ctl} · ${c.atl}`],["Productive range","−30% to −10%"],["Weight in score",m.weight]],
+    load:[["Form",`${c.value>0?"+":""}${c.value}%`],["Fitness / fatigue",`${c.ctl} / ${c.atl}`],["Productive range","−30% to −10%"],["Weight in score",m.weight]],
   }[key];
+  const keepScroll=$("sheet").scrollTop;
   openSheet(`<div class="sh-top"><h2>${m.name}</h2>${X}</div>
     <div class="sh-big">${m.fmt(c.value)}<small>${key==="sleep"?"h":m.unit}</small></div>
     <p class="sh-desc">${m.desc}</p>
     <div class="range"><button data-n="7" class="${n===7?"on":""}">7 days</button><button data-n="30" class="${n===30?"on":""}">30 days</button></div>
     ${sigChart(key,n)}
     <div class="stats">${stats.map(s=>`<div><span>${s[0]}</span><b>${s[1]}</b></div>`).join("")}</div>`);
+  if(keepPick) $("sheet").scrollTop=keepScroll;
   $("sheet").querySelectorAll(".range button").forEach(b=>b.onclick=()=>openSignal(key,+b.dataset.n));
+  $("sheet").querySelectorAll("rect[data-pi]").forEach(r=>r.onclick=()=>{chartPick=+r.dataset.pi; openSignal(key,n,true);});
 }
 function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
