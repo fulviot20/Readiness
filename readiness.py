@@ -246,6 +246,29 @@ def sub(z):
     return None if z is None else round(clip(70 + 15 * z, 0, 100))
 
 
+def sleep_need(nights):
+    """Personal sleep target and minimum, learned from the last 30 valid nights (adapts quickly to a new routine).
+
+    target = your usual night (median), kept between 6.5 and 9 h;
+    floor  = your short nights (20th percentile), never below 6 h.
+    Until 14 nights are available, 7 h / 6 h are used.
+    """
+    if len(nights) < 14:
+        return SLEEP_TARGET, 6.0, len(nights)
+    srt = sorted(nights)
+    target = clip(st.median(srt), 6.5, 9.0)
+    floor = clip(srt[int(0.2 * (len(srt) - 1))], 6.0, target - 0.25)
+    return target, floor, len(nights)
+
+
+def sleep_z(h, target, floor):
+    if h >= target:
+        return clip((h - target) / 1.5, 0, 0.6)          # small bonus for extra sleep
+    if h >= floor:
+        return -0.8 * (target - h) / max(target - floor, 0.25)
+    return clip(-0.8 - (floor - h) / 0.75, -2.5, -0.8)    # below your minimum: steeper
+
+
 def components(rows, i):
     r = rows[i]
     out = {}
@@ -274,9 +297,10 @@ def components(rows, i):
     s = r.get("sleep")
     if ok(s):
         last3 = [x["sleep"] for x in rows[max(0, i - 2):i + 1] if ok(x.get("sleep"))]
-        zs = 0.5 * clip(s - SLEEP_TARGET, -2.5, 1) + 0.5 * clip(st.mean(last3) - SLEEP_TARGET, -2.5, 1)
+        target, floor, n = sleep_need([x.get("sleep") for x in rows[max(0, i - 30):i] if ok(x.get("sleep"))])
+        zs = 0.5 * sleep_z(s, target, floor) + 0.5 * sleep_z(st.mean(last3), target, floor)
         out["sleep"] = {"z": zs, "value": round(s, 2), "avg3": round(st.mean(last3), 2),
-                        "lo": SLEEP_TARGET, "hi": SLEEP_TARGET + 2}
+                        "lo": round(floor, 2), "hi": round(target, 2), "base": round(target, 2), "nights": n}
 
     if i > 0 and rows[i - 1].get("ctl"):
         p = rows[i - 1]
@@ -301,11 +325,11 @@ def raw_score(comp):
     return sum(comp[k]["z"] * w[k] for k in w) / sum(w.values())
 
 
-BANDS = [(95, "Peak", "Ideal day for hard intervals or a test."),
-         (75, "High", "Go ahead with the planned quality."),
-         (50, "Moderate", "Stick to the plan and listen to your legs in the hard parts."),
-         (25, "Low", "Swap quality for easy endurance."),
-         (0, "Very low", "Rest or a very easy spin.")]
+BANDS = [(95, "Peak", "Recovery is at its best: a good day to go for it if you feel it."),
+         (75, "High", "Recovery is above your usual: the body is ready for work."),
+         (50, "Moderate", "Recovery is in your usual range: train as planned and stay tuned to how it feels."),
+         (25, "Low", "Recovery is below your usual: see how the legs respond."),
+         (0, "Very low", "Recovery is well below your usual: keep an eye on how you feel today.")]
 
 
 def band(score):
@@ -346,10 +370,19 @@ def explain(comp):
     return s[0].upper() + s[1:] + "."
 
 
-SPORTS = {"Ride": "Ride", "VirtualRide": "Ride", "GravelRide": "Ride", "MountainBikeRide": "Ride", "EBikeRide": "Ride",
-          "Run": "Run", "VirtualRun": "Run", "TrailRun": "Run",
-          "WeightTraining": "Strength", "Workout": "Strength", "Yoga": "Strength", "Pilates": "Strength",
-          "Walk": "Hike", "Hike": "Hike", "Swim": "Swim", "OpenWaterSwim": "Swim"}
+SPORTS = {"Ride": "Cycling", "VirtualRide": "Cycling", "GravelRide": "Cycling", "MountainBikeRide": "Cycling",
+          "EBikeRide": "Cycling", "Velomobile": "Cycling",
+          "Run": "Running", "VirtualRun": "Running", "TrailRun": "Running",
+          "WeightTraining": "Strength", "Workout": "Strength", "Crossfit": "Strength", "Pilates": "Strength",
+          "Yoga": "Yoga", "Hike": "Hiking", "Walk": "Walking", "Swim": "Swimming", "OpenWaterSwim": "Swimming",
+          "NordicSki": "Skiing", "AlpineSki": "Skiing", "BackcountrySki": "Skiing", "Rowing": "Rowing",
+          "VirtualRow": "Rowing", "RockClimbing": "Climbing", "Soccer": "Football"}
+
+
+def sport_name(t):
+    if t in SPORTS:
+        return SPORTS[t]
+    return re.sub(r"(?<!^)(?=[A-Z])", " ", t or "Other").strip() or "Other"
 
 
 def volume(activities):
@@ -360,7 +393,7 @@ def volume(activities):
         m = round((a.get("moving_time") or a.get("elapsed_time") or 0) / 60)
         if not d or m <= 0:
             continue
-        sp = SPORTS.get(a.get("type"), "Other")
+        sp = sport_name(a.get("type"))
         day = out.setdefault(d, {})
         day[sp] = day.get(sp, 0) + m
     return out

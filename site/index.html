@@ -48,7 +48,7 @@ button{font:inherit;color:inherit}
 .g-sub{font-size:13.5px;fill:var(--muted);font-family:var(--ui)}
 .g-lab{font-family:var(--cond);font-size:12px;fill:var(--faint)}
 .adj{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-top:6px}
-.verdict{text-align:center;font-size:18px;font-weight:500;margin:14px 10px 4px;text-wrap:balance}
+.verdict{text-align:center;font-size:18px;font-weight:500;margin:10px 0 4px;text-wrap:balance;color:var(--text)}
 .why{text-align:center;font-size:14.5px;color:var(--muted);margin:0 16px;text-wrap:balance}
 .pending{background:var(--surface);border-radius:18px;padding:16px;margin-top:14px;text-align:center}
 .pending p{margin:0 0 12px;color:var(--muted);font-size:14.5px}
@@ -167,9 +167,6 @@ button{font:inherit;color:inherit}
 .tabbar button.on{color:var(--text)}
 .ttl{font-family:var(--cond);font-size:30px;font-weight:500}
 .streak{margin-top:10px}
-.st-top{display:flex;align-items:center;gap:12px}
-.st-top b{font-family:var(--cond);font-size:44px;font-weight:500;line-height:1;margin-right:8px}
-.st-top span{font-size:15px;color:var(--muted)}
 .streak .muted-s{margin:10px 0 14px}
 .st-weeks{display:grid;grid-template-columns:repeat(12,1fr);gap:5px}
 .st-weeks i{height:10px;border-radius:3px;background:var(--surface2)}
@@ -191,12 +188,27 @@ button{font:inherit;color:inherit}
 .vbars{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px;height:130px}
 .vbars.few{grid-auto-columns:minmax(0,56px);justify-content:center;gap:18px}
 .vb{background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:stretch;gap:6px;cursor:pointer;min-width:0}
-.vb-col{flex:1;display:flex;flex-direction:column-reverse;border-radius:5px;overflow:hidden;opacity:.5;transition:opacity .15s}
+.vb-col{flex:1;display:flex;flex-direction:column-reverse;border-radius:5px;overflow:hidden;opacity:.62;transition:opacity .15s}
 .vb.on .vb-col{opacity:1}
 .vb-col u{display:block;width:100%}
 .vb-col u.nil{height:2px;background:var(--line)}
 .vb em{font-style:normal;font-size:11px;color:var(--faint);text-align:center}
 .vb.on em{color:var(--text)}
+.verdict-b{display:block;width:100%;background:none;border:0;padding:6px 10px;cursor:pointer;text-align:center}
+.verdict-b .verdict,.verdict-b .why{display:block}
+.verdict-b .more{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:13.5px;font-weight:600;color:var(--b3)}
+.verdict-b .more::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
+.guide{margin:0 0 18px;padding:0;list-style:none}
+.guide li{position:relative;padding:10px 0 10px 22px;border-top:1px solid var(--line);font-size:15px;line-height:1.5}
+.guide li::before{content:"";position:absolute;left:4px;top:18px;width:7px;height:7px;border-radius:50%;background:var(--b3)}
+.note-card{background:var(--surface2);border-radius:14px;padding:14px 16px;font-size:14.5px;color:var(--muted);line-height:1.5}
+.note-card b{color:var(--text)}
+.sp-cap{font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.st-top{display:flex;align-items:center;gap:14px}
+.st-n{display:flex;align-items:baseline;gap:6px}
+.st-n b{font-family:var(--cond);font-size:44px;font-weight:500;line-height:1}
+.st-n span{font-size:16px;color:var(--muted)}
+.st-l{font-size:13.5px;color:var(--faint);margin-top:2px}
 .foot{text-align:center;font-size:12.5px;color:var(--faint);margin-top:26px;line-height:1.6}
 
 /* sheet */
@@ -279,9 +291,11 @@ const clip=(x,a,b)=>Math.max(a,Math.min(b,x));
 /* ------------------------------------------------------------ vocabulary */
 const BANDS=[[95,"Peak","var(--b5)"],[75,"High","var(--b4)"],[50,"Moderate","var(--b3)"],
   [25,"Low","var(--b2)"],[0,"Very low","var(--b1)"]];
-const ADVICE={"Peak":"Ideal day for hard intervals or a test.","High":"Go ahead with the planned quality.",
-  "Moderate":"Stick to the plan and listen to your legs in the hard parts.",
-  "Low":"Swap quality for easy endurance.","Very low":"Rest or a very easy spin."};
+const ADVICE={"Peak":"Recovery is at its best: a good day to go for it if you feel it.",
+  "High":"Recovery is above your usual: the body is ready for work.",
+  "Moderate":"Recovery is in your usual range: train as planned and stay tuned to how it feels.",
+  "Low":"Recovery is below your usual: see how the legs respond.",
+  "Very low":"Recovery is well below your usual: keep an eye on how you feel today."};
 const bandOf=s=>BANDS.find(b=>s>=b[0]);
 const FEEL={1:"Strong",2:"Good",3:"Normal",4:"Poor",5:"Weak"};
 const Q={
@@ -492,8 +506,8 @@ const SIG={
     desc:"Lowest heart rate overnight. A rise of 3–5 bpm over your normal often shows up with accumulated fatigue or a cold coming on.",
     status:c=>c.value>c.hi?[`${Math.max(1,Math.round(c.value-c.base))} bpm above average`,"var(--amber)"]:c.value<c.lo?["Below normal","var(--alpine)"]:["Within normal","var(--muted)"]},
   sleep:{name:"Sleep",unit:"h",fmt:v=>hm(v),weight:"20%",
-    desc:"Time asleep last night and over the last three nights, against a 7-hour target. Nights under 4 h or over 11 h are treated as watch errors and ignored.",
-    status:c=>c.value<7?[`${hm(7-c.value)} short of 7 h`,"var(--amber)"]:["On target","var(--muted)"]},
+    desc:"Time asleep last night and over the last three nights, measured against your own habits rather than a fixed number. Your usual night is the median of your last 30 nights; your minimum is where your short nights sit. Nights under 4 h or over 11 h are treated as watch errors and ignored.",
+    status:c=>c.value<c.lo?[`Below your minimum of ${hm(c.lo)}`,"var(--amber)"]:c.value<c.hi?[`${hm(c.hi-c.value)} under your usual`,"var(--muted)"]:["At or above your usual","var(--muted)"]},
   load:{name:"Training load",unit:"%",fmt:v=>(v>0?"+":"")+Math.round(v),weight:"25%",
     desc:"Form: fitness minus fatigue as a share of fitness, from yesterday's numbers. Between −10% and −30% you are training productively; below −30% fatigue is piling up.",
     status:c=>c.value< -30?["Heavy fatigue","var(--rose)"]:c.value< -10?["Productive training","var(--muted)"]:["Fresh","var(--alpine)"]},
@@ -592,8 +606,13 @@ function sessions(day){
 }
 
 /* ------------------------------------------------------------ training tab */
-const SPORT={Ride:["Ride","var(--b3)"],Run:["Run","var(--amber)"],Strength:["Strength","var(--pw)"],Hike:["Hike","var(--b5)"],Swim:["Swim","var(--b4)"],Other:["Other","var(--muted)"]};
-const SPORT_ORDER=["Ride","Run","Strength","Hike","Swim","Other"];
+const SPORT_COL={Cycling:"#3a9cf5",Running:"#f2a65a",Strength:"#b07cf0",Hiking:"#5fe08a",Walking:"#9ed9a8",Swimming:"#2cc9c0",
+  Yoga:"#f07ab0",Skiing:"#9fb8ff",Rowing:"#6b6cf2",Climbing:"#e8c35a",Football:"#c9d36a"};
+const EXTRA_COL=["#e07a5f","#81b29a","#f2cc8f","#a8dadc","#cdb4db","#ffafcc"];
+const sportCol=k=>SPORT_COL[k]||EXTRA_COL[[...k].reduce((a,c)=>a+c.charCodeAt(0),0)%EXTRA_COL.length];
+const SPORT_PRI=["Cycling","Running","Strength"];
+const sportsOf=o=>Object.keys(o).sort((a,b)=>{const pa=SPORT_PRI.indexOf(a),pb=SPORT_PRI.indexOf(b);
+  return (pa<0?9:pa)-(pb<0?9:pb)||o[b]-o[a];});
 const hrs=m=>{const h=m/60;return h>=100?Math.round(h)+"h":h>=10?h.toFixed(0)+"h":(Math.round(h*10)/10).toString()+"h";};
 const hm2=m=>`${Math.floor(m/60)}h${String(Math.round(m%60)).padStart(2,"0")}`;
 const isoD=d=>d.toLocaleDateString("sv-SE");
@@ -602,10 +621,11 @@ function sumRange(from,to){ // inclusive iso dates -> {sport:minutes}
   const out={}; for(const [d,v] of Object.entries(DATA.volume||{})) if(d>=from&&d<=to) for(const [k,m] of Object.entries(v)) out[k]=(out[k]||0)+m;
   return out;}
 const tot=o=>Object.values(o).reduce((a,b)=>a+b,0);
-function sportRows(o,cls=""){
-  const t=tot(o)||1;
-  return SPORT_ORDER.filter(k=>o[k]).map(k=>`<div class="sp-row ${cls}"><i style="background:${SPORT[k][1]}"></i><span>${SPORT[k][0]}</span>
-    <em><u style="width:${o[k]/t*100}%;background:${SPORT[k][1]}"></u></em><b>${hm2(o[k])}</b></div>`).join("")||`<p class="muted-s">No activities.</p>`;
+function sportRows(o,caption){
+  const t=tot(o)||1,ks=sportsOf(o);
+  if(!ks.length) return `<p class="muted-s">No activities ${esc(caption||"")}.</p>`;
+  return `<div class="sp-cap">${esc(caption?caption[0].toUpperCase()+caption.slice(1):"")}, by sport</div>`+ks.map(k=>`<div class="sp-row"><i style="background:${sportCol(k)}"></i><span>${esc(k)}</span>
+    <em><u style="width:${o[k]/t*100}%;background:${sportCol(k)}"></u></em><b>${hm2(o[k])}</b></div>`).join("");
 }
 
 /* streak: consecutive weeks with at least one activity (the current week keeps it alive until it ends) */
@@ -617,13 +637,28 @@ function streakInfo(){
   const last=[...Array(12)].map((_,i)=>{const s=step(cur,i-11);return {start:s,on:weeks.has(s),cur:s===cur};});
   return {n,thisWeek:weeks.has(cur),last};
 }
+function flameBadge(){
+  return `<svg class="flame" viewBox="0 0 64 64" width="58" height="58" aria-hidden="true">
+    <defs>
+      <radialGradient id="fb-bg" cx="50%" cy="38%" r="65%"><stop offset="0" stop-color="#3a2230"/><stop offset="1" stop-color="#1c1a26"/></radialGradient>
+      <linearGradient id="fb-ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffcf7a" stop-opacity=".9"/><stop offset=".5" stop-color="#ff7a59" stop-opacity=".35"/><stop offset="1" stop-color="#c2407a" stop-opacity=".8"/></linearGradient>
+      <linearGradient id="fb-outer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset=".55" stop-color="#ff6a3d"/><stop offset="1" stop-color="#d9366b"/></linearGradient>
+      <linearGradient id="fb-inner" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6d6"/><stop offset=".6" stop-color="#ffd36b"/><stop offset="1" stop-color="#ff9a3d"/></linearGradient>
+      <filter id="fb-glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3.2"/></filter>
+    </defs>
+    <circle cx="32" cy="32" r="30" fill="url(#fb-bg)"/>
+    <circle cx="32" cy="32" r="29.2" fill="none" stroke="url(#fb-ring)" stroke-width="1.4"/>
+    <path d="M33.4 12.5c1 5.6-2 8.7-4.6 11.6-2.7 3-5.6 6.2-5.6 11.5 0 6.9 4.5 12.4 10.6 12.4 6.4 0 11-5.2 11-12.2 0-4.9-2.3-8.1-4.4-10.6-.3 2.4-1.2 4.2-2.9 5.4.3-6.7-.9-12.8-4.1-18.1z" fill="#ff6a3d" filter="url(#fb-glow)" opacity=".7"/>
+    <path d="M33.4 12.5c1 5.6-2 8.7-4.6 11.6-2.7 3-5.6 6.2-5.6 11.5 0 6.9 4.5 12.4 10.6 12.4 6.4 0 11-5.2 11-12.2 0-4.9-2.3-8.1-4.4-10.6-.3 2.4-1.2 4.2-2.9 5.4.3-6.7-.9-12.8-4.1-18.1z" fill="url(#fb-outer)"/>
+    <path d="M33.6 30.5c.4 2.8-1 4.3-2.3 5.8-1.3 1.5-2.7 3-2.7 5.6 0 3.3 2.2 6 5.2 6s5.3-2.5 5.3-5.9c0-2.4-1.1-3.9-2.1-5.1-.2 1.2-.6 2-1.4 2.6.1-3.2-.5-6.3-2-9z" fill="url(#fb-inner)"/>
+  </svg>`;
+}
 function streakCard(){
   const s=streakInfo();
-  const flame=`<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12.6 2.5c.4 3-1.2 4.6-2.6 6.2C8.6 10.3 7 12 7 14.8 7 18.2 9.3 21 12.3 21c3.2 0 5.7-2.6 5.7-6.1 0-2.6-1.3-4.3-2.4-5.6-.1 1.3-.6 2.3-1.5 2.9.2-3.5-.4-6.9-1.5-9.7z" fill="url(#fl)"/><defs><linearGradient id="fl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb35c"/><stop offset="1" stop-color="#f0607a"/></linearGradient></defs></svg>`;
   return `<div class="card streak">
-    <div class="st-top">${flame}<div><b>${s.n}</b><span>${s.n===1?"week":"weeks"} in a row</span></div></div>
-    <p class="muted-s">${s.thisWeek?"This week is in. Keep training at least once a week to grow the streak.":"One activity this week keeps the streak going."}</p>
-    <div class="st-weeks">${s.last.map(w=>`<i class="${w.on?"on":""}${w.cur?" cur":""}" title="${w.start}"></i>`).join("")}</div>
+    <div class="st-top">${flameBadge()}<div><div class="st-n"><b>${s.n}</b><span>${s.n===1?"week":"weeks"}</span></div><div class="st-l">Training streak</div></div></div>
+    <p class="muted-s">${s.thisWeek?"This week is in. Train at least once a week to keep it growing.":"One activity this week keeps the streak going."}</p>
+    <div class="st-weeks">${s.last.map(w=>`<i class="${w.on?"on":""}${w.cur?" cur":""}"></i>`).join("")}</div>
     <div class="st-ax"><span>12 weeks ago</span><span>This week</span></div></div>`;
 }
 
@@ -646,7 +681,7 @@ function weekSection(){
       <div class="wk-stats">${stat("Time",dm,pm,hrs)}${stat("Load",dl,pl,v=>Math.round(v))}${stat("Sessions",dn,pn,v=>v)}</div>
       <div class="wk-strip">${strip}</div>
       <div class="wk-key"><span><i class="k done"></i>Done</span><span><i class="k plan"></i>Planned</span><span class="r">Numbers: TSS</span></div>
-      ${tot(sp)?`<div class="wk-sp">${sportRows(sp)}</div>`:""}
+      ${tot(sp)?`<div class="wk-sp">${sportRows(sp,"this week")}</div>`:""}
     </div></section>`;
 }
 
@@ -662,10 +697,11 @@ function volBuckets(mode){
       for(const y of ys.length?ys:[String(y0)]) out.push({title:y+(+y===y0?" so far":""),o:sumRange(`${y}-01-01`,`${y}-12-31`),short:y});}
   return out;
 }
+function volCaption(P){return volMode==="week"?(P.short==="This"?"this week":P.title.replace("Week of","week of")):volMode==="month"?"in "+P.title:"in "+P.title.replace(" so far"," so far");}
 function volumeSection(){
   const B=volBuckets(volMode),max=Math.max(...B.map(b=>tot(b.o)),60);
   const pick=volPick==null||volPick>=B.length?B.length-1:volPick,P=B[pick];
-  const bars=B.map((b,i)=>{const segs=SPORT_ORDER.filter(k=>b.o[k]).map(k=>`<u style="height:${b.o[k]/max*100}%;background:${SPORT[k][1]}"></u>`).join("");
+  const bars=B.map((b,i)=>{const segs=sportsOf(b.o).map(k=>`<u style="height:${b.o[k]/max*100}%;background:${sportCol(k)}"></u>`).join("");
     return `<button class="vb${i===pick?" on":""}" data-vi="${i}" aria-label="${esc(b.title)}"><span class="vb-col">${segs||'<u class="nil"></u>'}</span><em>${esc(b.short)}</em></button>`;}).join("");
   const avg=B.length>1?tot(B.slice(0,-1).reduce((a,b)=>{for(const[k,v] of Object.entries(b.o))a[k]=(a[k]||0)+v;return a;},{}))/(B.length-1):0;
   return `<section class="sec" id="volsec"><div class="sec-h"><h2>Hours</h2><span>By sport</span></div>
@@ -673,7 +709,7 @@ function volumeSection(){
       <div class="range"><button data-vm="week" class="${volMode==="week"?"on":""}">Weeks</button><button data-vm="month" class="${volMode==="month"?"on":""}">Months</button><button data-vm="year" class="${volMode==="year"?"on":""}">Years</button></div>
       <div class="vol-read"><span>${esc(P.title)}</span><b>${hm2(tot(P.o))}</b>${volMode!=="year"&&avg?`<em>avg ${hm2(avg)}</em>`:""}</div>
       <div class="vbars${B.length<6?" few":""}">${bars}</div>
-      <div class="vol-sp">${sportRows(P.o)}</div>
+      <div class="vol-sp">${sportRows(P.o,volCaption(P))}</div>
     </div></section>`;
 }
 function bindVolume(){
@@ -817,7 +853,7 @@ function renderToday(){
     <button class="gear" id="gear" aria-label="Settings">${GEAR}</button>
   </div>
   <button class="gauge" id="gauge" aria-label="Score details">${gaugeSVG(has?day.score:null,band,color,has?deltaTxt(day):"")}</button>
-  ${has?`<p class="verdict">${esc(day.advice)}</p><p class="why">${esc(day.why)}</p>`:""}
+  ${has?`<button class="verdict-b" id="guide"><span class="verdict">${esc(day.advice)}</span><span class="why">${esc(day.why)}</span><span class="more">What this means for today</span></button>`:""}
   ${isToday&&!has?pendingNote():""}
 
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
@@ -835,6 +871,7 @@ function renderToday(){
 function bind(raw){
   $("prev").onclick=()=>go(sel-1); $("next").onclick=()=>go(sel+1);
   $("gear").onclick=openSettings; $("gauge").onclick=()=>openScore();
+  const g=$("guide"); if(g) g.onclick=()=>openGuide();
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));
   document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
@@ -857,7 +894,7 @@ const X=`<button class="x" aria-label="Close"><svg viewBox="0 0 24 24" width="16
 const BETTER={hrv:1,rhr:-1,sleep:1,load:1};
 function sigClass(key,v,c){
   if(key==="load") return v< -30?"worse":v> -10?"better":"in";
-  if(key==="sleep") return v<7?"worse":"in";
+  if(key==="sleep") return v<c.lo?"worse":"in";
   if(v>=c.lo&&v<=c.hi) return "in";
   return (v>c.hi)===(BETTER[key]>0)?"better":"worse";
 }
@@ -869,12 +906,12 @@ function sigChart(key,n){
   const s=series(key,n),cur=DATA.days[sel].comp[key];
   if(s.filter(p=>p.c).length<2) return "<p class='sh-desc'>Not enough data yet.</p>";
   const W=320,H=170,PL=4,PR=62,PT=12,PB=8;
-  const refs=key==="sleep"?[[7,"7:00","dash"],[9,"9:00","dash"]]:key==="load"?[[-10,"−10%","dash"],[-30,"−30%","dash"]]
+  const refs=key==="sleep"?[[cur.hi,"usual "+hm(cur.hi),"solid"],[cur.lo,"min "+hm(cur.lo),"dash"]]:key==="load"?[[-10,"−10%","dash"],[-30,"−30%","dash"]]
     :[[cur.hi,fmtNum(cur.hi),"dash"],[cur.base,"avg "+fmtNum(cur.base),"solid"],[cur.lo,fmtNum(cur.lo),"dash"]];
   const vals=s.filter(p=>p.c).map(p=>p.c.value).concat(refs.map(r=>r[0]),key==="hrv"?s.filter(p=>p.c).map(p=>p.c.avg7):[]);
   let lo=Math.min(...vals),hi=Math.max(...vals); const pad=(hi-lo)*.1||1; lo-=pad; hi+=pad;
   const y=v=>PT+(hi-v)/(hi-lo)*(H-PT-PB),x=i=>PL+(i+.5)*((W-PL-PR)/s.length);
-  const bandTop=key==="load"?-10:key==="sleep"?9:cur.hi,bandBot=key==="load"?-30:key==="sleep"?7:cur.lo;
+  const bandTop=key==="load"?-10:cur.hi,bandBot=key==="load"?-30:cur.lo;
   const pick=chartPick==null||chartPick>=s.length||!s[chartPick].c?s.map(p=>!!p.c).lastIndexOf(true):chartPick;
   const line=s.map((p,i)=>p.c?`${x(i).toFixed(1)},${y(p.c.value).toFixed(1)}`:null).filter(Boolean).join(" ");
   const avg=key==="hrv"?`<polyline points="${s.map((p,i)=>p.c?`${x(i).toFixed(1)},${y(p.c.avg7).toFixed(1)}`:null).filter(Boolean).join(" ")}" fill="none" stroke="var(--glacier)" stroke-width="1.6" stroke-dasharray="1 0" opacity=".55"/>`:"";
@@ -895,7 +932,7 @@ function sigChart(key,n){
     </svg>
     <div class="ax"><span>${fmtDay(s[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(s[s.length-1].date,{day:"numeric",month:"short"})}</span></div>
     <div class="legend"><span><i style="border-color:var(--text)"></i>Within normal</span><span><i style="border-color:var(--alpine)"></i>Better</span><span><i style="border-color:var(--amber)"></i>Worse</span>${key==="hrv"?`<span><i class="ln"></i>7-day average</span>`:""}</div>
-    <div class="lg">${key==="sleep"?"Dashed lines mark 7 and 9 hours.":key==="load"?"Dashed lines mark the productive range, −10% to −30%.":"Dashed lines mark the edges of your normal range, the solid line your average. Tap a point to read it."}</div></div>`;
+    <div class="lg">${key==="sleep"?"The solid line is your usual night, the dashed line your minimum, both learned from your last 30 nights.":key==="load"?"Dashed lines mark the productive range, −10% to −30%.":"Dashed lines mark the edges of your normal range, the solid line your average. Tap a point to read it."}</div></div>`;
 }
 function fmtNum(v){return Number.isInteger(v)?String(v):v.toFixed(1).replace(/\.0$/,"");}
 function openSignal(key,n=7,keepPick=false){
@@ -904,7 +941,7 @@ function openSignal(key,n=7,keepPick=false){
   const stats={
     hrv:[["Last night",`${Math.round(c.value)} ms`],["7-day average",`${c.avg7} ms`],["Your normal",`${Math.round(c.lo)}–${Math.round(c.hi)} ms`],["Weight in score",m.weight]],
     rhr:[["Last night",`${c.value} bpm`],["Your average",`${c.base} bpm`],["Your normal",`${c.lo}–${c.hi} bpm`],["Weight in score",m.weight]],
-    sleep:[["Last night",hm(c.value)],["3-night average",hm(c.avg3)],["Target","7:00 or more"],["Weight in score",m.weight]],
+    sleep:[["Last night",hm(c.value)],["3-night average",hm(c.avg3)],["Your usual",hm(c.hi)],["Your minimum",hm(c.lo)]],
     load:[["Form",`${c.value>0?"+":""}${c.value}%`],["Fitness / fatigue",`${c.ctl} / ${c.atl}`],["Productive range","−30% to −10%"],["Weight in score",m.weight]],
   }[key];
   const keepScroll=$("sheet").scrollTop;
@@ -917,6 +954,22 @@ function openSignal(key,n=7,keepPick=false){
   if(keepPick) $("sheet").scrollTop=keepScroll;
   $("sheet").querySelectorAll(".range button").forEach(b=>b.onclick=()=>openSignal(key,+b.dataset.n));
   $("sheet").querySelectorAll("rect[data-pi]").forEach(r=>r.onclick=()=>{chartPick=+r.dataset.pi; openSignal(key,n,true);});
+}
+const GUIDE={
+  "Peak":["Your body is as recovered as it gets for you.","If there's a test or a hard session on the plan, this is a good day for it.","If the legs agree, you can push a little more than planned: an extra repetition or the top end of the range."],
+  "High":["Recovery is better than on most of your days.","Go ahead with the plan, quality included.","If you feel good, aim for the upper part of the target range."],
+  "Moderate":["This is a normal day for you: most of your days land here.","Train as planned.","In the hard parts, let the legs decide: if the effort feels heavier than usual, settle at the lower end of the range."],
+  "Low":["Recovery is below your usual, but the score can't feel your legs: you can.","Start the session as planned and use the first 15–20 minutes to check in.","Legs feel good: carry on, maybe at the lower end of the targets.","Legs feel heavy: drop the watts a little, or do one repetition less.","Legs feel cooked: turn it into easy endurance and save the quality for another day."],
+  "Very low":["Several signals are well below your usual. Sometimes it's fatigue, sometimes a cold on the way, sometimes just a bad night.","If you feel fine, an easy or shortened session is a reasonable choice.","If you also feel off, a rest day or a very easy spin will pay back more than forcing it.","If it stays this low for a few days, look at sleep, stress and how you feel overall."],
+};
+function openGuide(){
+  const raw=DATA.days[sel],isT=raw.date===todayISO(),day=isT?applyAnswers(raw,Object.keys(draft).length?draft:raw.answers):raw;
+  const g=GUIDE[day.band]||GUIDE.Moderate,col=segColor(day.score);
+  openSheet(`<div class="sh-top"><h2>Reading today's score</h2>${X}</div>
+    <div class="sh-big" style="color:${col}">${day.score}<small>${esc(day.band)}</small></div>
+    <p class="sh-desc">${esc(g[0])}</p>
+    <ul class="guide">${g.slice(1).map(t=>`<li>${esc(t)}</li>`).join("")}</ul>
+    <div class="note-card"><b>You have the final say.</b> The score measures how your body has recovered overnight; it can't feel your legs or know your day. Use it as context, then decide with how you actually feel on the bike.</div>`);
 }
 function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
