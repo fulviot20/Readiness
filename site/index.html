@@ -50,6 +50,9 @@ button{font:inherit;color:inherit}
 .adj{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-top:6px}
 .verdict{text-align:center;font-size:18px;font-weight:500;margin:14px 10px 4px;text-wrap:balance}
 .why{text-align:center;font-size:14.5px;color:var(--muted);margin:0 16px;text-wrap:balance}
+.pending{background:var(--surface);border-radius:18px;padding:16px;margin-top:14px;text-align:center}
+.pending p{margin:0 0 12px;color:var(--muted);font-size:14.5px}
+.pending .st{margin:10px 0 0;font-size:13.5px}
 .notice{font-size:14px;color:var(--muted);text-align:center;margin:12px 0 0}
 
 /* sections */
@@ -246,10 +249,34 @@ async function load(){
     $("app").innerHTML=`<p class="loading">${esc(e.message)}</p>`; return;
   }
   for(const d of DATA.days){const l=LS.get("ans:"+d.date); if(l&&!d.answers) Object.assign(d,applyAnswers(d,JSON.parse(l)));}
-  const t=DATA.days.findIndex(d=>d.date===todayISO());
-  sel=t>=0&&DATA.days[t].score!=null?t:DATA.days.map(d=>d.score!=null).lastIndexOf(true);
+  // always open on today, even before today's data has arrived
+  const today=todayISO();
+  if(!DATA.days.some(d=>d.date===today)){
+    const loc=LS.get("ans:"+today);
+    DATA.days.push({date:today,workouts:[],plan:(DATA.upcoming||{})[today]||[],answers:loc?JSON.parse(loc):null});
+  }
+  sel=DATA.days.findIndex(d=>d.date===today);
   draft={...(DATA.days[sel].answers||{})};
-  prevScore=0; render();
+  loadedAt=Date.now(); prevScore=0; render();
+}
+let loadedAt=0;
+// the installed app stays in memory overnight: refresh the data when it comes back to the screen
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&DATA&&Date.now()-loadedAt>60000&&!$("sheet").classList.contains("open")) load();
+});
+async function requestUpdate(btn){
+  const token=LS.get("rd_token"),note=$("upd-note");
+  if(!token){ note.textContent="Add a GitHub token in settings to update from here."; return; }
+  btn.disabled=true; note.textContent="Asking GitHub to recalculate…";
+  try{
+    const owner=location.hostname.split(".")[0],repo=location.pathname.split("/").filter(Boolean)[0];
+    const r=await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/readiness.yml/dispatches`,
+      {method:"POST",headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({ref:"main"})});
+    if(r.status===403||r.status===404) throw new Error("the token needs Actions: read and write");
+    if(!r.ok) throw new Error("GitHub "+r.status);
+    note.textContent="Updating. The new score appears in about 2 minutes.";
+    setTimeout(load,120000);
+  }catch(e){ note.textContent="Couldn't start the update: "+e.message+"."; btn.disabled=false; }
 }
 
 function lock(msg){
@@ -454,6 +481,11 @@ function deltaTxt(day){
   if(prev){const d=day.score-prev.score; parts.push(d===0?"same as yesterday":`${d>0?"+":""}${d} vs yesterday`);}
   return parts.join(", ");
 }
+function pendingNote(){
+  const prev=DATA.days.slice(0,sel).reverse().find(d=>d.score!=null);
+  return `<div class="pending"><p>Today's score isn't ready yet. It's calculated once your Garmin has synced to Intervals${prev?`; yesterday you were at <b>${prev.score}</b>`:""}.</p>
+    <button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p></div>`;
+}
 function render(){
   const raw=DATA.days[sel],isToday=raw.date===todayISO();
   const day=isToday?applyAnswers(raw,Object.keys(draft).length?draft:raw.answers):raw;
@@ -474,17 +506,18 @@ function render(){
   </div>
   <button class="gauge" id="gauge" aria-label="Score details">${gaugeSVG(has?day.score:null,band,color,has?deltaTxt(day):"")}</button>
   ${has?`<p class="verdict">${esc(day.advice)}</p><p class="why">${esc(day.why)}</p>`:""}
-  ${todayPending&&sel===DATA.days.length-1?`<p class="notice">Today's score appears once your Garmin has synced to Intervals.</p>`:""}
+  ${isToday&&!has?pendingNote():""}
 
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
     <div class="signals">${["hrv","rhr","sleep","load"].map(k=>signalRow(k,c[k])).join("")}</div></section>
 
-  ${isToday&&has?checkin(raw):""}
+  ${isToday?checkin(raw):""}
   ${sessions(raw)}
   ${trend()}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 
   if(has){animateGauge(prevScore,day.score); prevScore=day.score;}
+  const u=$("upd"); if(u) u.onclick=()=>requestUpdate(u);
   bind(raw);
 }
 
@@ -578,7 +611,7 @@ function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
     <div class="field"><label for="s-pw">Passphrase</label><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"></div>
     <div class="field"><label for="s-tk">GitHub token</label><input id="s-tk" type="password" placeholder="Not set" value="${esc(LS.get("rd_token")||"")}">
-      <p>Needed only to sync the check-in, so the server recalculates the score. Fine-grained token, access to this repository only, Contents: read and write.</p></div>
+      <p>Needed only to sync the check-in, so the server recalculates the score. Fine-grained token, access to this repository only, with Contents and Actions set to read and write.</p></div>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
   $("s-save").onclick=()=>{const p=$("s-pw").value.trim(),t=$("s-tk").value.trim();
     if(p) LS.set("rd_pass",p); t?LS.set("rd_token",t):LS.del("rd_token"); closeSheet(); load();};

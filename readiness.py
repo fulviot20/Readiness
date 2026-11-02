@@ -335,7 +335,7 @@ def build(wellness, activities, events, answers, today):
             })
         days.append(item)
 
-    upcoming = {d: p for d, p in plans.items() if d > today.isoformat()}
+    upcoming = {d: p for d, p in plans.items() if d >= today.isoformat()}
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
             "today": today.isoformat(),
             "calibration": {"mu": mu, "sigma": sigma, "n": len(raws)},

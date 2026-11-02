@@ -2,8 +2,10 @@ name: Readiness
 
 on:
   schedule:
-    # ogni ora dalle 5 alle 21 UTC (6-22 in Italia d'inverno, 7-23 d'estate)
-    - cron: "7 5-21 * * *"
+    # mattina (5-9 in Italia d'inverno): ogni 10 minuti, per avere lo score subito dopo il risveglio
+    - cron: "*/10 4-7 * * *"
+    # resto della giornata: ogni ora
+    - cron: "7 8-21 * * *"
   push:
     paths:
       - "answers/**"
