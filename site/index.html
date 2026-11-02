@@ -127,6 +127,40 @@ button{font:inherit;color:inherit}
 .trend svg{width:100%;height:118px;display:block}
 .trend .ax{display:flex;justify-content:space-between;font-size:12px;color:var(--faint);margin-top:6px}
 
+.card{background:var(--surface);border-radius:18px;padding:16px}
+.wk-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.wk-stat span{display:block;font-size:12.5px;color:var(--muted)}
+.wk-stat b{font-family:var(--cond);font-size:26px;font-weight:500;font-variant-numeric:tabular-nums}
+.wk-stat b small{font-size:15px;color:var(--faint);font-weight:400;margin-left:4px}
+.wk-bar{height:4px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden}
+.wk-bar i{display:block;height:100%;background:var(--b3);border-radius:99px}
+.wk-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:20px}
+.wk-day{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 6px;border-radius:12px}
+.wk-day.today{background:var(--surface2)}
+.wk-day span{font-size:12px;color:var(--muted);font-weight:600}
+.wk-day i{width:12px;height:12px;border-radius:50%;border:2px solid var(--line)}
+.wk-day.done i{background:var(--b5);border-color:var(--b5)}
+.wk-day.plan i{border-color:var(--b3)}
+.wk-day.missed i{border-color:var(--amber);border-style:dashed}
+.wk-day em{font-style:normal;font-family:var(--cond);font-size:14px;color:var(--muted)}
+.wk-day.done em{color:var(--text)}
+.wk-key{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--faint);margin-top:10px}
+.wk-key .r{margin-left:auto}
+.wk-key i.k{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid;margin-right:5px;vertical-align:-1px}
+.wk-key i.done{background:var(--b5);border-color:var(--b5)}.wk-key i.plan{border-color:var(--b3)}.wk-key i.missed{border-color:var(--amber);border-style:dashed}
+.wk-hist-h{font-size:12.5px;color:var(--muted);margin:20px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+.wk-hist{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;height:84px}
+.wk-h{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}
+.wk-h i{display:block;width:100%;max-width:30px;border-radius:5px 5px 2px 2px;background:var(--surface2)}
+.wk-h.cur i{background:var(--b3)}
+.wk-h span{font-size:11px;color:var(--faint)}
+.fit-top{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fit-top span{display:block;font-size:12.5px;color:var(--muted)}
+.fit-top span i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.fit-top b{font-family:var(--cond);font-size:28px;font-weight:500}
+.fit-day{font-size:13px;color:var(--faint);margin:4px 0 8px}
+.fit-svg{width:100%;height:auto;display:block}
+.fit .ax{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin-top:6px;gap:8px}
 .foot{text-align:center;font-size:12.5px;color:var(--faint);margin-top:26px;line-height:1.6}
 
 /* sheet */
@@ -185,6 +219,9 @@ button{font:inherit;color:inherit}
 .lock p{color:var(--muted);margin:4px 0 24px}
 .lock .btn{width:100%;margin-top:22px;padding:14px}
 .err{color:var(--rose);font-size:14px;margin-top:12px;min-height:20px}
+.splash{min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;animation:spin-in .9s cubic-bezier(.2,.8,.2,1) both}
+.sp-w{font-family:var(--cond);font-weight:300;font-size:34px;letter-spacing:.02em}
+@keyframes spin-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 .loading{margin-top:42vh;text-align:center;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -260,7 +297,7 @@ const sameAns=(a,b)=>JSON.stringify(a||{},Object.keys(a||{}).sort())===JSON.stri
 
 async function load(){
   const pass=LS.get("rd_pass"); if(!pass) return lock();
-  $("app").innerHTML='<p class="loading">Loading your data…</p>';
+  $("app").innerHTML=splash();
   try{
     const r=await fetch("data.enc?t="+Date.now(),{cache:"no-store"});
     if(!r.ok) throw new Error("No data published yet. Run the workflow on GitHub.");
@@ -300,8 +337,18 @@ async function requestUpdate(btn){
   }catch(e){ note.textContent="Couldn't start the update: "+e.message+"."; btn.disabled=false; }
 }
 
+function logoSVG(sz){
+  const c=[["#a45bd9",150,204],["#6b6cf2",210,264],["#3a9cf5",270,324],["#2cc9c0",330,372],["#5fe08a",378,390]];
+  const P=(a,r)=>[50+r*Math.cos(a*Math.PI/180),52+r*Math.sin(a*Math.PI/180)];
+  const arc=(a,b)=>{const[x1,y1]=P(a,36),[x2,y2]=P(b,36);return `M${x1.toFixed(1)} ${y1.toFixed(1)}A36 36 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;};
+  const[m1x,m1y]=P(318,27),[m2x,m2y]=P(318,45);
+  return `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}" aria-hidden="true">${c.map(([col,a,b])=>`<path d="${arc(a,b)}" stroke="${col}" stroke-width="9" fill="none"/>`).join("")}
+    <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="var(--bg)" stroke-width="7" stroke-linecap="round"/>
+    <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`;
+}
+function splash(){return `<div class="splash">${logoSVG(96)}<div class="sp-w">Readiness</div></div>`;}
 function lock(msg){
-  $("app").innerHTML=`<div class="lock"><h1>Readiness</h1><p>Enter the passphrase you saved on GitHub. It stays on this device.</p>
+  $("app").innerHTML=`<div class="lock">${logoSVG(64)}<h1>Readiness</h1><p>Enter the passphrase you saved on GitHub. It stays on this device.</p>
     <div class="field"><label for="pw">Passphrase</label><input id="pw" type="password" autocomplete="current-password"></div>
     <button class="btn" id="go">Unlock</button><div class="err">${esc(msg||"")}</div></div>`;
   const go=()=>{const v=$("pw").value.trim(); if(v){LS.set("rd_pass",v);load();}};
@@ -507,6 +554,75 @@ function sessions(day){
   </section>`;
 }
 
+/* ------------------------------------------------------------ week & fitness */
+const hhmm=m=>(m/60).toFixed(m>=600?0:1).replace(/\.0$/,"")+"h";
+function weekSection(){
+  const W=DATA.weeks; if(!W) return "";
+  const t=todayISO(),ds=W.days;
+  const sum=(k)=>ds.reduce((a,d)=>a+(d[k]||0),0);
+  const dm=sum("done_min"),pm=sum("plan_min"),dl=sum("done_load"),pl=sum("plan_load"),dn=sum("done_n"),pn=sum("plan_n");
+  const stat=(label,done,plan,fmt)=>{const pct=plan?clip(done/plan*100,0,100):done?100:0;
+    return `<div class="wk-stat"><span>${label}</span><b>${fmt(done)}${plan?`<small>/ ${fmt(plan)}</small>`:""}</b>
+      <div class="wk-bar"><i style="width:${pct}%"></i></div></div>`;};
+  const letters=["M","T","W","T","F","S","S"];
+  const strip=ds.map((d,i)=>{
+    const st=d.done_n?"done":d.missed?"missed":d.plan_n?"plan":"rest";
+    const v=d.done_n?Math.round(d.done_load||d.done_min):d.plan_n?Math.round(d.plan_load||d.plan_min):"";
+    return `<div class="wk-day ${st}${d.date===t?" today":""}"><span>${letters[i]}</span><i></i><em>${v||"&nbsp;"}</em></div>`;}).join("");
+  const H=W.history,maxL=Math.max(...H.map(h=>h.load),1);
+  const hist=H.map((h,i)=>{const cur=i===H.length-1;
+    return `<div class="wk-h${cur?" cur":""}"><i style="height:${Math.max(3,h.load/maxL*100)}%"></i><span>${cur?"This":fmtDay(h.start,{day:"numeric",month:"short"}).replace(" ","&nbsp;")}</span></div>`;}).join("");
+  const range=`${fmtDay(W.start,{day:"numeric",month:"short"})} – ${fmtDay(ds[6].date,{day:"numeric",month:"short"})}`;
+  return `<section class="sec"><div class="sec-h"><h2>This week</h2><span>${range}</span></div>
+    <div class="card wk">
+      <div class="wk-stats">${stat("Time",dm,pm,hhmm)}${stat("Load",dl,pl,v=>Math.round(v))}${stat("Sessions",dn,pn,v=>v)}</div>
+      <div class="wk-strip">${strip}</div>
+      <div class="wk-key"><span><i class="k done"></i>Done</span><span><i class="k plan"></i>Planned</span><span><i class="k missed"></i>Missed</span><span class="r">Numbers: TSS</span></div>
+      <div class="wk-hist-h">Load, last ${H.length} weeks</div>
+      <div class="wk-hist">${hist}</div>
+    </div></section>`;
+}
+let fitPick=null;
+function formZone(f){return f>5?["Fresh","var(--b3)"]:f>=-10?["Neutral","var(--muted)"]:f>=-30?["Optimal","var(--b5)"]:["High risk","var(--amber)"];}
+function fitnessSection(){
+  const s=DATA.days.filter(d=>d.ctl!=null).slice(-42); if(s.length<7) return "";
+  const W=320,H=130,FH=46,PR=4,x=i=>(i+.5)*(W-PR)/s.length;
+  const vals=s.flatMap(d=>[d.ctl,d.atl]),lo=Math.min(...vals)*.9,hi=Math.max(...vals)*1.05;
+  const y=v=>6+(hi-v)/(hi-lo)*(H-12);
+  const pl=k=>s.map((d,i)=>`${x(i).toFixed(1)},${y(d[k]).toFixed(1)}`).join(" ");
+  const form=s.map(d=>(d.ctl-d.atl)/d.ctl*100),fmax=Math.max(40,...form.map(Math.abs));
+  const fy=v=>FH/2-v/fmax*(FH/2-2);
+  const fb=form.map((f,i)=>{const bw=(W-PR)/s.length*.62,[,c]=formZone(f);
+    return `<rect x="${(x(i)-bw/2).toFixed(1)}" y="${Math.min(fy(f),FH/2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(fy(f)-FH/2)).toFixed(1)}" rx="1" fill="${c}" opacity=".85"/>`;}).join("");
+  const pick=fitPick==null||fitPick>=s.length?s.length-1:fitPick,pd=s[pick],pf=Math.round(form[pick]),[zn,zc]=formZone(form[pick]);
+  const hits=s.map((d,i)=>`<rect data-fi="${i}" x="${(x(i)-(W-PR)/s.length/2).toFixed(1)}" y="0" width="${((W-PR)/s.length).toFixed(1)}" height="${H+FH+10}" fill="transparent" style="cursor:pointer"/>`).join("");
+  return `<section class="sec" id="fitsec"><div class="sec-h"><h2>Fitness</h2><span>Last 6 weeks</span></div>
+    <div class="card fit">
+      <div class="fit-top">
+        <div><span><i style="background:var(--b3)"></i>Fitness</span><b>${Math.round(pd.ctl)}</b></div>
+        <div><span><i style="background:var(--pw)"></i>Fatigue</span><b>${Math.round(pd.atl)}</b></div>
+        <div><span><i style="background:${zc}"></i>Form</span><b style="color:${zc}">${pf>0?"+":""}${pf}%</b></div>
+      </div>
+      <div class="fit-day">${fmtDay(pd.date,{weekday:"short",day:"numeric",month:"short"})} · ${zn}</div>
+      <svg viewBox="0 0 ${W} ${H+FH+10}" class="fit-svg">
+        <line x1="${x(pick)}" x2="${x(pick)}" y1="0" y2="${H+FH+10}" stroke="var(--muted)" opacity=".4"/>
+        <polyline points="${pl("atl")}" fill="none" stroke="var(--pw)" stroke-width="1.6" stroke-linejoin="round" opacity=".9"/>
+        <polyline points="${pl("ctl")}" fill="none" stroke="var(--b3)" stroke-width="2.4" stroke-linejoin="round"/>
+        <circle cx="${x(pick)}" cy="${y(pd.ctl)}" r="4" fill="var(--b3)" stroke="var(--surface)" stroke-width="2"/>
+        <circle cx="${x(pick)}" cy="${y(pd.atl)}" r="3.5" fill="var(--pw)" stroke="var(--surface)" stroke-width="2"/>
+        <g transform="translate(0,${H+10})">
+          <rect x="0" y="${fy(-10)}" width="${W-PR}" height="${fy(-30)-fy(-10)}" fill="var(--b5)" opacity=".07"/>
+          <line x1="0" x2="${W-PR}" y1="${FH/2}" y2="${FH/2}" stroke="var(--line)"/>${fb}
+        </g>${hits}
+      </svg>
+      <div class="ax"><span>${fmtDay(s[0].date,{day:"numeric",month:"short"})}</span><span>Form bars · shaded: optimal −10% to −30%</span><span>${fmtDay(s[s.length-1].date,{day:"numeric",month:"short"})}</span></div>
+    </div></section>`;
+}
+function bindFitness(){
+  document.querySelectorAll("rect[data-fi]").forEach(r=>r.onclick=()=>{fitPick=+r.dataset.fi;
+    const sec=$("fitsec"); sec.outerHTML=fitnessSection(); bindFitness();});
+}
+
 /* ------------------------------------------------------------ check-in */
 function checkin(raw){
   const scale=key=>{const q=Q[key],v=draft[key];
@@ -582,11 +698,14 @@ function render(){
 
   ${isToday?checkin(raw):""}
   ${sessions(raw)}
+  ${weekSection()}
+  ${fitnessSection()}
   ${trend()}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 
   if(has){animateGauge(prevScore,day.score); prevScore=day.score;}
   const u=$("upd"); if(u) u.onclick=()=>requestUpdate(u);
+  bindFitness();
   bind(raw);
 }
 

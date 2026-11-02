@@ -345,6 +345,29 @@ def explain(comp):
     return s[0].upper() + s[1:] + "."
 
 
+def week_summary(done, plans, today, n=6):
+    """Current week day by day (done vs planned) plus totals for the last n weeks."""
+    monday = today - dt.timedelta(days=today.weekday())
+    def day_stats(d):
+        ws = [w for w in done.get(d, []) if w.get("type")]
+        doneev = {w.get("event") for w in ws if w.get("event")}
+        ps = plans.get(d, [])
+        return {"date": d,
+                "done_min": sum(w["minutes"] or 0 for w in ws), "done_load": round(sum(w.get("load") or 0 for w in ws)),
+                "done_n": len(ws),
+                "plan_min": sum(p.get("minutes") or 0 for p in ps), "plan_load": round(sum(p.get("load") or 0 for p in ps)),
+                "plan_n": len(ps), "missed": d < today.isoformat() and bool(ps) and not ws}
+    current = [day_stats((monday + dt.timedelta(days=i)).isoformat()) for i in range(7)]
+    hist = []
+    for k in range(n - 1, -1, -1):
+        start = monday - dt.timedelta(weeks=k)
+        ds = [(start + dt.timedelta(days=i)).isoformat() for i in range(7)]
+        ws = [w for d in ds for w in done.get(d, []) if w.get("type")]
+        hist.append({"start": start.isoformat(), "minutes": sum(w["minutes"] or 0 for w in ws),
+                     "load": round(sum(w.get("load") or 0 for w in ws)), "n": len(ws)})
+    return {"start": monday.isoformat(), "days": current, "history": hist}
+
+
 def build(wellness, activities, events, answers, today, streams=None):
     streams = streams or {}
     rows = []
@@ -369,7 +392,9 @@ def build(wellness, activities, events, answers, today, streams=None):
     days = []
     for r in rows[-KEEP_DAYS:]:
         d = r["date"]
-        item = {"date": d, "workouts": done.get(d, []), "plan": plans.get(d, []), "answers": answers.get(d)}
+        item = {"date": d, "workouts": done.get(d, []), "plan": plans.get(d, []), "answers": answers.get(d),
+                "ctl": round(r["ctl"], 1) if r.get("ctl") is not None else None,
+                "atl": round(r["atl"], 1) if r.get("atl") is not None else None}
         if r["raw"] is not None:
             base = clip(70 + 12 * (r["raw"] - mu) / sigma, 1, 100)
             hz = r["comp"].get("hrv", {}).get("z_night")
@@ -396,10 +421,11 @@ def build(wellness, activities, events, answers, today, streams=None):
     if not days or days[-1]["date"] != t:     # today's wellness not in yet: keep today's sessions anyway
         days.append({"date": t, "workouts": done.get(t, []), "plan": plans.get(t, []), "answers": answers.get(t)})
     upcoming = {d: p for d, p in plans.items() if d >= today.isoformat()}
+    weeks = week_summary(done, plans, today)
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
             "today": today.isoformat(),
             "calibration": {"mu": mu, "sigma": sigma, "n": len(raws)},
-            "weights": WEIGHTS, "days": days, "upcoming": upcoming}
+            "weights": WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks}
 
 
 def main():
