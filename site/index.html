@@ -18,7 +18,7 @@
 :root{
   --bg:#121a26;--surface:#1a2433;--surface2:#212d3f;--line:#2a3749;
   --text:#eceff4;--muted:#8c98ab;--faint:#5f6c80;
-  --rose:#e2687a;--hr:#f07a8c;--b1:#a45bd9;--b2:#6b6cf2;--b3:#3a9cf5;--b4:#2cc9c0;--b5:#5fe08a;--amber:#e9a15a;--sand:#d9c46a;--alpine:#5fc795;--glacier:#6fd3e6;
+  --rose:#e2687a;--hr:#f07a8c;--pw:#b07cf0;--b1:#a45bd9;--b2:#6b6cf2;--b3:#3a9cf5;--b4:#2cc9c0;--b5:#5fe08a;--amber:#e9a15a;--sand:#d9c46a;--alpine:#5fc795;--glacier:#6fd3e6;
   --z1:#7d8798;--z2:#3e8ede;--z3:#3fb97a;--z4:#e5c33f;--z5:#ee8a3a;--z6:#e04f5f;--z7:#9b6ce0;
   --cond:"Barlow Condensed","Arial Narrow",sans-serif;
   --ui:"Barlow",-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -91,7 +91,9 @@ button{font:inherit;color:inherit}
 .mgrid b{font-family:var(--cond);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums}
 .mgrid b small{font-size:13px;color:var(--muted);margin-left:3px;font-weight:400}
 .w-foot{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.w-foot{align-items:center}
 .w-foot b{color:var(--text);font-weight:600}
+.feel{display:inline-flex;align-items:center;gap:8px}
 .wcard.rest .w-name{font-size:21px}
 .callink{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:18px;color:var(--text);text-decoration:none}
 .callink:active{background:var(--surface)}
@@ -441,19 +443,25 @@ const dur=m=>m>=60?`${Math.floor(m/60)}h${m%60?String(Math.round(m%60)).padStart
 const arrow=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>`;
 const check=`<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
 const zoneOf=p=>p<56?1:p<76?2:p<91?3:p<106?4:p<121?5:p<151?6:7;
-function profileSVG(prof,ftp){
-  const w=prof.w,hr=prof.hr,n=(w||hr).length,W=320,H=78,bw=W/n;
-  let bars="";
-  if(w){const top=Math.max(...w.filter(v=>v!=null),ftp?ftp*1.3:0)||1;
-    bars=w.map((v,i)=>{if(v==null) return ""; const h=Math.max(1.5,v/top*(H-4)),z=ftp?zoneOf(v/ftp*100):2;
-      return `<rect x="${(i*bw).toFixed(2)}" y="${(H-h).toFixed(2)}" width="${(bw+.4).toFixed(2)}" height="${h.toFixed(2)}" fill="var(--z${z})" opacity=".9"/>`;}).join("");}
-  let line="";
-  if(hr&&hr.some(v=>v!=null)){const hv=hr.filter(v=>v!=null),lo=Math.min(...hv)-5,hi=Math.max(...hv)+5;
-    const pts=hr.map((v,i)=>v==null?null:`${(i*bw+bw/2).toFixed(1)},${(4+(hi-v)/(hi-lo)*(H*.62)).toFixed(1)}`).filter(Boolean).join(" ");
-    line=`<polyline points="${pts}" fill="none" stroke="var(--hr)" stroke-width="1.6" stroke-linejoin="round"/>`;}
-  return `<svg class="prof" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${bars}${line}</svg>
-    <div class="prof-lg">${w?`<span><i class="sw" style="background:linear-gradient(90deg,var(--z2),var(--z3),var(--z4),var(--z5))"></i>Power by zone</span>`:""}${hr?`<span><i class="ln"></i>Heart rate</span>`:""}</div>`;
+function profileSVG(prof){
+  const w=prof.w,hr=prof.hr,n=(w||hr).length,W=320,H=84,bw=W/n,x=i=>(i*bw+bw/2).toFixed(1);
+  const line=(vals,top,band)=>{const v=vals.filter(z=>z!=null),lo=Math.min(...v),hi=Math.max(...v),pad=(hi-lo)*.12||5;
+    const y=z=>(top+(hi+pad-z)/(hi-lo+2*pad)*band).toFixed(1);
+    return vals.map((z,i)=>z==null?null:[x(i),y(z)]).filter(Boolean);};
+  let pw="",hl="";
+  if(w&&w.some(v=>v!=null)){const pts=line(w,30,H-34);
+    pw=`<defs><linearGradient id="pwfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--pw)" stop-opacity=".35"/><stop offset="1" stop-color="var(--pw)" stop-opacity="0"/></linearGradient></defs>
+      <polygon points="${pts[0][0]},${H} ${pts.map(p=>p.join(",")).join(" ")} ${pts[pts.length-1][0]},${H}" fill="url(#pwfill)"/>
+      <polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="var(--pw)" stroke-width="1.8" stroke-linejoin="round"/>`;}
+  if(hr&&hr.some(v=>v!=null)){const pts=line(hr,4,40);
+    hl=`<polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="var(--hr)" stroke-width="1.6" stroke-linejoin="round"/>`;}
+  return `<svg class="prof" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${pw}${hl}</svg>
+    <div class="prof-lg">${pw?`<span><i class="ln" style="border-color:var(--pw)"></i>Power</span>`:""}${hl?`<span><i class="ln"></i>Heart rate</span>`:""}</div>`;
 }
+const FACE={1:["M8 14.2c1.1 1.8 2.4 2.6 4 2.6s2.9-.8 4-2.6","var(--b5)"],2:["M8.4 14.6c1 1.1 2.2 1.6 3.6 1.6s2.6-.5 3.6-1.6","var(--b4)"],
+  3:["M8.6 15.2h6.8","var(--b3)"],4:["M8.4 16.2c1-1.1 2.2-1.6 3.6-1.6s2.6.5 3.6 1.6","var(--amber)"],5:["M8 16.8c1.1-1.8 2.4-2.6 4-2.6s2.9.8 4 2.6","var(--rose)"]};
+function faceSVG(f){const [m,c]=FACE[f]||FACE[3];
+  return `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.2"/><circle cx="9" cy="10" r=".6" fill="${c}"/><circle cx="15" cy="10" r=".6" fill="${c}"/><path d="${m}"/></svg>`;}
 function metricsGrid(w){
   const cells=[
     ["Avg power",w.avg_w,"W"],["Normalized",w.np,"W"],["Avg HR",w.avg_hr,"bpm"],
@@ -464,14 +472,14 @@ function metricsGrid(w){
 }
 function doneCard(w){
   const href=`${INTERVALS}/activities/${encodeURIComponent(w.id)}`;
-  const feel=`<span>${w.feel?`Felt <b>${FEEL[w.feel]||w.feel}</b>`:"Feel not logged in Intervals"}</span>`;
+  const feel=`<span class="feel">${w.feel?`${faceSVG(w.feel)}<span>Feel: <b>${FEEL[w.feel]||w.feel}</b></span>`:"Feel not logged in Intervals"}</span>`;
   return `<a class="wcard" href="${href}" target="_blank" rel="noopener">
     <div class="w-top"><span class="tag done">${check}Completed</span><span class="go">${arrow}</span></div>
     <div class="w-name">${esc(w.name||w.type)}</div>
     <div class="w-meta">${dur(w.minutes)}${w.km?` · ${w.km} km`:""}</div>
-    ${w.profile?profileSVG(w.profile,w.ftp):""}
+    ${w.profile?profileSVG(w.profile):""}
     ${metricsGrid(w)}
-    <div class="w-foot">${feel}${w.rpe?`<span>RPE ${w.rpe}/10</span>`:""}</div>
+    <div class="w-foot">${feel}${w.rpe?`<span>RPE: <b>${w.rpe}/10</b></span>`:""}</div>
   </a>`;
 }
 function planCard(p){
