@@ -66,8 +66,9 @@ def load_data(today):
     aid = os.environ.get("INTERVALS_ATHLETE_ID") or "0"
     wellness = fetch(f"athlete/{aid}/wellness", {
         "oldest": (today - dt.timedelta(days=HISTORY_DAYS)).isoformat(), "newest": today.isoformat()})
+    # from 1 January of last year: enough for the yearly volume view
     activities = fetch(f"athlete/{aid}/activities", {
-        "oldest": (today - dt.timedelta(days=KEEP_DAYS)).isoformat(), "newest": today.isoformat()})
+        "oldest": dt.date(today.year - 1, 1, 1).isoformat(), "newest": today.isoformat()})
     try:
         events = fetch(f"athlete/{aid}/events", {
             "oldest": (today - dt.timedelta(days=KEEP_DAYS)).isoformat(),
@@ -345,6 +346,26 @@ def explain(comp):
     return s[0].upper() + s[1:] + "."
 
 
+SPORTS = {"Ride": "Ride", "VirtualRide": "Ride", "GravelRide": "Ride", "MountainBikeRide": "Ride", "EBikeRide": "Ride",
+          "Run": "Run", "VirtualRun": "Run", "TrailRun": "Run",
+          "WeightTraining": "Strength", "Workout": "Strength", "Yoga": "Strength", "Pilates": "Strength",
+          "Walk": "Hike", "Hike": "Hike", "Swim": "Swim", "OpenWaterSwim": "Swim"}
+
+
+def volume(activities):
+    """Minutes per sport per day, for weekly/monthly/yearly totals and the streak."""
+    out = {}
+    for a in activities:
+        d = (a.get("start_date_local") or "")[:10]
+        m = round((a.get("moving_time") or a.get("elapsed_time") or 0) / 60)
+        if not d or m <= 0:
+            continue
+        sp = SPORTS.get(a.get("type"), "Other")
+        day = out.setdefault(d, {})
+        day[sp] = day.get(sp, 0) + m
+    return out
+
+
 def week_summary(done, plans, today, n=6):
     """Current week day by day (done vs planned) plus totals for the last n weeks."""
     monday = today - dt.timedelta(days=today.weekday())
@@ -383,9 +404,10 @@ def build(wellness, activities, events, answers, today, streams=None):
     mu, sigma = (st.mean(raws), max(st.stdev(raws), 0.05)) if len(raws) >= 30 else (0.0, 1.0)
 
     done = {}
+    keep_from = (today - dt.timedelta(days=KEEP_DAYS)).isoformat()
     for a in activities:
         d = (a.get("start_date_local") or "")[:10]
-        if d:
+        if d and d >= keep_from:
             done.setdefault(d, []).append(summary(a, streams))
     plans = plans_by_day(events)
 
@@ -425,7 +447,8 @@ def build(wellness, activities, events, answers, today, streams=None):
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
             "today": today.isoformat(),
             "calibration": {"mu": mu, "sigma": sigma, "n": len(raws)},
-            "weights": WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks}
+            "weights": WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
+            "volume": volume(activities)}
 
 
 def main():
