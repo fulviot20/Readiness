@@ -33,6 +33,8 @@ KEEP_DAYS = 120
 WEIGHTS = {"hrv": 0.40, "load": 0.25, "sleep": 0.20, "rhr": 0.15}
 SLEEP_TARGET = 7.0
 KDF_ITER = 200_000
+STREAM_DAYS = 3
+PROFILE_POINTS = 140
 
 
 # ---------------------------------------------------------------- data
@@ -59,7 +61,8 @@ def load_data(today):
         def rd(name):
             p = os.path.join(fx, name)
             return json.load(open(p)) if os.path.exists(p) else []
-        return rd("wellness.json"), rd("activities.json"), rd("events.json")
+        streams = rd("streams.json") or {}
+        return rd("wellness.json"), rd("activities.json"), rd("events.json"), streams
     aid = os.environ.get("INTERVALS_ATHLETE_ID") or "0"
     wellness = fetch(f"athlete/{aid}/wellness", {
         "oldest": (today - dt.timedelta(days=HISTORY_DAYS)).isoformat(), "newest": today.isoformat()})
@@ -72,7 +75,16 @@ def load_data(today):
     except SystemExit as e:
         print(f"planned workouts skipped: {e}")
         events = []
-    return wellness, activities, events
+    # power/HR profile for recent rides, for the chart in the app
+    streams = {}
+    recent = (today - dt.timedelta(days=STREAM_DAYS)).isoformat()
+    for a in activities:
+        if (a.get("start_date_local") or "")[:10] >= recent and a.get("id"):
+            try:
+                streams[str(a["id"])] = fetch(f"activity/{a['id']}/streams.json", {"types": "watts,heartrate"})
+            except SystemExit as e:
+                print(f"streams skipped for {a['id']}: {e}")
+    return wellness, activities, events, streams
 
 
 # ---------------------------------------------------------------- encryption
@@ -158,6 +170,52 @@ def parse_workout(text):
     return steps
 
 
+def profile(raw_streams, n=PROFILE_POINTS):
+    """Downsample watts/heartrate streams to n buckets of averages."""
+    if not raw_streams:
+        return None
+    by = {x.get("type"): x.get("data") or [] for x in raw_streams if isinstance(x, dict)}
+    w, hr = by.get("watts") or [], by.get("heartrate") or []
+    length = max(len(w), len(hr))
+    if length < 60:
+        return None
+    def bucket(series):
+        if not series:
+            return None
+        out = []
+        for i in range(n):
+            a, b = i * length // n, max(i * length // n + 1, (i + 1) * length // n)
+            vals = [v for v in series[a:b] if isinstance(v, (int, float))]
+            out.append(round(sum(vals) / len(vals)) if vals else None)
+        return out
+    return {"w": bucket(w), "hr": bucket(hr)}
+
+
+def summary(a, streams):
+    mins = round((a.get("moving_time") or 0) / 60)
+    first = lambda *ks: next((a[k] for k in ks if a.get(k) not in (None, 0)), None)
+    out = {
+        "id": a.get("id"), "type": a.get("type"), "name": a.get("name"), "feel": a.get("feel"),
+        "rpe": a.get("icu_rpe"), "minutes": mins,
+        "load": first("icu_training_load"),
+        "avg_w": first("icu_average_watts", "average_watts"),
+        "np": first("icu_weighted_avg_watts", "weighted_average_watts"),
+        "if": first("icu_intensity"),
+        "avg_hr": first("average_heartrate"), "max_hr": first("max_heartrate"),
+        "kj": round(a["icu_joules"] / 1000) if a.get("icu_joules") else None,
+        "km": round(a["distance"] / 1000, 1) if a.get("distance") else None,
+        "elev": round(a["total_elevation_gain"]) if a.get("total_elevation_gain") else None,
+        "ftp": first("icu_ftp"),
+        "event": a.get("paired_event_id"),
+    }
+    if out["if"] and out["if"] > 3:      # Intervals sometimes reports IF as a percentage
+        out["if"] = round(out["if"] / 100, 2)
+    prof = profile(streams.get(str(a.get("id"))))
+    if prof:
+        out["profile"] = prof
+    return out
+
+
 def plans_by_day(events):
     out = {}
     for e in events:
@@ -168,7 +226,7 @@ def plans_by_day(events):
         out.setdefault(d, []).append({
             "id": e.get("id"), "name": e.get("name") or "Workout", "type": e.get("type"),
             "minutes": round(sum(x["min"] for x in steps)) or round((e.get("moving_time") or 0) / 60) or None,
-            "steps": steps})
+            "load": e.get("icu_training_load"), "steps": steps})
     return out
 
 
@@ -287,7 +345,8 @@ def explain(comp):
     return s[0].upper() + s[1:] + "."
 
 
-def build(wellness, activities, events, answers, today):
+def build(wellness, activities, events, answers, today, streams=None):
+    streams = streams or {}
     rows = []
     for w in sorted(wellness, key=lambda x: x["id"]):
         rows.append({"date": w["id"], "hrv": w.get("hrv"), "rhr": w.get("restingHR"),
@@ -304,9 +363,7 @@ def build(wellness, activities, events, answers, today):
     for a in activities:
         d = (a.get("start_date_local") or "")[:10]
         if d:
-            done.setdefault(d, []).append({
-                "id": a.get("id"), "type": a.get("type"), "name": a.get("name"), "feel": a.get("feel"),
-                "load": a.get("icu_training_load"), "minutes": round((a.get("moving_time") or 0) / 60)})
+            done.setdefault(d, []).append(summary(a, streams))
     plans = plans_by_day(events)
 
     days = []
@@ -335,6 +392,9 @@ def build(wellness, activities, events, answers, today):
             })
         days.append(item)
 
+    t = today.isoformat()
+    if not days or days[-1]["date"] != t:     # today's wellness not in yet: keep today's sessions anyway
+        days.append({"date": t, "workouts": done.get(t, []), "plan": plans.get(t, []), "answers": answers.get(t)})
     upcoming = {d: p for d, p in plans.items() if d >= today.isoformat()}
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
             "today": today.isoformat(),
@@ -345,8 +405,8 @@ def build(wellness, activities, events, answers, today):
 def main():
     today = dt.datetime.now(TZ).date()
     pw = os.environ["READINESS_PASSPHRASE"]
-    wellness, activities, events = load_data(today)
-    data = build(wellness, activities, events, load_answers(pw), today)
+    wellness, activities, events, streams = load_data(today)
+    data = build(wellness, activities, events, load_answers(pw), today, streams)
     os.makedirs("site", exist_ok=True)
     with open("site/data.enc", "w") as f:
         json.dump(encrypt(data, pw), f)

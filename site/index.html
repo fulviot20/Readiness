@@ -18,7 +18,7 @@
 :root{
   --bg:#121a26;--surface:#1a2433;--surface2:#212d3f;--line:#2a3749;
   --text:#eceff4;--muted:#8c98ab;--faint:#5f6c80;
-  --rose:#e2687a;--b1:#a45bd9;--b2:#6b6cf2;--b3:#3a9cf5;--b4:#2cc9c0;--b5:#5fe08a;--amber:#e9a15a;--sand:#d9c46a;--alpine:#5fc795;--glacier:#6fd3e6;
+  --rose:#e2687a;--hr:#f07a8c;--b1:#a45bd9;--b2:#6b6cf2;--b3:#3a9cf5;--b4:#2cc9c0;--b5:#5fe08a;--amber:#e9a15a;--sand:#d9c46a;--alpine:#5fc795;--glacier:#6fd3e6;
   --z1:#7d8798;--z2:#3e8ede;--z3:#3fb97a;--z4:#e5c33f;--z5:#ee8a3a;--z6:#e04f5f;--z7:#9b6ce0;
   --cond:"Barlow Condensed","Arial Narrow",sans-serif;
   --ui:"Barlow",-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -73,13 +73,32 @@ button{font:inherit;color:inherit}
 .sig .v small{font-size:14px;color:var(--muted);margin-left:2px}
 
 /* sessions */
-.session{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-radius:18px;
-  padding:14px 16px;margin-bottom:10px;color:var(--text);text-decoration:none}
-.session:active{background:var(--surface2)}
-.session .k{font-size:13px;color:var(--faint);margin-bottom:2px}
-.session b{font-weight:600;font-size:16.5px}
-.session .m{font-size:14px;color:var(--muted);margin-top:3px}
-.session .go{width:36px;height:36px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;color:var(--muted);flex:none}
+.wcard{display:block;background:var(--surface);border-radius:18px;padding:16px;margin-bottom:10px;color:var(--text);text-decoration:none}
+.wcard:active{background:var(--surface2)}
+.w-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--muted);background:var(--surface2);padding:4px 10px;border-radius:99px}
+.tag.done{color:#0e2b22;background:var(--b5)}
+.go{width:34px;height:34px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;color:var(--muted);flex:none}
+.w-name{font-family:var(--cond);font-size:26px;font-weight:500;line-height:1.1}
+.w-meta{font-size:14px;color:var(--muted);margin-top:4px}
+.prof{width:100%;height:78px;display:block;margin-top:14px;border-radius:6px}
+.prof-lg{display:flex;gap:14px;font-size:12.5px;color:var(--faint);margin-top:6px}
+.prof-lg i{display:inline-block;vertical-align:2px;margin-right:6px}
+.prof-lg i.sw{width:14px;height:8px;border-radius:2px}
+.prof-lg i.ln{width:14px;height:0;border-top:2px solid var(--hr)}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.mgrid span{display:block;font-size:12.5px;color:var(--muted)}
+.mgrid b{font-family:var(--cond);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums}
+.mgrid b small{font-size:13px;color:var(--muted);margin-left:3px;font-weight:400}
+.w-foot{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.w-foot b{color:var(--text);font-weight:600}
+.wcard.rest .w-name{font-size:21px}
+.callink{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:18px;color:var(--text);text-decoration:none}
+.callink:active{background:var(--surface)}
+.cal-ic{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:grid;place-items:center;color:var(--b3);flex:none}
+.cal-t{flex:1}
+.cal-t b{display:block;font-weight:600}
+.cal-t span{font-size:13.5px;color:var(--muted)}
 .feelpip{display:inline-block;padding:2px 8px;border-radius:99px;background:var(--surface2);color:var(--text);font-size:13px;margin-left:6px}
 
 /* check-in */
@@ -420,24 +439,66 @@ function signalRow(key,c){
 const INTERVALS="https://intervals.icu";
 const dur=m=>m>=60?`${Math.floor(m/60)}h${m%60?String(Math.round(m%60)).padStart(2,"0"):""}`:`${Math.round(m)} min`;
 const arrow=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>`;
-function sessionLink(label,title,meta,href){
-  return `<a class="session" href="${href}" target="_blank" rel="noopener">
-    <div><div class="k">${esc(label)}</div><b>${esc(title)}</b>${meta?`<div class="m">${meta}</div>`:""}</div>
-    <span class="go">${arrow}</span></a>`;
+const check=`<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+const zoneOf=p=>p<56?1:p<76?2:p<91?3:p<106?4:p<121?5:p<151?6:7;
+function profileSVG(prof,ftp){
+  const w=prof.w,hr=prof.hr,n=(w||hr).length,W=320,H=78,bw=W/n;
+  let bars="";
+  if(w){const top=Math.max(...w.filter(v=>v!=null),ftp?ftp*1.3:0)||1;
+    bars=w.map((v,i)=>{if(v==null) return ""; const h=Math.max(1.5,v/top*(H-4)),z=ftp?zoneOf(v/ftp*100):2;
+      return `<rect x="${(i*bw).toFixed(2)}" y="${(H-h).toFixed(2)}" width="${(bw+.4).toFixed(2)}" height="${h.toFixed(2)}" fill="var(--z${z})" opacity=".9"/>`;}).join("");}
+  let line="";
+  if(hr&&hr.some(v=>v!=null)){const hv=hr.filter(v=>v!=null),lo=Math.min(...hv)-5,hi=Math.max(...hv)+5;
+    const pts=hr.map((v,i)=>v==null?null:`${(i*bw+bw/2).toFixed(1)},${(4+(hi-v)/(hi-lo)*(H*.62)).toFixed(1)}`).filter(Boolean).join(" ");
+    line=`<polyline points="${pts}" fill="none" stroke="var(--hr)" stroke-width="1.6" stroke-linejoin="round"/>`;}
+  return `<svg class="prof" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${bars}${line}</svg>
+    <div class="prof-lg">${w?`<span><i class="sw" style="background:linear-gradient(90deg,var(--z2),var(--z3),var(--z4),var(--z5))"></i>Power by zone</span>`:""}${hr?`<span><i class="ln"></i>Heart rate</span>`:""}</div>`;
+}
+function metricsGrid(w){
+  const cells=[
+    ["Avg power",w.avg_w,"W"],["Normalized",w.np,"W"],["Avg HR",w.avg_hr,"bpm"],
+    ["Load",w.load,"TSS"],["Intensity",w.if!=null?w.if.toFixed(2):null,"IF"],["Work",w.kj,"kJ"],
+    ["Distance",w.km,"km"],["Max HR",w.max_hr,"bpm"],["Climbing",w.elev,"m"]
+  ].filter(c=>c[1]!=null).slice(0,6);
+  return cells.length?`<div class="mgrid">${cells.map(c=>`<div><span>${c[0]}</span><b>${c[1]}<small>${c[2]}</small></b></div>`).join("")}</div>`:"";
+}
+function doneCard(w){
+  const href=`${INTERVALS}/activities/${encodeURIComponent(w.id)}`;
+  const feel=`<span>${w.feel?`Felt <b>${FEEL[w.feel]||w.feel}</b>`:"Feel not logged in Intervals"}</span>`;
+  return `<a class="wcard" href="${href}" target="_blank" rel="noopener">
+    <div class="w-top"><span class="tag done">${check}Completed</span><span class="go">${arrow}</span></div>
+    <div class="w-name">${esc(w.name||w.type)}</div>
+    <div class="w-meta">${dur(w.minutes)}${w.km?` · ${w.km} km`:""}</div>
+    ${w.profile?profileSVG(w.profile,w.ftp):""}
+    ${metricsGrid(w)}
+    <div class="w-foot">${feel}${w.rpe?`<span>RPE ${w.rpe}/10</span>`:""}</div>
+  </a>`;
+}
+function planCard(p){
+  const href=p.id?`${INTERVALS}/?event=${encodeURIComponent(p.id)}`:`${INTERVALS}/`;
+  return `<a class="wcard" href="${href}" target="_blank" rel="noopener">
+    <div class="w-top"><span class="tag">Planned</span><span class="go">${arrow}</span></div>
+    <div class="w-name">${esc(p.name)}</div>
+    <div class="w-meta">${[p.minutes?dur(p.minutes):"",p.load?`${Math.round(p.load)} TSS`:""].filter(Boolean).join(" · ")||"Open in Intervals for details"}</div>
+  </a>`;
 }
 function sessions(day){
-  const out=[],isT=day.date===todayISO(),label=isT?"Today":fmtDay(day.date,{weekday:"long"});
+  const isT=day.date===todayISO();
   const done=(day.workouts||[]).filter(w=>w.type);
-  done.forEach(w=>out.push(sessionLink(label,w.name||w.type,
-    `${dur(w.minutes)}${w.feel?` · felt <span class="feelpip">${FEEL[w.feel]||w.feel}</span>`:""}`,
-    w.id?`${INTERVALS}/activities/${encodeURIComponent(w.id)}`:`${INTERVALS}/`)));
-  if(!done.length) (day.plan||[]).forEach(p=>out.push(sessionLink(label,p.name,"Planned",p.id?`${INTERVALS}/?event=${encodeURIComponent(p.id)}`:`${INTERVALS}/`)));
-  if(isT||sel===DATA.days.length-1){
-    const tm=new Date(new Date(day.date+"T12:00").getTime()+864e5).toLocaleDateString("sv-SE");
-    (DATA.upcoming?.[tm]||[]).forEach(p=>out.push(sessionLink("Tomorrow",p.name,"Planned",p.id?`${INTERVALS}/?event=${encodeURIComponent(p.id)}`:`${INTERVALS}/`)));
-  }
-  return out.length?`<section class="sec"><div class="sec-h"><h2>Sessions</h2><span>Opens Intervals</span></div>${out.join("")}</section>`:"";
+  const doneEvents=new Set(done.map(w=>w.event).filter(Boolean));
+  const plans=(day.plan||[]).filter(p=>!doneEvents.has(p.id)&&!(done.length&&!p.id));
+  const cards=done.map(doneCard).concat(plans.map(planCard));
+  const title=isT?"Today's training":"Training";
+  const empty=`<div class="wcard rest"><div class="w-name">Nothing planned</div><div class="w-meta">Rest day, or nothing on the calendar yet.</div></div>`;
+  return `<section class="sec"><div class="sec-h"><h2>${title}</h2><span>Synced with Intervals</span></div>
+    ${cards.length?cards.join(""):empty}
+    <a class="callink" href="${INTERVALS}/" target="_blank" rel="noopener">
+      <span class="cal-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
+      <span class="cal-t"><b>Training calendar</b><span>This week's plan in Intervals</span></span>
+      <span class="go">${arrow}</span></a>
+  </section>`;
 }
+
 /* ------------------------------------------------------------ check-in */
 function checkin(raw){
   const scale=key=>{const q=Q[key],v=draft[key];
