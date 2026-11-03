@@ -16,7 +16,7 @@ def call(method, path, headers, show_body=False):
         return e.code, dict(e.headers), e.read()
 
 st, hd, body = call("POST", "/personalapitoken-service/personal-api/personal-api-key/token",
-                    {"Authorization": f"ApiKey {key}", "Accept": "application/json", "User-Agent": "readiness/1.0"})
+                    {"Authorization": f"ApiKey {key}", "Accept": "*/*", "User-Agent": "readiness/1.0"})
 print("token status", st, "content-type", hd.get("Content-Type"), "len", len(body))
 tok = None
 try:
@@ -30,7 +30,7 @@ try:
         print("token json type", type(j).__name__, len(str(j)))
         tok = j
 except ValueError:
-    print("token not json; starts with eyJ:", body[:3] == b"eyJ")
+    print("token not json; starts with eyJ:", body[:3] == b"eyJ", "len", len(body.strip()))
     tok = body.decode().strip()
 
 path = "/sleep-service/sleep/dailySleep?date=2026-11-02"

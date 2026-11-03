@@ -38,7 +38,7 @@ def token():
         return _token
     key = os.environ["GARMIN_API_KEY"].strip()
     res = _req("POST", "/personalapitoken-service/personal-api/personal-api-key/token",
-               {"Authorization": f"ApiKey {key}"}, accept="application/json")
+               {"Authorization": f"ApiKey {key}"}, accept="*/*")
     if isinstance(res, str):
         _token = res
     else:
