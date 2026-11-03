@@ -18,4 +18,4 @@ jobs:
       - name: Read Garmin data
         env:
           GARMIN_API_KEY: ${{ secrets.GARMIN_API_KEY }}
-        run: python garmin.py || true; python probe2.py
+        run: python garmin.py
