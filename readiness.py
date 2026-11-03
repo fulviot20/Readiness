@@ -119,6 +119,19 @@ def load_answers(passphrase):
     return out
 
 
+def load_notes(passphrase):
+    """'Something's off' notes saved from the app, one encrypted file per day."""
+    out = {}
+    for p in sorted(glob.glob("notes/*.json")):
+        try:
+            with open(p) as f:
+                n = decrypt(json.load(f), passphrase)
+            out[n["date"]] = n
+        except Exception as e:
+            print(f"note skipped {p}: {e}")
+    return out
+
+
 # ---------------------------------------------------------------- planned workouts
 DUR = re.compile(r"(?:(\d+)h)?(?:(\d+)m(?!s))?(?:(\d+)s)?")
 
@@ -325,6 +338,81 @@ def raw_score(comp):
     return sum(comp[k]["z"] * w[k] for k in w) / sum(w.values())
 
 
+def sleep_score(rows, i):
+    """Sleep score 0-100: last night vs your own need, a 3-night debt penalty, Garmin's score when present."""
+    ok = lambda s: s is not None and 4 <= s <= 11
+    r = rows[i]
+    s = r.get("sleep")
+    if not ok(s):
+        return None
+    target, floor, _ = sleep_need([x.get("sleep") for x in rows[max(0, i - 30):i] if ok(x.get("sleep"))])
+    if s >= target:
+        dur = 100.0
+    elif s >= floor:
+        dur = 100 - 25 * (target - s) / max(target - floor, 0.25)
+    else:
+        dur = max(0.0, 75 - 30 * (floor - s))
+    last3 = [x["sleep"] for x in rows[max(0, i - 2):i + 1] if ok(x.get("sleep"))]
+    debt = max(0.0, target * len(last3) - sum(last3))
+    g = r.get("sleep_score")
+    base = 0.6 * dur + 0.4 * g if isinstance(g, (int, float)) and 0 < g <= 100 else dur
+    score = round(clip(base - min(20, 8 * debt), 0, 100))
+    name = "Great" if score >= 85 else "Good" if score >= 70 else "Fair" if score >= 50 else "Poor"
+    return {"score": score, "band": name, "hours": round(s, 2), "need": round(target, 2),
+            "debt": round(debt, 2), "garmin": g if isinstance(g, (int, float)) else None}
+
+
+def strain(load, ctl):
+    """Day strain 0-100 from training load vs your usual daily load (fitness): 1x -> ~49, 2x -> ~74, 3x -> ~86."""
+    if not load:
+        return {"score": 0, "band": "Rest", "load": 0}
+    ref = max(ctl or 0, 15)
+    v = round(100 * (1 - math.exp(-load / (1.5 * ref))))
+    name = "Max" if v >= 80 else "High" if v >= 60 else "Moderate" if v >= 30 else "Light"
+    return {"score": v, "band": name, "load": round(load)}
+
+
+def spearman(xs, ys):
+    def ranks(v):
+        o = sorted(range(len(v)), key=lambda k: v[k])
+        r = [0.0] * len(v)
+        i = 0
+        while i < len(o):
+            j = i
+            while j + 1 < len(o) and v[o[j + 1]] == v[o[i]]:
+                j += 1
+            for k in range(i, j + 1):
+                r[o[k]] = (i + j) / 2
+            i = j + 1
+        return r
+    if len(xs) < 5:
+        return None
+    rx, ry = ranks(xs), ranks(ys)
+    try:
+        return round(st.correlation(rx, ry), 2)
+    except st.StatisticsError:
+        return None
+
+
+def validation(days, since="2026-11-01"):
+    """How well the morning score matches how sessions felt (Intervals feel: 1 strong ... 5 weak)."""
+    pairs, by_band, notes = [], {}, []
+    for d in days:
+        if d["date"] < since or d.get("score") is None:
+            continue
+        feels = [w["feel"] for w in d.get("workouts", []) if isinstance(w.get("feel"), (int, float))]
+        if feels:
+            f = st.mean(feels)
+            pairs.append((d["score"], f))
+            by_band.setdefault(d["band"], []).append(f)
+        if d.get("note"):
+            notes.append({"date": d["date"], "score": d["score"], **{k: v for k, v in d["note"].items() if k != "date"}})
+    return {"since": since, "n": len(pairs),
+            "r": spearman([p[0] for p in pairs], [-p[1] for p in pairs]),
+            "by_band": {k: {"n": len(v), "feel": round(st.mean(v), 2)} for k, v in by_band.items()},
+            "notes": notes}
+
+
 BANDS = [(80, "Super", "Recovery is above your usual: a good day to go for it if you feel it."),
          (60, "Normal", "Recovery is in your usual range: train as planned and stay tuned to how it feels."),
          (50, "Low", "Recovery is below your usual: see how the legs respond."),
@@ -421,13 +509,15 @@ def week_summary(done, plans, today, n=6):
     return {"start": monday.isoformat(), "days": current, "history": hist}
 
 
-def build(wellness, activities, events, answers, today, streams=None):
+def build(wellness, activities, events, answers, today, streams=None, notes=None):
     streams = streams or {}
+    notes = notes or {}
     rows = []
     for w in sorted(wellness, key=lambda x: x["id"]):
         rows.append({"date": w["id"], "hrv": w.get("hrv"), "rhr": w.get("restingHR"),
                      "sleep": (w["sleepSecs"] / 3600) if w.get("sleepSecs") else None,
-                     "ctl": w.get("ctl"), "atl": w.get("atl")})
+                     "ctl": w.get("ctl"), "atl": w.get("atl"),
+                     "sleep_score": w.get("sleepScore")})
     for i, r in enumerate(rows):
         r["comp"] = components(rows, i)
         r["raw"] = raw_score(r["comp"])
@@ -444,9 +534,14 @@ def build(wellness, activities, events, answers, today, streams=None):
     plans = plans_by_day(events)
 
     days = []
-    for r in rows[-KEEP_DAYS:]:
+    for j, r in enumerate(rows):
+        if j < len(rows) - KEEP_DAYS:
+            continue
         d = r["date"]
+        prev_ctl = rows[j - 1].get("ctl") if j > 0 else r.get("ctl")
         item = {"date": d, "workouts": done.get(d, []), "plan": plans.get(d, []), "answers": answers.get(d),
+                "note": notes.get(d), "sleep_score": sleep_score(rows, j),
+                "strain": strain(sum(w.get("load") or 0 for w in done.get(d, [])), prev_ctl),
                 "ctl": round(r["ctl"], 1) if r.get("ctl") is not None else None,
                 "atl": round(r["atl"], 1) if r.get("atl") is not None else None}
         if r["raw"] is not None:
@@ -473,21 +568,23 @@ def build(wellness, activities, events, answers, today, streams=None):
 
     t = today.isoformat()
     if not days or days[-1]["date"] != t:     # today's wellness not in yet: keep today's sessions anyway
-        days.append({"date": t, "workouts": done.get(t, []), "plan": plans.get(t, []), "answers": answers.get(t)})
+        last_ctl = rows[-1].get("ctl") if rows else None
+        days.append({"date": t, "workouts": done.get(t, []), "plan": plans.get(t, []), "answers": answers.get(t),
+                     "note": notes.get(t), "strain": strain(sum(w.get("load") or 0 for w in done.get(t, [])), last_ctl)})
     upcoming = {d: p for d, p in plans.items() if d >= today.isoformat()}
     weeks = week_summary(done, plans, today)
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
             "today": today.isoformat(),
             "calibration": {"mu": mu, "sigma": sigma, "n": len(raws)},
             "weights": WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
-            "volume": volume(activities)}
+            "volume": volume(activities), "validation": validation(days)}
 
 
 def main():
     today = dt.datetime.now(TZ).date()
     pw = os.environ["READINESS_PASSPHRASE"]
     wellness, activities, events, streams = load_data(today)
-    data = build(wellness, activities, events, load_answers(pw), today, streams)
+    data = build(wellness, activities, events, load_answers(pw), today, streams, load_notes(pw))
     os.makedirs("site", exist_ok=True)
     with open("site/data.enc", "w") as f:
         json.dump(encrypt(data, pw), f)

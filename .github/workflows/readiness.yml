@@ -9,6 +9,7 @@ on:
   push:
     paths:
       - "answers/**"
+      - "notes/**"
   workflow_dispatch:
 
 permissions:

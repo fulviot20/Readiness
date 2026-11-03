@@ -53,6 +53,26 @@ button{font:inherit;color:inherit}
 .g-legend i{width:6px;height:6px;border-radius:50%;grid-row:span 2}
 .g-legend b{font:600 9.5px/1.1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--text)}
 .g-legend span{font:400 9px/1.2 var(--ui);color:var(--muted);font-variant-numeric:tabular-nums}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.mini{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:18px;padding:12px 14px;cursor:pointer;text-align:left;color:var(--text);min-width:0}
+.mini svg{flex:none;width:52px;height:52px}
+.mini .mn{font-family:var(--cond);font-size:19px;font-weight:500;fill:var(--text)}
+.mini .mt{min-width:0}
+.mini .mt small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--muted)}
+.mini .mt b{display:block;font-size:15px;font-weight:600;margin-top:1px}
+.mini .mt span{display:block;font-size:12px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.off{display:block;margin:16px auto 0;background:none;border:0;color:var(--faint);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+.picks{display:grid;gap:8px;margin:14px 0}
+.picks button{background:var(--surface2);border:1px solid transparent;border-radius:12px;padding:13px 14px;text-align:left;color:var(--text);cursor:pointer;font-size:15px}
+.picks button.on{border-color:var(--glacier);background:rgba(111,211,230,.08)}
+.field textarea{width:100%;min-height:84px;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font:inherit;resize:vertical}
+.bars30 svg{display:block;width:100%;height:auto}
+.kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:14.5px;margin:6px 0 16px}
+.kv span{color:var(--muted)}.kv b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.vrow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.vrow span{color:var(--muted)}
+.vnote{padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.vnote em{font-style:normal;color:var(--faint);font-size:12.5px}
 .adj{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-top:6px}
 .verdict{text-align:center;font-size:18px;font-weight:500;margin:10px 0 4px;text-wrap:balance;color:var(--text)}
 .why{text-align:center;font-size:14.5px;color:var(--muted);margin:0 16px;text-wrap:balance}
@@ -366,6 +386,7 @@ async function load(){
     if(e.name==="OperationError") return lock("That passphrase doesn't match. Try again.");
     $("app").innerHTML=`<p class="loading">${esc(e.message)}</p>`; return;
   }
+  for(const d of DATA.days){const n=LS.get("note:"+d.date); if(n&&!d.note) d.note=JSON.parse(n);}
   for(const d of DATA.days){const l=LS.get("ans:"+d.date); if(l&&!d.answers) Object.assign(d,applyAnswers(d,JSON.parse(l)));}
   // always open on today, even before today's data has arrived
   const today=todayISO();
@@ -481,6 +502,93 @@ function animateGauge(from,to){
     arcs.forEach(a=>a.setAttribute("stroke-dasharray",d)); head.setAttribute("cx",hx.toFixed(2)); head.setAttribute("cy",hy.toFixed(2));
     num.textContent=Math.round(v); if(k<1) requestAnimationFrame(step);};
   requestAnimationFrame(step);
+}
+
+/* ------------------------------------------------------------ sleep & strain */
+const SLEEP_C="#a78bfa",STRAIN_C="#22d3ee";
+function miniRing(v,col){
+  const r=21,C=2*Math.PI*r,L=C*clip(v??0,0,100)/100;
+  return `<svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="${r}" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="5"/>
+    ${v?`<circle cx="26" cy="26" r="${r}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${L.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 26 26)"/>`:""}
+    <text class="mn" x="26" y="32.5" text-anchor="middle">${v??"–"}</text></svg>`;
+}
+function duo(raw,isToday){
+  const sl=raw.sleep_score,sk=raw.strain,i=DATA.days.indexOf(raw),y=i>0?DATA.days[i-1].strain:null;
+  const skSub=sk&&sk.score?`Load ${sk.load}`:(isToday&&y&&y.score?`Yesterday ${y.score}`:"No training");
+  return `<div class="duo">
+    <button class="mini" id="m-sleep">${miniRing(sl?sl.score:null,SLEEP_C)}<span class="mt"><small>SLEEP</small><b>${sl?esc(sl.band):"–"}</b><span>${sl?hmh(sl.hours):"No data"}</span></span></button>
+    <button class="mini" id="m-strain">${miniRing(sk?sk.score:null,STRAIN_C)}<span class="mt"><small>STRAIN</small><b>${sk?esc(sk.band):"–"}</b><span>${esc(skSub)}</span></span></button></div>`;
+}
+function bars30(key,col){
+  const days=DATA.days.slice(Math.max(0,sel-29),sel+1),W=320,H=110,bw=W/days.length;
+  const bars=days.map((d,i)=>{const v=d[key]?.score,h=v?Math.max(3,v/100*H):2;
+    return `<rect x="${(i*bw+1.2).toFixed(1)}" y="${(H-h).toFixed(1)}" width="${(bw-2.4).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${v?col:"var(--line)"}" opacity="${i===days.length-1?1:.5}"/>`;}).join("");
+  return `<div class="sh-chart bars30"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>
+    <div class="ax"><span>${fmtDay(days[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(days[days.length-1].date,{day:"numeric",month:"short"})}</span></div></div>`;
+}
+function openSleepScore(){
+  const s=DATA.days[sel].sleep_score; if(!s) return;
+  openSheet(`<div class="sh-top"><h2>Sleep</h2>${X}</div>
+    <div class="sh-big" style="color:${SLEEP_C}">${s.score}<small>${esc(s.band)}</small></div>
+    <p class="sh-desc">How well last night covered your own need, learned from your last 30 nights. Short nights in a row add a debt that lowers it.</p>
+    <div class="kv"><span>Last night</span><b>${hmh(s.hours)}</b><span>Your usual need</span><b>${hmh(s.need)}</b>
+      <span>Debt over 3 nights</span><b>${s.debt>=.1?hmh(s.debt):"None"}</b>${s.garmin?`<span>Garmin sleep score</span><b>${s.garmin}</b>`:""}</div>
+    <div class="sec-h"><h2>Last 30 days</h2></div>${bars30("sleep_score",SLEEP_C)}`);
+}
+function openStrain(){
+  const raw=DATA.days[sel],s=raw.strain; if(!s) return;
+  const i=sel,ctl=(i>0?DATA.days[i-1].ctl:raw.ctl);
+  openSheet(`<div class="sh-top"><h2>Strain</h2>${X}</div>
+    <div class="sh-big" style="color:${STRAIN_C}">${s.score}<small>${esc(s.band)}</small></div>
+    <p class="sh-desc">How hard the day was compared with your usual day of training. A typical session lands around 50–75; the scale gets harder to climb as it goes up.</p>
+    <div class="kv"><span>Training load</span><b>${s.load}</b>${ctl?`<span>Your usual day (fitness)</span><b>${Math.round(ctl)}</b>`:""}</div>
+    <div class="kv"><span>Light</span><b>0–29</b><span>Moderate</span><b>30–59</b><span>High</span><b>60–79</b><span>Max</span><b>80–100</b></div>
+    <div class="sec-h"><h2>Last 30 days</h2></div>${bars30("strain",STRAIN_C)}`);
+}
+
+/* ------------------------------------------------------------ "something's off" notes */
+const OFF={too_high:"The score feels too high",too_low:"The score feels too low",signal:"A signal looks wrong",other:"Something else"};
+function openOff(){
+  const raw=DATA.days[sel],prev=raw.note||JSON.parse(LS.get("note:"+raw.date)||"null")||{};
+  let kind=prev.kind||"";
+  openSheet(`<div class="sh-top"><h2>Something off?</h2>${X}</div>
+    <p class="sh-desc">Note it now while it's fresh. After a few weeks these notes, together with how your sessions felt, are used to retune the score.</p>
+    <div class="picks">${Object.entries(OFF).map(([k,t])=>`<button data-o="${k}" class="${k===kind?"on":""}">${t}</button>`).join("")}</div>
+    <div class="field"><label for="o-tx">What happened (optional)</label><textarea id="o-tx" placeholder="e.g. legs felt great on the climbs">${esc(prev.text||"")}</textarea></div>
+    <div class="savebar" style="margin-top:16px"><span class="st" id="o-st"></span><button class="btn" id="o-save" ${kind?"":"disabled"}>Save note</button></div>`);
+  document.querySelectorAll(".picks button").forEach(b=>b.onclick=()=>{kind=b.dataset.o;
+    document.querySelectorAll(".picks button").forEach(x=>x.classList.toggle("on",x===b)); $("o-save").disabled=false;});
+  $("o-save").onclick=async()=>{
+    const note={date:raw.date,kind,text:$("o-tx").value.trim(),score:raw.score??null};
+    LS.set("note:"+raw.date,JSON.stringify(note)); raw.note=note;
+    const token=LS.get("rd_token"),st=$("o-st"); $("o-save").disabled=true;
+    if(!token){ st.textContent="Saved on this phone. Add a GitHub token in settings to sync."; return; }
+    st.textContent="Saving…";
+    try{
+      const owner=location.hostname.split(".")[0],repo=location.pathname.split("/").filter(Boolean)[0];
+      const url=`https://api.github.com/repos/${owner}/${repo}/contents/notes/${raw.date}.json`;
+      const hdr={Authorization:"Bearer "+token,Accept:"application/vnd.github+json"};
+      let sha; const cur=await fetch(url,{headers:hdr}); if(cur.ok) sha=(await cur.json()).sha;
+      const env=await encryptObj(note,LS.get("rd_pass"));
+      const r=await fetch(url,{method:"PUT",headers:{...hdr,"Content-Type":"application/json"},
+        body:JSON.stringify({message:"Note "+raw.date,content:btoa(JSON.stringify(env)),...(sha?{sha}:{})})});
+      if(!r.ok) throw new Error("GitHub "+r.status);
+      st.textContent="Saved. Thanks, it's on record.";
+    }catch(e){ st.textContent=`Saved on this phone only (${e.message}).`; }
+  };
+}
+function openValidation(){
+  const v=DATA.validation||{n:0,by_band:{},notes:[]};
+  const order=["Super","Normal","Low","Very low"],fl=f=>FEEL[Math.round(f)]||"–";
+  const rText=v.r==null?"Not enough sessions with a feel rating yet (needs at least 5).":
+    v.r>=.3?"Good: on higher-score days your sessions tend to feel better.":v.r>=.1?"Weak link so far: keep rating sessions, it's still early.":"No clear link yet: the weights may need retuning.";
+  openSheet(`<div class="sh-top"><h2>Score check</h2>${X}</div>
+    <p class="sh-desc">Since ${fmtDay(v.since,{day:"numeric",month:"long"})}: the morning score compared with the feel you give each session in Intervals (1 strong … 5 weak).</p>
+    <div class="kv"><span>Days with a rated session</span><b>${v.n}</b>${v.r!=null?`<span>Match (−1 to +1)</span><b>${v.r>0?"+":""}${v.r}</b>`:""}</div>
+    <p class="sh-desc" style="margin-top:0">${rText}</p>
+    ${order.filter(b=>v.by_band[b]).map(b=>`<div class="vrow"><span>${b} days (${v.by_band[b].n})</span><b>avg feel ${v.by_band[b].feel} · ${fl(v.by_band[b].feel)}</b></div>`).join("")}
+    <div class="sec-h" style="margin-top:22px"><h2>Your notes</h2><span>${v.notes.length}</span></div>
+    ${v.notes.length?v.notes.slice().reverse().map(n=>`<div class="vnote"><b>${OFF[n.kind]||"Note"}</b> <em>· ${fmtDay(n.date,{day:"numeric",month:"short"})}, score ${n.score}</em>${n.text?`<br>${esc(n.text)}`:""}</div>`).join(""):"<p class='sh-desc'>No notes yet.</p>"}`);
 }
 
 /* ------------------------------------------------------------ score sheet */
@@ -935,6 +1043,8 @@ function renderToday(){
   <p class="adj">${has?esc(deltaTxt(day)):""}</p>
   ${has?`<button class="verdict-b" id="guide"><span class="verdict">${esc(day.advice)}</span><span class="why">${esc(day.why)}</span><span class="more">What this means for today</span></button>`:""}
   ${isToday&&!has?pendingNote():""}
+  ${duo(raw,isToday)}
+  ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
 
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
     <div class="signals">${["hrv","rhr","sleep","load"].map(k=>signalRow(k,c[k])).join("")}</div>
@@ -953,6 +1063,8 @@ function bind(raw){
   $("prev").onclick=()=>go(sel-1); $("next").onclick=()=>go(sel+1);
   $("gear").onclick=openSettings; $("gauge").onclick=()=>openScore();
   const g=$("guide"); if(g) g.onclick=()=>openGuide();
+  $("m-sleep").onclick=openSleepScore; $("m-strain").onclick=openStrain;
+  const of=$("off"); if(of) of.onclick=openOff;
   const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));
@@ -1089,10 +1201,12 @@ function openSettings(){
     <div class="field"><label for="s-pw">Passphrase</label><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"></div>
     <div class="field"><label for="s-tk">GitHub token</label><input id="s-tk" type="password" placeholder="Not set" value="${esc(LS.get("rd_token")||"")}">
       <p>Needed only to sync the check-in, so the server recalculates the score. Fine-grained token, access to this repository only, with Contents and Actions set to read and write.</p></div>
+    <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
   $("s-save").onclick=()=>{const p=$("s-pw").value.trim(),t=$("s-tk").value.trim();
     if(p) LS.set("rd_pass",p); t?LS.set("rd_token",t):LS.del("rd_token"); closeSheet(); load();};
   $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
+  $("s-val").onclick=openValidation;
 }
 
 /* ------------------------------------------------------------ save check-in */
