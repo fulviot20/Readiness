@@ -23,7 +23,12 @@ def _req(method, path, headers, params=None, accept="*/*"):
         req.add_header(k, v)
     with urllib.request.urlopen(req, timeout=60) as r:
         body = r.read()
-        return json.loads(body) if body else None
+        if not body:
+            return None
+        try:
+            return json.loads(body)
+        except ValueError:
+            return body.decode(errors="replace").strip()
 
 
 def token():
@@ -33,7 +38,7 @@ def token():
         return _token
     key = os.environ["GARMIN_API_KEY"].strip()
     res = _req("POST", "/personalapitoken-service/personal-api/personal-api-key/token",
-               {"Authorization": f"ApiKey {key}"})
+               {"Authorization": f"ApiKey {key}"}, accept="application/json")
     if isinstance(res, str):
         _token = res
     else:
