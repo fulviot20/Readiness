@@ -14,11 +14,11 @@ UA = "readiness-score/1.0 (+github.com/fulviot20/Readiness)"
 _token = None
 
 
-def _req(method, path, headers, params=None):
+def _req(method, path, headers, params=None, accept="*/*"):
     url = BASE + path + ("?" + "&".join(f"{k}={v}" for k, v in params.items()) if params else "")
     req = urllib.request.Request(url, method=method, data=b"" if method == "POST" else None)
     req.add_header("User-Agent", UA)
-    req.add_header("Accept", "application/json")
+    req.add_header("Accept", accept)
     for k, v in headers.items():
         req.add_header(k, v)
     with urllib.request.urlopen(req, timeout=60) as r:
@@ -48,10 +48,23 @@ def token():
 
 
 def get(path, params=None):
+    last = None
+    for accept in ("*/*", "application/json"):
+        try:
+            return _req("GET", path, {"Authorization": f"Bearer {token()}"}, params, accept)
+        except urllib.error.HTTPError as e:
+            last = f"Garmin {path} returned {e.code}: {e.read()[:200].decode(errors='replace')}"
+            if e.code != 406:
+                break
+    raise SystemExit(last)
+
+
+def safe(fn, label, errors):
     try:
-        return _req("GET", path, {"Authorization": f"Bearer {token()}"}, params)
-    except urllib.error.HTTPError as e:
-        raise SystemExit(f"Garmin {path} returned {e.code}: {e.read()[:200].decode(errors='replace')}")
+        return fn()
+    except SystemExit as e:
+        errors.append(f"{label}: {e}")
+        return None
 
 
 def chunks(start, end, days):
@@ -65,30 +78,37 @@ def chunks(start, end, days):
 def load(today, history_days=240):
     """Raw Garmin data for the last `history_days` days, keyed by calendar date."""
     start = today - dt.timedelta(days=history_days)
+    errors = []
     sleep, hrv = {}, {}
     for a, b in chunks(start, today, 31):
-        for s in get("/sleep-service/sleep/dailySleepSummariesByDate",
-                     {"startDate": a.isoformat(), "endDate": b.isoformat()}) or []:
+        res = safe(lambda: get("/sleep-service/sleep/dailySleepSummariesByDate",
+                               {"startDate": a.isoformat(), "endDate": b.isoformat()}), "sleep", errors)
+        for s in res if isinstance(res, list) else []:
             if s.get("calendarDate"):
                 sleep[s["calendarDate"]] = s
-        for h in (get(f"/hrv-service/hrv/daily/{a}/{b}") or {}).get("hrvSummaries") or []:
+        res = safe(lambda: get(f"/hrv-service/hrv/daily/{a}/{b}"), "hrv", errors)
+        for h in (res or {}).get("hrvSummaries") or [] if isinstance(res, dict) else []:
             if h.get("calendarDate"):
                 hrv[h["calendarDate"]] = h
     daily = {}
     for a, b in chunks(start, today, 365):
-        for d in (get("/usersummary-service/v2/dailysummaries",
-                      {"startDate": a.isoformat(), "endDate": b.isoformat()}) or {}).get("data") or []:
+        res = safe(lambda: get("/usersummary-service/v2/dailysummaries",
+                               {"startDate": a.isoformat(), "endDate": b.isoformat()}), "daily", errors)
+        for d in (res or {}).get("data") or [] if isinstance(res, dict) else []:
             if d.get("calendarDate"):
                 daily[d["calendarDate"]] = d
-    # night-by-night HRV readings (every 5 min) for the last few nights only
-    nights = {}
+    # single-day endpoints, for the last few days only
+    nights, one_sleep, hr = {}, {}, {}
     for k in range(3):
         d = (today - dt.timedelta(days=k)).isoformat()
-        try:
-            nights[d] = get(f"/hrv-service/hrv/{d}")
-        except SystemExit:
-            pass
-    return {"sleep": sleep, "hrv": hrv, "daily": daily, "hrv_nights": nights}
+        r = safe(lambda: get(f"/hrv-service/hrv/{d}"), "hrv_night", errors)
+        if r: nights[d] = r
+        r = safe(lambda: get("/sleep-service/sleep/dailySleep", {"date": d}), "sleep_day", errors)
+        if r: one_sleep[d] = r
+        r = safe(lambda: get("/wellness-service/wellness/dailyHeartRate", {"date": d}), "heart_rate", errors)
+        if r: hr[d] = r
+    return {"sleep": sleep, "hrv": hrv, "daily": daily, "hrv_nights": nights,
+            "sleep_day": one_sleep, "heart_rate": hr, "errors": errors}
 
 
 def shape(x, depth=0):
@@ -106,10 +126,13 @@ if __name__ == "__main__":      # probe: prints only structure and counts, never
     from zoneinfo import ZoneInfo
     today = dt.datetime.now(ZoneInfo("Europe/Rome")).date()
     data = load(today, 40)
+    errs = data.pop("errors")
+    for e in sorted(set(errs)):
+        print("ERROR", e)
     for k, v in data.items():
         dates = sorted(v)
         print(f"{k}: {len(v)} days" + (f", {dates[0]} .. {dates[-1]}" if dates else ""))
-    for k in ("sleep", "hrv", "daily", "hrv_nights"):
+    for k in data:
         if data[k]:
             last = data[k][sorted(data[k])[-1]]
             print(f"\n== {k} fields ==\n" + json.dumps(shape(last), indent=1)[:3000])
