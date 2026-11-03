@@ -22,7 +22,7 @@ import garmin
 
 CACHE = "cache/features.enc"
 DETAIL_DAYS = 3          # per-day endpoints refreshed every run
-BACKFILL_PER_RUN = 45    # older days filled progressively
+BACKFILL_PER_RUN = 30    # older days filled progressively
 DETAIL_HISTORY = 180
 
 
@@ -155,7 +155,8 @@ def refresh(cache, today, errors, hrmax_hint):
     # per-day detail: recent days every run, older ones a batch at a time
     recent = [(today - dt.timedelta(days=k)).isoformat() for k in range(DETAIL_DAYS)]
     older = [(today - dt.timedelta(days=k)).isoformat() for k in range(DETAIL_DAYS, DETAIL_HISTORY)]
-    todo = recent + [d for d in older if "detail" not in days.get(d, {})][:BACKFILL_PER_RUN]
+    need = lambda r: ("hr" not in r or "hrv_night" not in r) and r.get("tries", 0) < 3
+    todo = recent + [d for d in older if need(days.get(d, {}))][:BACKFILL_PER_RUN]
     trimps = {}
     for d in todo:
         rec = days.setdefault(d, {})
@@ -171,8 +172,10 @@ def refresh(cache, today, errors, hrmax_hint):
                 pts = f.pop("pts")
                 rec["hr"] = f
                 trimps[d] = pts
-        if chart is not None or hrd is not None:
+        if isinstance(chart, dict) and isinstance(hrd, dict):
             rec["detail"] = True
+        if d not in recent:
+            rec["tries"] = rec.get("tries", 0) + 1
     # TRIMP needs a stable HRmax: observed max over cached days or from activities
     hrmax = max([hrmax_hint or 0] + [(v.get("hr") or {}).get("max") or 0 for v in days.values()])
     hrmax = hrmax if hrmax >= 150 else 190

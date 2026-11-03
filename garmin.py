@@ -53,14 +53,22 @@ def token():
 
 
 def get(path, params=None):
+    """GET with the access token; waits and retries when Garmin's per-minute limit (100 calls) is hit."""
+    import time
     last = None
-    for accept in ("*/*", "application/json"):
+    for attempt in range(4):
         try:
-            return _req("GET", path, {"Authorization": f"Bearer {token()}"}, params, accept)
+            return _req("GET", path, {"Authorization": f"Bearer {token()}"}, params)
         except urllib.error.HTTPError as e:
-            last = f"Garmin {path} returned {e.code}: {e.read()[:200].decode(errors='replace')}"
-            if e.code != 406:
+            body = e.read()[:200].decode(errors="replace")
+            last = f"Garmin {path} returned {e.code}: {body}"
+            if e.code != 429:
                 break
+            try:
+                wait = int(json.loads(body).get("retryInSeconds") or 30)
+            except ValueError:
+                wait = 30
+            time.sleep(min(wait + 2, 70))
     raise SystemExit(last)
 
 
