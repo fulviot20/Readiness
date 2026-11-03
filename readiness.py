@@ -670,6 +670,20 @@ def main():
     stable = {k: v for k, v in data.items() if k != "generated_at"}
     with open("data.hash", "w") as f:
         f.write(hashlib.sha256(json.dumps(stable, sort_keys=True).encode()).hexdigest() + "\n")
+    # self-check, public log: only presence and plausibility flags, never values
+    for d in data["days"][-4:]:
+        ss, sk, c = d.get("sleep_score") or {}, d.get("strain") or {}, d.get("comp") or {}
+        flags = {
+            "score": d.get("score") is not None and 1 <= d["score"] <= 100,
+            "model": d.get("model"),
+            "signals": ",".join(sorted(c)),
+            "sleep_ok": bool(ss) and 3 <= ss.get("hours", 0) <= 13,
+            "stages": ss.get("deep") is not None,
+            "strain_hr": sk.get("trimp") is not None,
+            "plans_done": f"{sum(1 for p in d.get('plan', []) if p.get('done'))}/{len(d.get('plan', []))}",
+            "workouts": len(d.get("workouts", [])),
+        }
+        print("check", d["date"], flags)
     last = data["days"][-1] if data["days"] else {}
     # the repository is public: log only what is present, never the values
     print(f"{last.get('date')}: score {'ready' if last.get('score') is not None else 'pending'} "
