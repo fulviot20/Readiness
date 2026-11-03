@@ -47,12 +47,12 @@ button{font:inherit;color:inherit}
 .g-num{font-family:var(--cond);font-weight:300;font-size:74px;letter-spacing:-.025em;fill:var(--text)}
 .g-band{font-family:var(--ui);font-weight:600;font-size:11.5px;letter-spacing:.16em}
 .g-of{font-family:var(--ui);font-size:10.5px;letter-spacing:.14em;fill:var(--faint)}
-.g-legend{list-style:none;margin:0;padding:0;display:grid;gap:9px;flex:none}
-.g-legend li{display:grid;grid-template-columns:8px auto;column-gap:8px;align-items:center;opacity:.42;transition:opacity .3s}
+.g-legend{list-style:none;margin:0;padding:0;display:grid;gap:7px;flex:none}
+.g-legend li{display:grid;grid-template-columns:6px auto;column-gap:7px;align-items:center;opacity:.42;transition:opacity .3s}
 .g-legend li.on{opacity:1}
-.g-legend i{width:8px;height:8px;border-radius:50%;grid-row:span 2}
-.g-legend b{font:600 11px/1.1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text)}
-.g-legend span{font:400 10.5px/1.2 var(--ui);color:var(--muted);font-variant-numeric:tabular-nums}
+.g-legend i{width:6px;height:6px;border-radius:50%;grid-row:span 2}
+.g-legend b{font:600 9.5px/1.1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--text)}
+.g-legend span{font:400 9px/1.2 var(--ui);color:var(--muted);font-variant-numeric:tabular-nums}
 .adj{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-top:6px}
 .verdict{text-align:center;font-size:18px;font-weight:500;margin:10px 0 4px;text-wrap:balance;color:var(--text)}
 .why{text-align:center;font-size:14.5px;color:var(--muted);margin:0 16px;text-wrap:balance}
@@ -419,14 +419,15 @@ async function requestUpdate(btn){
   LS.del("rd_dispatch"); autoTries=0; polling=false; autoRefresh();
 }
 
+const LOGO_SEGS=[["#ff5d6c",0,50],["#f7c948",74,124],["#34d399",148,212],["#4aa3ff",236,300]];
 function logoSVG(sz){
-  const c=[["#a45bd9",150,204],["#6b6cf2",210,264],["#3a9cf5",270,324],["#2cc9c0",330,372],["#5fe08a",378,390]];
-  const P=(a,r)=>[50+r*Math.cos(a*Math.PI/180),52+r*Math.sin(a*Math.PI/180)];
-  const arc=(a,b)=>{const[x1,y1]=P(a,36),[x2,y2]=P(b,36);return `M${x1.toFixed(1)} ${y1.toFixed(1)}A36 36 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;};
-  const[m1x,m1y]=P(318,27),[m2x,m2y]=P(318,45);
-  return `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}" aria-hidden="true">${c.map(([col,a,b])=>`<path d="${arc(a,b)}" stroke="${col}" stroke-width="9" fill="none"/>`).join("")}
-    <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="var(--bg)" stroke-width="7" stroke-linecap="round"/>
-    <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`;
+  const P=a=>[50+36*Math.sin(a*Math.PI/180),50-36*Math.cos(a*Math.PI/180)];
+  const arc=(a,b)=>{const[x1,y1]=P(a),[x2,y2]=P(b);return `M${x1.toFixed(2)} ${y1.toFixed(2)}A36 36 0 ${b-a>180?1:0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;};
+  const[hx,hy]=P(300);
+  return `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}" aria-hidden="true">
+    <circle cx="50" cy="50" r="36" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="9"/>
+    ${LOGO_SEGS.map(([col,a,b])=>`<path d="${arc(a,b)}" stroke="${col}" stroke-width="9" stroke-linecap="round" fill="none"/>`).join("")}
+    <circle cx="${hx.toFixed(2)}" cy="${hy.toFixed(2)}" r="2.6" fill="#fff"/></svg>`;
 }
 function splash(){return `<div class="splash">${logoSVG(96)}<div class="sp-w">Readiness</div></div>`;}
 function lock(msg){
@@ -470,7 +471,7 @@ function gaugeSVG(score,band,color){
 function legendHTML(band){
   const rng={"Super":"80–100","Normal":"60–79","Low":"50–59","Very low":"0–49"};
   return `<ul class="g-legend" aria-label="Score bands">${[...SEGS].reverse().map(([,,col,name])=>
-    `<li class="${name===band?"on":""}"><i style="background:${col};box-shadow:0 0 8px ${col}"></i><b>${name}</b><span>${rng[name]}</span></li>`).join("")}</ul>`;
+    `<li class="${name===band?"on":""}"><i style="background:${col};box-shadow:0 0 6px ${col}"></i><b>${name}</b><span>${rng[name]}</span></li>`).join("")}</ul>`;
 }
 function animateGauge(from,to){
   const num=$("g-num"),arcs=[...document.querySelectorAll(".gauge .r-arc")],head=$("r-head");
@@ -1028,27 +1029,24 @@ function sleepPlan(){
   const tomorrowLoad=((DATA.upcoming||{})[tm]||[]).reduce((a,p)=>a+(p.load||0),0);
   const hard=todayLoad>=100||tomorrowLoad>=100?.25:0;
   let rec=Math.max(7,usual+Math.min(.75,extra+hard)); rec=Math.min(9,Math.round(rec*4)/4);
-  const wake=LS.get("rd_wake")||"06:00",[wh,wm]=wake.split(":").map(Number);
-  let bed=wh*60+wm-rec*60-15; bed=(bed%1440+1440)%1440;
-  const bedT=`${String(Math.floor(bed/60)).padStart(2,"0")}:${String(Math.round(bed%60)).padStart(2,"0")}`;
   const why=[];
   if(extra>=.25) why.push(`you're about ${hmh(debt)} short over the last three nights`);
   if(hard) why.push(todayLoad>=100?"today's session was a big one":"tomorrow's session is a big one");
   if(usual<7&&rec===7) why.push("7 hours is the floor for adults who train");
-  return {rec,bedT,wake,usual,min,why};
+  return {rec,usual,min,why};
 }
 function sleepAdvice(){
   const p=sleepPlan(); if(!p) return "";
   const parts=[`Your usual night is ${hmh(p.usual)}, so that's the baseline.`];
   if(p.why.length) parts.push(`A little more tonight because ${p.why.join(" and ")}.`);
   else parts.push("You're not carrying a sleep debt, so your usual amount is enough.");
-  return `<div class="note-card sl"><b>Tonight: ${hmh(p.rec)}</b>, lights out by ${p.bedT} for a ${p.wake} alarm. ${esc(parts.join(" "))} Try not to go below ${hmh(Math.max(p.min,6.5))}, where your short nights start to cost you.</div>`;
+  return `<div class="note-card sl"><b>Tonight: ${hmh(p.rec)} of sleep.</b> ${esc(parts.join(" "))} Try not to go below ${hmh(Math.max(p.min,6.5))}, where your short nights start to cost you.</div>`;
 }
 function tonightCard(){
   const p=sleepPlan(); if(!p) return "";
   const moon=`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>`;
   return `<button class="tonight" id="tonight"><span class="tn-ic">${moon}</span>
-    <span class="tn-t"><b>Tonight, aim for ${hmh(p.rec)}</b><span>Lights out by ${p.bedT} for a ${p.wake} alarm${p.why.length?`: ${esc(p.why[0])}`:""}.</span></span></button>`;
+    <span class="tn-t"><b>Tonight, aim for ${hmh(p.rec)}</b><span>${p.why.length?esc(p.why[0][0].toUpperCase()+p.why[0].slice(1))+".":"Your usual amount is enough."}</span></span></button>`;
 }
 function openSignal(key,n=7,keepPick=false){
   if(!keepPick) chartPick=null;
@@ -1089,13 +1087,10 @@ function openGuide(){
 function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
     <div class="field"><label for="s-pw">Passphrase</label><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"></div>
-    <div class="field"><label for="s-wk">Usual alarm</label><input id="s-wk" type="time" value="${esc(LS.get("rd_wake")||"06:00")}">
-      <p>Used to suggest what time to switch the lights off.</p></div>
     <div class="field"><label for="s-tk">GitHub token</label><input id="s-tk" type="password" placeholder="Not set" value="${esc(LS.get("rd_token")||"")}">
       <p>Needed only to sync the check-in, so the server recalculates the score. Fine-grained token, access to this repository only, with Contents and Actions set to read and write.</p></div>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
-  $("s-save").onclick=()=>{const p=$("s-pw").value.trim(),t=$("s-tk").value.trim(),wk=$("s-wk").value;
-    if(wk) LS.set("rd_wake",wk);
+  $("s-save").onclick=()=>{const p=$("s-pw").value.trim(),t=$("s-tk").value.trim();
     if(p) LS.set("rd_pass",p); t?LS.set("rd_token",t):LS.del("rd_token"); closeSheet(); load();};
   $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
 }
