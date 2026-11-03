@@ -372,25 +372,47 @@ async function load(){
   sel=DATA.days.findIndex(d=>d.date===today);
   draft={...(DATA.days[sel].answers||{})};
   loadedAt=Date.now(); prevScore=0; render();
+  autoRefresh();
 }
-let loadedAt=0;
+let loadedAt=0,polling=false,autoTries=0;
+// GitHub's schedule is unreliable (runs can be skipped for hours): every time the app opens
+// with stale data, it asks GitHub to recalculate and waits for the new score by itself
+async function autoRefresh(){
+  const latest=DATA.days[DATA.days.length-1],age=Date.now()-new Date(DATA.generated_at).getTime();
+  const stale=latest.date!==todayISO()||latest.score==null||age>20*60000;
+  const token=LS.get("rd_token");
+  if(!stale||!token||polling||autoTries>=2) return;
+  autoTries++;
+  const last=+(LS.get("rd_dispatch")||0);
+  if(Date.now()-last>3*60000){
+    try{
+      const owner=location.hostname.split(".")[0],repo=location.pathname.split("/").filter(Boolean)[0];
+      const r=await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/readiness.yml/dispatches`,
+        {method:"POST",headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({ref:"main"})});
+      if(!r.ok) return;
+      LS.set("rd_dispatch",String(Date.now()));
+    }catch(e){ return; }
+  }
+  polling=true; setNote("Updating…");
+  const was=DATA.generated_at,pass=LS.get("rd_pass"),t0=Date.now();
+  while(Date.now()-t0<4*60000){
+    await new Promise(r=>setTimeout(r,15000));
+    try{
+      const r=await fetch("data.enc?t="+Date.now(),{cache:"no-store"}); if(!r.ok) continue;
+      const d=await decryptEnv(await r.json(),pass);
+      if(d.generated_at!==was){ polling=false; return load(); }
+    }catch(e){}
+  }
+  polling=false; setNote("");
+}
+function setNote(t){ const n=$("upd-note"); if(n) n.textContent=t; const b=$("upd"); if(b) b.disabled=!!t; }
 // the installed app stays in memory overnight: refresh the data when it comes back to the screen
 document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible"&&DATA&&Date.now()-loadedAt>60000&&!$("sheet").classList.contains("open")) load();
+  if(document.visibilityState==="visible"&&DATA&&!$("sheet").classList.contains("open")){ autoTries=0; if(Date.now()-loadedAt>60000) load(); else autoRefresh(); }
 });
 async function requestUpdate(btn){
-  const token=LS.get("rd_token"),note=$("upd-note");
-  if(!token){ note.textContent="Add a GitHub token in settings to update from here."; return; }
-  btn.disabled=true; note.textContent="Asking GitHub to recalculate…";
-  try{
-    const owner=location.hostname.split(".")[0],repo=location.pathname.split("/").filter(Boolean)[0];
-    const r=await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/readiness.yml/dispatches`,
-      {method:"POST",headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({ref:"main"})});
-    if(r.status===403||r.status===404) throw new Error("the token needs Actions: read and write");
-    if(!r.ok) throw new Error("GitHub "+r.status);
-    note.textContent="Updating. The new score appears in about 2 minutes.";
-    setTimeout(load,120000);
-  }catch(e){ note.textContent="Couldn't start the update: "+e.message+"."; btn.disabled=false; }
+  if(!LS.get("rd_token")){ $("upd-note").textContent="Add a GitHub token in settings to update from here."; return; }
+  LS.del("rd_dispatch"); autoTries=0; polling=false; autoRefresh();
 }
 
 function logoSVG(sz){
