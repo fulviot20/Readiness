@@ -325,10 +325,9 @@ def raw_score(comp):
     return sum(comp[k]["z"] * w[k] for k in w) / sum(w.values())
 
 
-BANDS = [(95, "Peak", "Recovery is at its best: a good day to go for it if you feel it."),
-         (75, "High", "Recovery is above your usual: the body is ready for work."),
-         (50, "Moderate", "Recovery is in your usual range: train as planned and stay tuned to how it feels."),
-         (25, "Low", "Recovery is below your usual: see how the legs respond."),
+BANDS = [(80, "Super", "Recovery is above your usual: a good day to go for it if you feel it."),
+         (60, "Normal", "Recovery is in your usual range: train as planned and stay tuned to how it feels."),
+         (50, "Low", "Recovery is below your usual: see how the legs respond."),
          (0, "Very low", "Recovery is well below your usual: keep an eye on how you feel today.")]
 
 

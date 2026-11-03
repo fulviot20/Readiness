@@ -18,7 +18,7 @@
 :root{
   --bg:#121a26;--surface:#1a2433;--surface2:#212d3f;--line:#2a3749;
   --text:#eceff4;--muted:#8c98ab;--faint:#5f6c80;
-  --rose:#e2687a;--hr:#f07a8c;--pw:#b07cf0;--b1:#a45bd9;--b2:#6b6cf2;--b3:#3a9cf5;--b4:#2cc9c0;--b5:#5fe08a;--amber:#e9a15a;--sand:#d9c46a;--alpine:#5fc795;--glacier:#6fd3e6;
+  --rose:#e2687a;--hr:#f07a8c;--pw:#b07cf0;--b1:#a45bd9;--b2:#6b6cf2;--b3:#3a9cf5;--b4:#2cc9c0;--b5:#5fe08a;--amber:#e9a15a;--s1:#ff5d6c;--s2:#f7c948;--s3:#34d399;--s4:#4aa3ff;--sand:#d9c46a;--alpine:#5fc795;--glacier:#6fd3e6;
   --z1:#7d8798;--z2:#3e8ede;--z3:#3fb97a;--z4:#e5c33f;--z5:#ee8a3a;--z6:#e04f5f;--z7:#9b6ce0;
   --cond:"Barlow Condensed","Arial Narrow",sans-serif;
   --ui:"Barlow",-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -41,12 +41,18 @@ button{font:inherit;color:inherit}
 .gear{background:none;border:0;color:var(--muted);width:40px;height:40px;display:grid;place-items:center;cursor:pointer;border-radius:12px}
 
 /* gauge */
-.gauge{position:relative;display:block;margin:6px auto 0;max-width:340px;width:100%;background:none;border:0;padding:0;cursor:pointer}
+.g-wrap{display:flex;align-items:center;justify-content:center;gap:14px;margin:10px auto 0;max-width:360px}
+.gauge{position:relative;display:block;flex:0 1 230px;min-width:0;background:none;border:0;padding:0;cursor:pointer}
 .gauge svg{display:block;width:100%;height:auto;overflow:visible}
-.g-num{font-family:var(--cond);font-weight:300;font-size:84px;letter-spacing:-.02em;fill:var(--text)}
-.g-band{font-family:var(--cond);font-weight:500;font-size:21px;letter-spacing:.02em}
-.g-sub{font-size:13.5px;fill:var(--muted);font-family:var(--ui)}
-.g-lab{font-family:var(--cond);font-size:12px;fill:var(--faint)}
+.g-num{font-family:var(--cond);font-weight:300;font-size:74px;letter-spacing:-.025em;fill:var(--text)}
+.g-band{font-family:var(--ui);font-weight:600;font-size:11.5px;letter-spacing:.16em}
+.g-of{font-family:var(--ui);font-size:10.5px;letter-spacing:.14em;fill:var(--faint)}
+.g-legend{list-style:none;margin:0;padding:0;display:grid;gap:9px;flex:none}
+.g-legend li{display:grid;grid-template-columns:8px auto;column-gap:8px;align-items:center;opacity:.42;transition:opacity .3s}
+.g-legend li.on{opacity:1}
+.g-legend i{width:8px;height:8px;border-radius:50%;grid-row:span 2}
+.g-legend b{font:600 11px/1.1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text)}
+.g-legend span{font:400 10.5px/1.2 var(--ui);color:var(--muted);font-variant-numeric:tabular-nums}
 .adj{text-align:center;font-size:13px;color:var(--muted);min-height:18px;margin-top:6px}
 .verdict{text-align:center;font-size:18px;font-weight:500;margin:10px 0 4px;text-wrap:balance;color:var(--text)}
 .why{text-align:center;font-size:14.5px;color:var(--muted);margin:0 16px;text-wrap:balance}
@@ -295,11 +301,9 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const clip=(x,a,b)=>Math.max(a,Math.min(b,x));
 
 /* ------------------------------------------------------------ vocabulary */
-const BANDS=[[95,"Peak","var(--b5)"],[75,"High","var(--b4)"],[50,"Moderate","var(--b3)"],
-  [25,"Low","var(--b2)"],[0,"Very low","var(--b1)"]];
-const ADVICE={"Peak":"Recovery is at its best: a good day to go for it if you feel it.",
-  "High":"Recovery is above your usual: the body is ready for work.",
-  "Moderate":"Recovery is in your usual range: train as planned and stay tuned to how it feels.",
+const BANDS=[[80,"Super","var(--s4)"],[60,"Normal","var(--s3)"],[50,"Low","var(--s2)"],[0,"Very low","var(--s1)"]];
+const ADVICE={"Super":"Recovery is above your usual: a good day to go for it if you feel it.",
+  "Normal":"Recovery is in your usual range: train as planned and stay tuned to how it feels.",
   "Low":"Recovery is below your usual: see how the legs respond.",
   "Very low":"Recovery is well below your usual: keep an eye on how you feel today."};
 const bandOf=s=>BANDS.find(b=>s>=b[0]);
@@ -435,45 +439,46 @@ function lock(msg){
 }
 
 /* ------------------------------------------------------------ gauge */
-const CX=170,CY=150,R=120,A0=150,SWEEP=240,SW=13;
-const pol=(a,r)=>[CX+r*Math.cos(a*Math.PI/180),CY+r*Math.sin(a*Math.PI/180)];
-const ang=v=>A0+SWEEP*clip(v,0,100)/100;
-function arc(v1,v2,r){const[x1,y1]=pol(ang(v1),r),[x2,y2]=pol(ang(v2),r);
-  return `M${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${ang(v2)-ang(v1)>180?1:0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;}
-const SEGS=[[0,25,"var(--b1)","Very low"],[25,50,"var(--b2)","Low"],[50,75,"var(--b3)","Moderate"],[75,95,"var(--b4)","High"],[95,100,"var(--b5)","Peak"]];
+const SEGS=[[0,50,"var(--s1)","Very low"],[50,60,"var(--s2)","Low"],[60,80,"var(--s3)","Normal"],[80,100,"var(--s4)","Super"]];
 const segColor=v=>SEGS.find(s=>v<s[1]||s[1]===100)[2];
-const GAP=.7;
-const segEnds=([a,b])=>[a+(a?GAP:0),b-(b<100?GAP:0)];
-function fillPaths(v){return SEGS.map(sg=>{const[a,b]=segEnds(sg);return v>a?arc(a,Math.min(b,v),R):"";});}
-function gaugeSVG(score,band,color,sub){
-  let minor="";
-  for(let v=0;v<=100;v+=5){const big=v%25===0,[x1,y1]=pol(ang(v),R+SW/2+5),[x2,y2]=pol(ang(v),R+SW/2+(big?12:8));
-    minor+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--muted)" stroke-width="${big?1.4:1}" opacity="${big?.7:.35}"/>`;}
-  const fp=fillPaths(score??0);
-  const dim=SEGS.map(sg=>{const[a,b]=segEnds(sg);return `<path d="${arc(a,b,R)}" stroke="${sg[2]}" stroke-width="${SW}" fill="none" opacity=".22"/>`;}).join("");
-  const lit=SEGS.map((sg,i)=>`<path class="lit" d="${fp[i]}" stroke="${sg[2]}" stroke-width="${SW}" fill="none"/>`).join("");
-  const glow=SEGS.map((sg,i)=>`<path class="glw" d="${fp[i]}" stroke="${sg[2]}" stroke-width="${SW}" fill="none" filter="url(#gblur)" opacity=".45"/>`).join("");
-  const [m1x,m1y]=pol(ang(0),R-SW/2-6),[m2x,m2y]=pol(ang(0),R+SW/2+6);
-  return `<svg viewBox="0 0 340 228" aria-label="Readiness ${score??"pending"} of 100, ${esc(band)}">
-    <defs><filter id="gblur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter></defs>
-    ${minor}${dim}${glow}${lit}
-    <g id="g-mark" style="transform-origin:${CX}px ${CY}px;opacity:${score==null?0:1}">
-      <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="var(--bg)" stroke-width="8" stroke-linecap="round"/>
-      <line x1="${m1x}" y1="${m1y}" x2="${m2x}" y2="${m2y}" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>
+const RING={c:120,r:98,w:12};RING.C=2*Math.PI*RING.r;
+const HUE={"var(--s1)":["#ff8a95","#ff4d5e"],"var(--s2)":["#ffe08a","#f2b632"],"var(--s3)":["#7ef0c0","#1fbf86"],"var(--s4)":["#8cc8ff","#3b82f6"],"var(--faint)":["#5f6c80","#5f6c80"]};
+function ringDash(v){const L=RING.C*clip(v,0,100)/100;return `${L.toFixed(2)} ${RING.C.toFixed(2)}`;}
+function ringHead(v){const a=(-90+360*clip(v,0,100)/100)*Math.PI/180;return [RING.c+RING.r*Math.cos(a),RING.c+RING.r*Math.sin(a)];}
+function gaugeSVG(score,band,color){
+  const {c,r,w}=RING,[h1,h2]=HUE[color]||HUE["var(--faint)"],v=score??0,[hx,hy]=ringHead(v);
+  const notches=[50,60,80].map(t=>{const a=(-90+3.6*t)*Math.PI/180,p=k=>[c+k*Math.cos(a),c+k*Math.sin(a)],[x1,y1]=p(r-w/2-1),[x2,y2]=p(r+w/2+1);
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="var(--bg)" stroke-width="2.2"/>`;}).join("");
+  return `<svg viewBox="0 0 240 240" aria-label="Readiness ${score??"pending"} of 100, ${esc(band)}">
+    <defs>
+      <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${h1}"/><stop offset="1" stop-color="${h2}"/></linearGradient>
+      <radialGradient id="rin" cx="50%" cy="38%" r="62%"><stop offset="0" stop-color="#ffffff" stop-opacity=".055"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+      <filter id="rglow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="7"/></filter>
+    </defs>
+    <circle cx="${c}" cy="${c}" r="${r-w/2-4}" fill="url(#rin)"/>
+    <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#ffffff" stroke-opacity=".07" stroke-width="${w}"/>
+    ${notches}
+    <g transform="rotate(-90 ${c} ${c})" style="opacity:${score==null?0:1}">
+      <circle class="r-arc" cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${h2}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${ringDash(v)}" filter="url(#rglow)" opacity=".5"/>
+      <circle class="r-arc" cx="${c}" cy="${c}" r="${r}" fill="none" stroke="url(#rg)" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${ringDash(v)}"/>
     </g>
-    <text class="g-num" id="g-num" x="${CX}" y="${CY+20}" text-anchor="middle">${score??"–"}</text>
-    <text class="g-band" x="${CX}" y="${CY+48}" text-anchor="middle" fill="${color}">${esc(band)}</text>
-    <text class="g-sub" x="${CX}" y="${CY+70}" text-anchor="middle">${esc(sub||"")}</text>
+    <circle id="r-head" cx="${hx.toFixed(2)}" cy="${hy.toFixed(2)}" r="3.4" fill="#fff" opacity="${score==null?0:.95}"/>
+    <text class="g-num" id="g-num" x="${c}" y="${c+14}" text-anchor="middle">${score??"–"}</text>
+    <text class="g-band" x="${c}" y="${c+40}" text-anchor="middle" fill="${h1}">${esc(band.toUpperCase())}</text>
   </svg>`;
 }
+function legendHTML(band){
+  const rng={"Super":"80–100","Normal":"60–79","Low":"50–59","Very low":"0–49"};
+  return `<ul class="g-legend" aria-label="Score bands">${[...SEGS].reverse().map(([,,col,name])=>
+    `<li class="${name===band?"on":""}"><i style="background:${col};box-shadow:0 0 8px ${col}"></i><b>${name}</b><span>${rng[name]}</span></li>`).join("")}</ul>`;
+}
 function animateGauge(from,to){
-  const mark=$("g-mark"),num=$("g-num"),lit=[...document.querySelectorAll(".gauge .lit")],glw=[...document.querySelectorAll(".gauge .glw")];
-  if(!mark) return;
-  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce?0:1100,t0=performance.now();
-  const step=now=>{const k=T?clip((now-t0)/T,0,1):1,e=1-Math.pow(1-k,3),v=from+(to-from)*e,fp=fillPaths(v);
-    mark.style.transform=`rotate(${SWEEP*v/100}deg)`; num.textContent=Math.round(v);
-    fp.forEach((d,i)=>{lit[i].setAttribute("d",d); glw[i].setAttribute("d",d);});
-    if(k<1) requestAnimationFrame(step);};
+  const num=$("g-num"),arcs=[...document.querySelectorAll(".gauge .r-arc")],head=$("r-head");
+  if(!num) return;
+  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce?0:1200,t0=performance.now();
+  const step=now=>{const k=T?clip((now-t0)/T,0,1):1,e=1-Math.pow(1-k,3),v=from+(to-from)*e,d=ringDash(v),[hx,hy]=ringHead(v);
+    arcs.forEach(a=>a.setAttribute("stroke-dasharray",d)); head.setAttribute("cx",hx.toFixed(2)); head.setAttribute("cy",hy.toFixed(2));
+    num.textContent=Math.round(v); if(k<1) requestAnimationFrame(step);};
   requestAnimationFrame(step);
 }
 
@@ -925,7 +930,8 @@ function renderToday(){
     </div>
     <button class="gear" id="gear" aria-label="Settings">${GEAR}</button>
   </div>
-  <button class="gauge" id="gauge" aria-label="Score details">${gaugeSVG(has?day.score:null,band,color,has?deltaTxt(day):"")}</button>
+  <div class="g-wrap"><button class="gauge" id="gauge" aria-label="Score details">${gaugeSVG(has?day.score:null,band,color)}</button>${legendHTML(has?band:"")}</div>
+  <p class="adj">${has?esc(deltaTxt(day)):""}</p>
   ${has?`<button class="verdict-b" id="guide"><span class="verdict">${esc(day.advice)}</span><span class="why">${esc(day.why)}</span><span class="more">What this means for today</span></button>`:""}
   ${isToday&&!has?pendingNote():""}
 
@@ -1066,15 +1072,14 @@ function openSignal(key,n=7,keepPick=false){
   $("sheet").querySelectorAll("rect[data-pi]").forEach(r=>r.onclick=()=>{chartPick=+r.dataset.pi; openSignal(key,n,true);});
 }
 const GUIDE={
-  "Peak":["Your body is as recovered as it gets for you.","If there's a test or a hard session on the plan, this is a good day for it.","If the legs agree, you can push a little more than planned: an extra repetition or the top end of the range."],
-  "High":["Recovery is better than on most of your days.","Go ahead with the plan, quality included.","If you feel good, aim for the upper part of the target range."],
-  "Moderate":["This is a normal day for you: most of your days land here.","Train as planned.","In the hard parts, let the legs decide: if the effort feels heavier than usual, settle at the lower end of the range."],
+  "Super":["Recovery is better than on most of your days.","If there's a test or a hard session on the plan, this is a good day for it.","If the legs agree, aim for the upper part of the target range, or add a little extra."],
+  "Normal":["This is a normal day for you: most of your days land here.","Train as planned.","In the hard parts, let the legs decide: if the effort feels heavier than usual, settle at the lower end of the range."],
   "Low":["Recovery is below your usual, but the score can't feel your legs: you can.","Start the session as planned and use the first 15–20 minutes to check in.","Legs feel good: carry on, maybe at the lower end of the targets.","Legs feel heavy: drop the watts a little, or do one repetition less.","Legs feel cooked: turn it into easy endurance and save the quality for another day."],
   "Very low":["Several signals are well below your usual. Sometimes it's fatigue, sometimes a cold on the way, sometimes just a bad night.","If you feel fine, an easy or shortened session is a reasonable choice.","If you also feel off, a rest day or a very easy spin will pay back more than forcing it.","If it stays this low for a few days, look at sleep, stress and how you feel overall."],
 };
 function openGuide(){
   const raw=DATA.days[sel],isT=raw.date===todayISO(),day=isT?applyAnswers(raw,Object.keys(draft).length?draft:raw.answers):raw;
-  const g=GUIDE[day.band]||GUIDE.Moderate,col=segColor(day.score);
+  const g=GUIDE[bandOf(day.score)[1]]||GUIDE.Normal,col=segColor(day.score);
   openSheet(`<div class="sh-top"><h2>Reading today's score</h2>${X}</div>
     <div class="sh-big" style="color:${col}">${day.score}<small>${esc(day.band)}</small></div>
     <p class="sh-desc">${esc(g[0])}</p>
