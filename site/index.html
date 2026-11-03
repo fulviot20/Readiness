@@ -67,6 +67,11 @@ button{font:inherit;color:inherit}
 .picks button.on{border-color:var(--glacier);background:rgba(111,211,230,.08)}
 .field textarea{width:100%;min-height:84px;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font:inherit;resize:vertical}
 .bars30 svg{display:block;width:100%;height:auto}
+.stg{display:flex;height:12px;border-radius:99px;overflow:hidden;gap:2px;margin:6px 0 8px}
+.stg i{display:block;min-width:2px}
+.stg-k{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.stg-k i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.stg-k b{color:var(--text);font-weight:600}
 .kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:14.5px;margin:6px 0 16px}
 .kv span{color:var(--muted)}.kv b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
 .vrow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
@@ -404,7 +409,7 @@ let loadedAt=0,polling=false,autoTries=0;
 // with stale data, it asks GitHub to recalculate and waits for the new score by itself
 async function autoRefresh(){
   const latest=DATA.days[DATA.days.length-1],age=Date.now()-new Date(DATA.generated_at).getTime();
-  const stale=latest.date!==todayISO()||latest.score==null||age>20*60000;
+  const stale=((latest.date!==todayISO()||latest.score==null)&&new Date().getHours()>=5)||age>120*60000;
   const token=LS.get("rd_token");
   if(!stale||!token||polling||autoTries>=2) return;
   autoTries++;
@@ -514,7 +519,7 @@ function miniRing(v,col){
 }
 function duo(raw,isToday){
   const sl=raw.sleep_score,sk=raw.strain,i=DATA.days.indexOf(raw),y=i>0?DATA.days[i-1].strain:null;
-  const skSub=sk&&sk.score?`Load ${sk.load}`:(isToday&&y&&y.score?`Yesterday ${y.score}`:"No training");
+  const skSub=sk&&sk.trimp!=null?(sk.load?`Workouts ${sk.load}`:"Daily activity"):sk&&sk.score?`Load ${sk.load}`:(isToday&&y&&y.score?`Yesterday ${y.score}`:"No training");
   return `<div class="duo">
     <button class="mini" id="m-sleep">${miniRing(sl?sl.score:null,SLEEP_C)}<span class="mt"><small>SLEEP</small><b>${sl?esc(sl.band):"–"}</b><span>${sl?hmh(sl.hours):"No data"}</span></span></button>
     <button class="mini" id="m-strain">${miniRing(sk?sk.score:null,STRAIN_C)}<span class="mt"><small>STRAIN</small><b>${sk?esc(sk.band):"–"}</b><span>${esc(skSub)}</span></span></button></div>`;
@@ -534,26 +539,42 @@ function bars30(key,col){
 function bindBars(reopen){
   document.querySelectorAll("#sheet rect[data-bi]").forEach(r=>r.onclick=()=>{barPick=+r.dataset.bi;const y=$("sheet").scrollTop;reopen(true);$("sheet").scrollTop=y;});
 }
+const clock=ms=>{const d=new Date(ms);return `${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;};
+function stagesBar(s){
+  const t=s.deep+s.rem+s.light+(s.awake_min||0)/60; if(!t||!(s.deep+s.rem+s.light)) return "";
+  const seg=[["Deep",s.deep,"#6d5dfc"],["REM",s.rem,"#a78bfa"],["Light",s.light,"#c4b5fd"],["Awake",(s.awake_min||0)/60,"#f0a5b4"]];
+  return `<div class="stg">${seg.map(([n,v,c])=>`<i style="flex:${v};background:${c}"></i>`).join("")}</div>
+    <div class="stg-k">${seg.map(([n,v,c])=>`<span><i style="background:${c}"></i>${n} <b>${n==="Awake"?Math.round(v*60)+" min":hmh(v)}</b></span>`).join("")}</div>`;
+}
+const PART_NAMES={duration:"Duration vs your need",efficiency:"Efficiency",restorative:"Deep + REM",continuity:"Few awakenings",regularity:"Regular timing"};
 function openSleepScore(keep){
   if(!keep) barPick=null;
   const s=DATA.days[sel].sleep_score; if(!s) return;
+  const parts=s.parts||{};
   openSheet(`<div class="sh-top"><h2>Sleep</h2>${X}</div>
     <div class="sh-big" style="color:${SLEEP_C}">${s.score}<small>${esc(s.band)}</small></div>
-    <p class="sh-desc">How well last night covered your own need, learned from your last 30 nights. Short nights in a row add a debt that lowers it.</p>
-    <div class="kv"><span>Last night</span><b>${hmh(s.hours)}</b><span>Your usual need</span><b>${hmh(s.need)}</b>
-      <span>Debt over 3 nights</span><b>${s.debt>=.1?hmh(s.debt):"None"}</b>${s.garmin?`<span>Garmin sleep score</span><b>${s.garmin}</b>`:""}</div>
+    ${s.start?`<p class="sh-desc">${clock(s.start)} → ${clock(s.end)} · ${hmh(s.hours)} asleep${s.eff?` · ${Math.round(s.eff*100)}% efficiency`:""}</p>`:""}
+    ${s.deep!=null?stagesBar(s):""}
+    ${Object.keys(parts).length?`<h3 class="sh-h3">What makes up the score</h3>${Object.entries(parts).map(([k,v])=>`<div class="bd"><div class="bd-t"><span>${PART_NAMES[k]||k}</span><b>${v}</b></div>
+      <div class="bd-bar"><span style="width:${v}%;background:${SLEEP_C}"></span></div></div>`).join("")}`:""}
+    <div class="kv" style="margin-top:14px"><span>Your need</span><b>${hmh(s.need)}</b>
+      <span>Debt over 3 nights</span><b>${s.debt>=.1?hmh(s.debt):"None"}</b>
+      ${s.midpoint_dev!=null?`<span>Timing vs your last week</span><b>${s.midpoint_dev<=15?"On time":s.midpoint_dev+" min off"}</b>`:""}</div>
+    <p class="sh-note">Our own score from the raw night: duration against your need (learned from your last 30 nights) 40%, regular timing 20%, efficiency 15%, deep + REM against your own normal 15%, awakenings 10%, minus up to 15 points of short-term debt.</p>
     <div class="sec-h"><h2>Last 30 days</h2><span>Tap a day</span></div>${bars30("sleep_score",SLEEP_C)}`);
   bindBars(openSleepScore);
 }
 function openStrain(keep){
   if(!keep) barPick=null;
   const raw=DATA.days[sel],s=raw.strain; if(!s) return;
-  const ctl=(sel>0?DATA.days[sel-1].ctl:raw.ctl);
+  const own=s.trimp!=null;
   openSheet(`<div class="sh-top"><h2>Strain</h2>${X}</div>
     <div class="sh-big" style="color:${STRAIN_C}">${s.score}<small>${esc(s.band)}</small></div>
-    <p class="sh-desc">How hard the day was compared with your usual day of training. A typical session lands around 50–75; the scale gets harder to climb as it goes up.</p>
-    <div class="kv"><span>Training load</span><b>${s.load}</b>${ctl?`<span>Your usual day (fitness)</span><b>${Math.round(ctl)}</b>`:""}</div>
+    <p class="sh-desc">${own?"How hard the whole day was on your heart, workouts and everything else, compared with your usual day.":"How hard the day was compared with your usual day of training."} The scale gets harder to climb as it goes up: a usual day lands near 50.</p>
+    <div class="kv">${own?`<span>Cardio load today (TRIMP)</span><b>${s.trimp}</b><span>Your usual day</span><b>${s.usual}</b>`:""}
+      <span>Training load of workouts</span><b>${s.load||0}</b></div>
     <div class="kv"><span>Light</span><b>0–29</b><span>Moderate</span><b>30–59</b><span>High</span><b>60–79</b><span>Max</span><b>80–100</b></div>
+    ${own?`<p class="sh-note">Our own score from the all-day heart rate: every minute above 30% of your heart-rate reserve counts, more the harder it is (Banister TRIMP), against your average of the last six weeks.</p>`:""}
     <div class="sec-h"><h2>Last 30 days</h2><span>Tap a day</span></div>${bars30("strain",STRAIN_C)}`);
   bindBars(openStrain);
 }
@@ -628,7 +649,7 @@ function openScore(n=30,keep=false){
   if(!keep) scorePick=null;
   const raw=DATA.days[sel],isT=raw.date===todayISO(),day=isT?applyAnswers(raw,Object.keys(draft).length?draft:raw.answers):raw;
   if(day.score==null) return;
-  const c=day.comp||{},order=[["hrv","HRV"],["load","Training load"],["sleep","Sleep"],["rhr","Resting HR"]];
+  const c=day.comp||{},order=SIG_KEYS().map(k=>[k,SIG[k].name]);
   const rows=order.map(([k,name])=>{const v=c[k],w=Math.round(DATA.weights[k]*100);
     if(!v) return `<div class="bd"><div class="bd-t"><span>${name}<i>${w}%</i></span><b>–</b></div><div class="bd-bar"></div></div>`;
     return `<div class="bd"><div class="bd-t"><span>${name}<i>${w}%</i></span><b>${v.sub}</b></div>
@@ -643,9 +664,10 @@ function openScore(n=30,keep=false){
     <p class="sh-note">Each signal scored against your own history. 70, the tick on each bar, is a normal day for you.</p>
     ${rows}
     ${day.mod?`<div class="bd-adj"><span>Morning check-in</span><b>${day.mod>0?"+":""}${day.mod}</b></div>`:""}
-    ${day.alarm?`<p class="sh-note warn">Low HRV and high resting HR on the same night: the score is capped at 49.</p>`:""}
+    ${day.alarm?`<p class="sh-note warn">An early-warning pattern (low HRV with high sleeping heart rate, or a jump in breathing rate): the score is capped at 49.</p>`:""}
+    ${day.legacy!=null&&day.model==="garmin"?`<div class="bd-adj"><span>Previous model (Intervals summaries)</span><b>${day.legacy}</b></div>`:""}
     <h3 class="sh-h3">How it works</h3>
-    <p class="sh-note">Signals are combined with the weights shown, then scaled on the last ${DATA.calibration.n} days of your data so that a typical day lands around 70 and only your best few days reach 95 and above. Bands: 0–24 very low, 25–49 low, 50–74 moderate, 75–94 high, 95–100 peak.</p>`);
+    <p class="sh-note">Signals are combined with the weights shown, then scaled on the last ${DATA.calibration.n} days of your data so that a typical day lands around 70 and only your best few days reach 95 and above. Bands: 0–49 very low, 50–59 low, 60–79 normal, 80–100 super.${day.model==="garmin"?" Computed by our own model on raw Garmin data: HRV readings, all-night heart rate, breathing and sleep stages.":""}</p>`);
   if(keep) $("sheet").scrollTop=keepScroll;
   $("sheet").querySelectorAll(".range button").forEach(b=>b.onclick=()=>openScore(+b.dataset.n));
   $("sheet").querySelectorAll("rect[data-si]").forEach(r=>r.onclick=()=>{scorePick=+r.dataset.si; openScore(n,true);});
@@ -654,15 +676,18 @@ function openScore(n=30,keep=false){
 /* ------------------------------------------------------------ signals */
 const SIG={
   hrv:{name:"HRV",unit:"ms",fmt:v=>Math.round(v),weight:"40%",
-    desc:"Heart rate variability measured overnight. Higher than your normal usually means good recovery; a drop that lasts several days points to fatigue, stress or illness.",
+    desc:"Heart rate variability overnight: the median of the watch's 5-minute readings across the night, which ignores restless moments. The score uses its 7-day trend against your last 60 days. Higher than your normal usually means good recovery; a drop that lasts several days points to fatigue, stress or illness.",
     status:c=>c.value<c.lo?[c.lo-c.value<1?"Just below normal":`${Math.round(c.lo-c.value)} ms below normal`,"var(--amber)"]:c.value>c.hi?[c.value-c.hi<1?"Just above normal":`${Math.round(c.value-c.hi)} ms above normal`,"var(--alpine)"]:["Within normal","var(--muted)"]},
-  rhr:{name:"Resting HR",unit:"bpm",fmt:v=>Math.round(v),weight:"15%",
-    desc:"Lowest heart rate overnight. A rise of 3–5 bpm over your normal often shows up with accumulated fatigue or a cold coming on.",
+  rhr:{name:"Sleeping HR",unit:"bpm",fmt:v=>Math.round(v),weight:"20%",
+    desc:"Your lowest 30 minutes of heart rate during sleep, from the watch's all-night heart rate. A rise of 3–5 bpm over your normal often shows up with accumulated fatigue or a cold coming on.",
     status:c=>c.value>c.hi?[`${Math.max(1,Math.round(c.value-c.base))} bpm above average`,"var(--amber)"]:c.value<c.lo?["Below normal","var(--alpine)"]:["Within normal","var(--muted)"]},
-  sleep:{name:"Sleep",unit:"h",fmt:v=>hm(v),weight:"20%",
-    desc:"Time asleep last night and over the last three nights, measured against your own habits rather than a fixed number. Your usual night is the median of your last 30 nights; your minimum is where your short nights sit. Nights under 4 h or over 11 h are treated as watch errors and ignored.",
+  resp:{name:"Breathing rate",unit:"/min",fmt:v=>(Math.round(v*10)/10).toFixed(1),weight:"10%",
+    desc:"Average breaths per minute during sleep. It is remarkably stable night to night, so a rise of one breath or more over your normal is one of the earliest signs of illness. It can only lower the score, never raise it.",
+    status:c=>c.value>c.hi?[`${(c.value-c.base).toFixed(1)} above your normal`,"var(--amber)"]:["Within normal","var(--muted)"]},
+  sleep:{name:"Sleep",unit:"h",fmt:v=>hm(v),weight:"15%",
+    desc:"Time asleep last night against your own need. In the recovery score it counts through the Sleep score, which also weighs efficiency, deep and REM sleep, awakenings and how regular your timing is.",
     status:c=>c.value<c.lo?[`Below your minimum of ${hmh(c.lo)}`,"var(--amber)"]:c.value<c.hi?[`${hmh(c.hi-c.value)} under your usual`,"var(--muted)"]:["At or above your usual","var(--muted)"]},
-  load:{name:"Training load",unit:"%",fmt:v=>(v>0?"+":"")+Math.round(v),weight:"25%",
+  load:{name:"Training load",unit:"%",fmt:v=>(v>0?"+":"")+Math.round(v),weight:"15%",
     desc:"Form: fitness minus fatigue as a share of fitness, from yesterday's numbers. Between −10% and −30% you are training productively; below −30% fatigue is piling up.",
     status:c=>c.value< -30?["Heavy fatigue","var(--rose)"]:c.value< -10?["Productive training","var(--muted)"]:["Fresh","var(--alpine)"]},
 };
@@ -681,6 +706,8 @@ function spark(key){
     <polyline points="${pts.join(" ")}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
     <circle cx="${lx}" cy="${ly}" r="2.6" fill="var(--text)"/></svg>`;
 }
+const wPct=k=>DATA.weights&&DATA.weights[k]!=null?Math.round(DATA.weights[k]*100)+"%":SIG[k].weight;
+const SIG_KEYS=()=>["hrv","rhr","resp","sleep","load"].filter(k=>!DATA.weights||DATA.weights[k]!=null);
 function signalRow(key,c){
   const m=SIG[key];
   if(!c) return `<button class="sig" disabled><div><div class="n">${m.name}</div><div class="s">No valid data</div></div><span></span><div class="v">–</div></button>`;
@@ -746,11 +773,11 @@ function sessions(day){
   const isT=day.date===todayISO();
   const done=(day.workouts||[]).filter(w=>w.type);
   const doneEvents=new Set(done.map(w=>w.event).filter(Boolean));
-  const plans=(day.plan||[]).filter(p=>!doneEvents.has(p.id)&&!(done.length&&!p.id));
+  const plans=(day.plan||[]).filter(p=>!p.done&&!doneEvents.has(p.id));
   const cards=done.map(doneCard).concat(plans.map(planCard));
   const title=isT?"Today's training":"Training";
   const empty=`<div class="wcard rest"><div class="w-name">Nothing planned</div><div class="w-meta">Rest day, or nothing on the calendar yet.</div></div>`;
-  return `<section class="sec"><div class="sec-h"><h2>${title}</h2><span>Synced with Intervals</span></div>
+  return `<section class="sec"><div class="sec-h"><h2>${title}</h2><span>Synced with Garmin & Intervals</span></div>
     ${cards.length?cards.join(""):empty}
     <a class="callink" href="${INTERVALS}/" target="_blank" rel="noopener">
       <span class="cal-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
@@ -1059,7 +1086,7 @@ function renderToday(){
   ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
 
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
-    <div class="signals">${["hrv","rhr","sleep","load"].map(k=>signalRow(k,c[k])).join("")}</div>
+    <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
     ${isToday?tonightCard():""}</section>
 
   ${isToday?checkin(raw):""}
@@ -1077,7 +1104,7 @@ function bind(raw){
   const g=$("guide"); if(g) g.onclick=()=>openGuide();
   $("m-sleep").onclick=()=>openSleepScore(); $("m-strain").onclick=()=>openStrain();
   const of=$("off"); if(of) of.onclick=openOff;
-  const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
+  const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].sleep_score) openSleepScore(); else if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));
   document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
@@ -1143,10 +1170,11 @@ function sigChart(key,n){
 function fmtNum(v){return Number.isInteger(v)?String(v):v.toFixed(1).replace(/\.0$/,"");}
 const hmh=h=>{const m=Math.round(h*60);return m<60?`${m} min`:`${Math.floor(m/60)}h${m%60?String(m%60).padStart(2,"0"):""}`;};
 function sleepPlan(){
-  let i=sel; while(i>=0&&!DATA.days[i].comp?.sleep) i--;
+  let i=sel; while(i>=0&&!DATA.days[i].sleep_score?.need&&!DATA.days[i].comp?.sleep?.avg3) i--;
   if(i<0) return null;
-  const c=DATA.days[i].comp.sleep,usual=c.hi,min=c.lo,avg3=c.avg3;
-  const debt=Math.max(0,(usual-avg3)*3);
+  const ss=DATA.days[i].sleep_score,c=DATA.days[i].comp?.sleep||{};
+  const usual=ss?.need??c.hi,min=ss?.floor??c.lo;
+  const debt=ss?.need?ss.debt:Math.max(0,(usual-c.avg3)*3);
   const extra=Math.min(.75,debt*.5);
   const t=DATA.days[sel],tm=new Date(new Date(t.date+"T12:00").getTime()+864e5).toLocaleDateString("sv-SE");
   const todayLoad=(t.workouts||[]).reduce((a,w)=>a+(w.load||0),0);
@@ -1176,10 +1204,11 @@ function openSignal(key,n=7,keepPick=false){
   if(!keepPick) chartPick=null;
   const m=SIG[key],c=DATA.days[sel].comp[key];
   const stats={
-    hrv:[["Last night",`${Math.round(c.value)} ms`],["7-day average",`${c.avg7} ms`],["Your normal",`${Math.round(c.lo)}–${Math.round(c.hi)} ms`],["Weight in score",m.weight]],
-    rhr:[["Last night",`${c.value} bpm`],["Your average",`${c.base} bpm`],["Your normal",`${c.lo}–${c.hi} bpm`],["Weight in score",m.weight]],
-    sleep:[["Last night",hm(c.value)],["3-night average",hm(c.avg3)],["Your usual",hm(c.hi)],["Your minimum",hm(c.lo)]],
-    load:[["Form",`${c.value>0?"+":""}${c.value}%`],["Fitness / fatigue",`${c.ctl} / ${c.atl}`],["Productive range","−30% to −10%"],["Weight in score",m.weight]],
+    hrv:[["Last night",`${Math.round(c.value)} ms`],["7-day average",`${c.avg7} ms`],["Your normal",`${Math.round(c.lo)}–${Math.round(c.hi)} ms`],["Weight in score",wPct(key)]],
+    rhr:[["Last night",`${Math.round(c.value)} bpm`],["Your average",`${c.base} bpm`],["Your normal",`${c.lo}–${c.hi} bpm`],["Weight in score",wPct(key)]],
+    resp:[["Last night",`${c.value} /min`],["Your average",`${c.base} /min`],["Your normal",`${c.lo}–${c.hi} /min`],["Weight in score",wPct(key)]],
+    sleep:[["Last night",hm(c.value)],c.score!=null?["Sleep score",String(c.score)]:["3-night average",hm(c.avg3)],["Your need",hm(c.hi)],["Your minimum",hm(c.lo)]],
+    load:[["Form",`${c.value>0?"+":""}${c.value}%`],["Fitness / fatigue",`${c.ctl} / ${c.atl}`],["Productive range","−30% to −10%"],["Weight in score",wPct(key)]],
   }[key];
   const keepScroll=$("sheet").scrollTop;
   openSheet(`<div class="sh-top"><h2>${m.name}</h2>${X}</div>

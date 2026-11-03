@@ -23,6 +23,8 @@ import urllib.error
 import urllib.request
 from zoneinfo import ZoneInfo
 
+import engine
+import garmin
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -441,7 +443,8 @@ def modifier(ans):
 
 
 def explain(comp):
-    names = {"hrv": "HRV", "rhr": "resting HR", "sleep": "sleep", "load": "training load"}
+    names = {"hrv": "HRV", "rhr": "sleeping heart rate", "sleep": "sleep", "load": "training load",
+             "resp": "breathing rate"}
     if not comp:
         return ""
     ranked = sorted(((comp[k]["z"], k) for k in comp), key=lambda t: t[0])
@@ -509,9 +512,38 @@ def week_summary(done, plans, today, n=6):
     return {"start": monday.isoformat(), "days": current, "history": hist}
 
 
-def build(wellness, activities, events, answers, today, streams=None, notes=None):
+def match_plans(plans, done):
+    """Mark planned sessions as done: paired in Intervals, or same day and same sport, or same name."""
+    out = {}
+    for d, ps in plans.items():
+        ws = [w for w in done.get(d, []) if w.get("type")]
+        used = set()
+        res = []
+        for p in ps:
+            hit = None
+            for k, w in enumerate(ws):
+                if k not in used and w.get("event") and w["event"] == p.get("id"):
+                    hit = k
+            if hit is None:
+                for k, w in enumerate(ws):
+                    if k in used:
+                        continue
+                    same_sport = p.get("type") and sport_name(p["type"]) == sport_name(w["type"])
+                    same_name = (p.get("name") or "").strip().lower() == (w.get("name") or "").strip().lower()
+                    if same_sport or same_name:
+                        hit = k
+                        break
+            if hit is not None:
+                used.add(hit)
+            res.append({**p, "done": hit is not None})
+        out[d] = res
+    return out
+
+
+def build(wellness, activities, events, answers, today, streams=None, notes=None, gdays=None):
     streams = streams or {}
     notes = notes or {}
+    gdays = gdays or {}
     rows = []
     for w in sorted(wellness, key=lambda x: x["id"]):
         rows.append({"date": w["id"], "hrv": w.get("hrv"), "rhr": w.get("restingHR"),
@@ -521,9 +553,27 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
     for i, r in enumerate(rows):
         r["comp"] = components(rows, i)
         r["raw"] = raw_score(r["comp"])
-
     raws = [r["raw"] for r in rows[-180:] if r["raw"] is not None]
     mu, sigma = (st.mean(raws), max(st.stdev(raws), 0.05)) if len(raws) >= 30 else (0.0, 1.0)
+    rowmap = {r["date"]: (i, r) for i, r in enumerate(rows)}
+
+    def legacy(d):
+        if d not in rowmap or rowmap[d][1]["raw"] is None:
+            return None
+        return round(clip(70 + 12 * (rowmap[d][1]["raw"] - mu) / sigma, 1, 100))
+
+    # ---------------- new engine on Garmin data, over a continuous calendar
+    first = min([r["date"] for r in rows] + sorted(gdays)[:1] + [today.isoformat()])
+    n = (today - dt.date.fromisoformat(first)).days + 1
+    dates = [(today - dt.timedelta(days=n - 1 - k)).isoformat() for k in range(n)]
+
+    def form_prev(i):
+        if i == 0 or dates[i - 1] not in rowmap:
+            return None
+        p = rowmap[dates[i - 1]][1]
+        if not p.get("ctl") or p.get("atl") is None:
+            return None
+        return {"form": (p["ctl"] - p["atl"]) / p["ctl"] * 100, "ctl": p["ctl"], "atl": p["atl"]}
 
     done = {}
     keep_from = (today - dt.timedelta(days=KEEP_DAYS)).isoformat()
@@ -531,60 +581,89 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
         d = (a.get("start_date_local") or "")[:10]
         if d and d >= keep_from:
             done.setdefault(d, []).append(summary(a, streams))
-    plans = plans_by_day(events)
+    plans = match_plans(plans_by_day(events), done)
+
+    eng = {}
+    for i, d in enumerate(dates):
+        if not gdays:
+            break
+        sl = engine.sleep_score(dates, gdays, i)
+        comp = engine.recovery_components(dates, gdays, i, sl, form_prev(i))
+        eng[d] = {"sleep": sl, "comp": comp, "raw": engine.raw_recovery(comp),
+                  "strain": engine.strain_score(dates, gdays, i, sum(w.get("load") or 0 for w in done.get(d, [])))}
+    eraws = [e["raw"] for d, e in eng.items() if e["raw"] is not None and d >= dates[max(0, len(dates) - 180)]]
+    emu, esig = (st.mean(eraws), max(st.stdev(eraws), 0.05)) if len(eraws) >= 30 else (0.0, 0.7)
 
     days = []
-    for j, r in enumerate(rows):
-        if j < len(rows) - KEEP_DAYS:
-            continue
-        d = r["date"]
-        prev_ctl = rows[j - 1].get("ctl") if j > 0 else r.get("ctl")
+    for d in dates[-KEEP_DAYS:]:
+        r = rowmap.get(d, (None, {}))[1]
+        j = rowmap[d][0] if d in rowmap else None
+        e = eng.get(d)
+        prev_ctl = rows[j - 1].get("ctl") if j else (rows[-1].get("ctl") if rows else None)
         item = {"date": d, "workouts": done.get(d, []), "plan": plans.get(d, []), "answers": answers.get(d),
-                "note": notes.get(d), "sleep_score": sleep_score(rows, j),
-                "strain": strain(sum(w.get("load") or 0 for w in done.get(d, [])), prev_ctl),
+                "note": notes.get(d),
                 "ctl": round(r["ctl"], 1) if r.get("ctl") is not None else None,
                 "atl": round(r["atl"], 1) if r.get("atl") is not None else None}
-        if r["raw"] is not None:
-            base = clip(70 + 12 * (r["raw"] - mu) / sigma, 1, 100)
-            hz = r["comp"].get("hrv", {}).get("z_night")
-            rz = r["comp"].get("rhr", {}).get("z")
-            alarm = hz is not None and rz is not None and hz < -1 and rz < -1
-            if alarm:
-                base = min(base, 49)
-            mod, sick = modifier(answers.get(d))
-            final = clip(base + mod, 1, 100)
-            if sick or alarm:
-                final = min(final, 49)
-            name, advice = band(final)
-            item.update({
-                "score": round(final), "base": round(base), "mod": round(mod), "alarm": alarm,
-                "band": name, "advice": advice,
-                "why": ("Low HRV and high resting HR together: a classic early warning. " if alarm else "")
-                       + explain(r["comp"]),
-                "comp": {k: {**{kk: vv for kk, vv in v.items() if kk not in ("z", "z_night")},
-                             "sub": sub(v["z"])} for k, v in r["comp"].items()},
-            })
+        item["sleep_score"] = (e or {}).get("sleep") or (sleep_score(rows, j) if j is not None else None)
+        item["strain"] = (e or {}).get("strain") or strain(sum(w.get("load") or 0 for w in done.get(d, [])), prev_ctl)
+        if e and e["raw"] is not None:
+            comp, base, model = e["comp"], clip(70 + 12 * (e["raw"] - emu) / esig, 1, 100), "garmin"
+        elif j is not None and r.get("raw") is not None:
+            comp, base, model = r["comp"], clip(70 + 12 * (r["raw"] - mu) / sigma, 1, 100), "intervals"
+        else:
+            days.append(item)
+            continue
+        hz = comp.get("hrv", {}).get("z_night")
+        rz = comp.get("rhr", {}).get("z")
+        resp_hi = comp.get("resp", {}).get("z_raw", 0) > 2
+        alarm = (hz is not None and rz is not None and hz < -1 and rz < -1) or resp_hi
+        if alarm:
+            base = min(base, 49)
+        mod, sick = modifier(answers.get(d))
+        final = clip(base + mod, 1, 100)
+        if sick or alarm:
+            final = min(final, 49)
+        name, advice = band(final)
+        warn = ("Breathing rate during sleep is well above your normal: often the first sign of a cold. " if resp_hi
+                else "Low HRV and high sleeping heart rate together: a classic early warning. " if alarm else "")
+        item.update({
+            "score": round(final), "base": round(base), "mod": round(mod), "alarm": alarm,
+            "band": name, "advice": advice, "model": model, "legacy": legacy(d),
+            "why": warn + explain(comp),
+            "comp": {k: {**{kk: vv for kk, vv in v.items() if kk not in ("z", "z_night", "z_raw")},
+                         "sub": sub(v["z"])} for k, v in comp.items()},
+        })
         days.append(item)
 
-    t = today.isoformat()
-    if not days or days[-1]["date"] != t:     # today's wellness not in yet: keep today's sessions anyway
-        last_ctl = rows[-1].get("ctl") if rows else None
-        days.append({"date": t, "workouts": done.get(t, []), "plan": plans.get(t, []), "answers": answers.get(t),
-                     "note": notes.get(t), "strain": strain(sum(w.get("load") or 0 for w in done.get(t, [])), last_ctl)})
     upcoming = {d: p for d, p in plans.items() if d >= today.isoformat()}
     weeks = week_summary(done, plans, today)
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
             "today": today.isoformat(),
-            "calibration": {"mu": mu, "sigma": sigma, "n": len(raws)},
-            "weights": WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
-            "volume": volume(activities), "validation": validation(days)}
+            "calibration": {"mu": emu if eng else mu, "sigma": esig if eng else sigma,
+                            "n": len(eraws) if eng else len(raws)},
+            "weights": engine.WEIGHTS if eng else WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
+            "volume": volume(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals"}
 
 
 def main():
     today = dt.datetime.now(TZ).date()
     pw = os.environ["READINESS_PASSPHRASE"]
     wellness, activities, events, streams = load_data(today)
-    data = build(wellness, activities, events, load_answers(pw), today, streams, load_notes(pw))
+    gdays = {}
+    if os.environ.get("GARMIN_API_KEY"):
+        errors = []
+        cache = engine.load_cache(pw, decrypt)
+        hrmax_hint = max([a.get("max_heartrate") or 0 for a in activities] + [0])
+        try:
+            cache = engine.refresh(cache, today, errors, hrmax_hint)
+            engine.save_cache(cache, pw, encrypt)
+        except SystemExit as e:
+            errors.append(str(e))
+        for e in sorted(set(errors))[:10]:
+            print("garmin:", e[:160])
+        gdays = cache.get("days", {})
+        print(f"garmin: {len(gdays)} days cached, {sum(1 for v in gdays.values() if v.get('detail'))} with detail")
+    data = build(wellness, activities, events, load_answers(pw), today, streams, load_notes(pw), gdays)
     os.makedirs("site", exist_ok=True)
     with open("site/data.enc", "w") as f:
         json.dump(encrypt(data, pw), f)
@@ -592,7 +671,10 @@ def main():
     with open("data.hash", "w") as f:
         f.write(hashlib.sha256(json.dumps(stable, sort_keys=True).encode()).hexdigest() + "\n")
     last = data["days"][-1] if data["days"] else {}
-    print(f"{last.get('date')}: score {last.get('score', 'pending')}")
+    # the repository is public: log only what is present, never the values
+    print(f"{last.get('date')}: score {'ready' if last.get('score') is not None else 'pending'} "
+          f"({last.get('model', '-')}), sleep {'ready' if last.get('sleep_score') else '-'}, "
+          f"strain {'ready' if last.get('strain') else '-'}")
 
 
 if __name__ == "__main__":

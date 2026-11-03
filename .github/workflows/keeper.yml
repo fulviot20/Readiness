@@ -1,0 +1,38 @@
+name: Keeper
+
+# GitHub's own schedule is unreliable (runs get skipped for hours), so this job stays alive
+# for almost 6 hours and asks for a fresh calculation every 10 minutes, then restarts itself.
+on:
+  schedule:
+    - cron: "11 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: keeper
+  cancel-in-progress: false
+
+jobs:
+  keep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Ricalcola ogni 10 minuti
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          end=$(( $(date +%s) + 340*60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            gh api -X POST "repos/$REPO/actions/workflows/readiness.yml/dispatches" -f ref=main || true
+            sleep 600
+          done
+      - name: Riparti
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: gh api -X POST "repos/$REPO/actions/workflows/keeper.yml/dispatches" -f ref=main || true

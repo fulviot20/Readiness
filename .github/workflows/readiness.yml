@@ -2,14 +2,14 @@ name: Readiness
 
 on:
   schedule:
-    # mattina (5-9 in Italia d'inverno): ogni 10 minuti, per avere lo score subito dopo il risveglio
-    - cron: "*/10 4-7 * * *"
-    # resto della giornata: ogni ora
-    - cron: "7 8-21 * * *"
+    # backup only: the Keeper workflow triggers this every 10 minutes
+    - cron: "*/30 * * * *"
   push:
     paths:
       - "answers/**"
       - "notes/**"
+      - "site/**"
+      - "*.py"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +24,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: github-pages
     steps:
@@ -33,30 +34,37 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Calcola lo score
+      - name: Calcola gli score
         env:
           INTERVALS_API_KEY: ${{ secrets.INTERVALS_API_KEY }}
           INTERVALS_ATHLETE_ID: ${{ secrets.INTERVALS_ATHLETE_ID }}
           READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
+          GARMIN_API_KEY: ${{ secrets.GARMIN_API_KEY }}
         run: |
           pip install --quiet cryptography
           python readiness.py
 
-      # salva solo l'impronta dei dati (nessun dato personale) quando cambia:
-      # tiene attivo il repository, così GitHub non sospende la pianificazione
+      # only fingerprints and the encrypted cache are committed (no readable personal data)
       - name: Registra l'aggiornamento
+        id: rec
         run: |
-          if ! git diff --quiet -- data.hash || ! git ls-files --error-unmatch data.hash >/dev/null 2>&1; then
+          git add -N data.hash cache/ 2>/dev/null || true
+          if [ "${{ github.event_name }}" = "push" ] || ! git diff --quiet -- data.hash; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+          if ! git diff --quiet -- data.hash cache/; then
             git config user.name "readiness-bot"
             git config user.email "readiness-bot@users.noreply.github.com"
-            git add data.hash
+            git add data.hash cache/
             git commit -m "Aggiornamento score"
-            git pull --rebase
-            git push
+            for i in 1 2 3; do git pull --rebase -X theirs && git push && break; sleep 5; done
           fi
 
       - uses: actions/configure-pages@v5
+        if: steps.rec.outputs.deploy == 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.rec.outputs.deploy == 'true'
         with:
           path: site
       - uses: actions/deploy-pages@v4
+        if: steps.rec.outputs.deploy == 'true'
