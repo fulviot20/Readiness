@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 import engine
 import fitness
 import garmin
+import push
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -541,6 +542,41 @@ def match_plans(plans, done):
     return out
 
 
+def week_review(days, fit, start, end):
+    """Summary of one week against the week before it."""
+    def stats(a, b):
+        ds = [d for d in days if a.isoformat() <= d["date"] <= b.isoformat()]
+        avg = lambda xs: round(st.mean(xs)) if xs else None
+        ws = [w for d in ds for w in d.get("workouts", []) if w.get("type")]
+        return {"recovery": avg([d["score"] for d in ds if d.get("score") is not None]),
+                "sleep": avg([d["sleep_score"]["score"] for d in ds if (d.get("sleep_score") or {}).get("score") is not None]),
+                "hours": round(st.mean([d["sleep_score"]["hours"] for d in ds if (d.get("sleep_score") or {}).get("hours")]), 2)
+                if any((d.get("sleep_score") or {}).get("hours") for d in ds) else None,
+                "strain": avg([d["strain"]["score"] for d in ds if (d.get("strain") or {}).get("score") is not None]),
+                "minutes": sum(w.get("minutes") or 0 for w in ws), "sessions": len(ws),
+                "load": round(sum(w.get("load") or 0 for w in ws)), "days": len(ds)}
+    cur = stats(start, end)
+    prev = stats(start - dt.timedelta(days=7), start - dt.timedelta(days=1))
+    ser = {x["date"]: x for x in fit.get("series", [])}
+    def change(k):
+        a, b = ser.get((start - dt.timedelta(days=1)).isoformat(), {}).get(k), ser.get(end.isoformat(), {}).get(k)
+        return round(b - a, 1) if a is not None and b is not None else None
+    markers = {k: change(k) for k in ("vo2max", "ftp", "easy_pace")}
+    bits = []
+    if cur["recovery"] is not None:
+        diff = cur["recovery"] - prev["recovery"] if prev["recovery"] is not None else None
+        bits.append(f"Recovery averaged {cur['recovery']}" + (f" ({'+' if diff >= 0 else ''}{diff} vs last week)" if diff is not None else ""))
+    if cur["hours"]:
+        h, m = divmod(round(cur["hours"] * 60), 60)
+        bits.append(f"sleep {h}h{m:02d} a night")
+    if cur["sessions"]:
+        h, m = divmod(cur["minutes"], 60)
+        bits.append(f"{cur['sessions']} session{'s' if cur['sessions'] != 1 else ''}, {h}h{m:02d} of training")
+    head = ", ".join(bits)
+    return {"start": start.isoformat(), "end": end.isoformat(), "cur": cur, "prev": prev, "markers": markers,
+            "headline": (head[0].upper() + head[1:] + ".") if head else ""}
+
+
 def build(wellness, activities, events, answers, today, streams=None, notes=None, gdays=None):
     streams = streams or {}
     notes = notes or {}
@@ -645,7 +681,12 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
                 [a.get("max_heartrate") or 0 for a in activities] + [0])
     fit = fitness.series(activities, st.median(rests) if rests else None, hrmax if hrmax >= 150 else None,
                          dates[-KEEP_DAYS:])
+    data_days = days
+    monday = today - dt.timedelta(days=today.weekday())
+    reviews = [week_review(data_days, fit, monday, today), week_review(data_days, fit, monday - dt.timedelta(days=7),
+                                                                      monday - dt.timedelta(days=1))]
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
+            "week_review": reviews[0], "last_week_review": reviews[1],
             "today": today.isoformat(),
             "calibration": {"mu": emu if eng else mu, "sigma": esig if eng else sigma,
                             "n": len(eraws) if eng else len(raws)},
@@ -673,6 +714,12 @@ def main():
         gdays = cache.get("days", {})
         print(f"garmin: {len(gdays)} days cached, {sum(1 for v in gdays.values() if v.get('detail'))} with detail")
     data = build(wellness, activities, events, load_answers(pw), today, streams, load_notes(pw), gdays)
+    if os.environ.get("GARMIN_API_KEY"):
+        try:
+            if push.run(data, cache, pw, encrypt, decrypt, dt.datetime.now(TZ)):
+                engine.save_cache(cache, pw, encrypt)
+        except Exception as e:
+            print("push skipped:", type(e).__name__)
     os.makedirs("site", exist_ok=True)
     with open("site/data.enc", "w") as f:
         json.dump(encrypt(data, pw), f)

@@ -79,6 +79,24 @@ button{font:inherit;color:inherit}
 .mk b u{text-decoration:none;font-family:var(--ui);font-size:11px;color:var(--faint);margin-left:3px;font-weight:500}
 .mk span{display:block;font-size:11.5px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mk span.up{color:var(--alpine)}.mk span.down{color:var(--amber)}
+.alert{display:flex;gap:12px;align-items:flex-start;background:linear-gradient(135deg,rgba(255,93,108,.16),rgba(255,93,108,.06));border:1px solid rgba(255,93,108,.35);border-radius:16px;padding:13px 14px;margin:14px 0 0}
+.alert .ai{flex:none;width:30px;height:30px;border-radius:10px;background:rgba(255,93,108,.2);color:#ff8a95;display:grid;place-items:center}
+.alert b{display:block;font-size:15px}.alert span{font-size:13.5px;color:var(--muted)}
+.nudge{display:flex;gap:12px;align-items:center;width:100%;background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:12px 14px;margin-top:12px;color:var(--text);text-decoration:none}
+.nudge .ni{flex:none;width:30px;height:30px;border-radius:10px;background:rgba(242,166,90,.15);color:#f2a65a;display:grid;place-items:center}
+.nudge b{display:block;font-size:14.5px;font-weight:600}.nudge span{font-size:13px;color:var(--muted)}
+.wr{background:var(--surface);border-radius:18px;padding:16px}
+.wr-h{font-size:14.5px;color:var(--muted);margin:0 0 12px;line-height:1.45}
+.wr-g{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.wr-g div{background:var(--surface2);border-radius:12px;padding:10px 12px}
+.wr-g small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.1em;color:var(--muted)}
+.wr-g b{font-family:var(--cond);font-size:26px;font-weight:400}
+.wr-g em{font-style:normal;font-size:12px;margin-left:6px;color:var(--faint)}
+.wr-g em.up{color:var(--alpine)}.wr-g em.down{color:var(--amber)}
+.wr-m{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:13px;color:var(--muted)}
+.wr-m b{color:var(--text);font-weight:600}
+.tog{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px}
+.tog label{font-size:15px}.tog p{font-size:13px;color:var(--faint);margin:4px 0 0}
 .kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:14.5px;margin:6px 0 16px}
 .kv span{color:var(--muted)}.kv b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
 .vrow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
@@ -995,6 +1013,7 @@ function renderTraining(){
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Training</div>
     <button class="gear" id="gear" aria-label="Settings">${GEAR}</button></div>
+  ${weekReviewSection()}
   ${streakCard()}
   ${weekSection()}
   ${volumeSection()}
@@ -1003,6 +1022,71 @@ function renderTraining(){
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}</p>`;
   $("gear").onclick=openSettings; bindVolume(); bindFitness();
   document.querySelectorAll(".mk[data-mk]").forEach(b=>b.onclick=()=>openMarker(b.dataset.mk));
+}
+
+/* ------------------------------------------------------------ early warning, feel reminder, week in review */
+function alertCard(day){
+  return `<div class="alert" role="alert"><span class="ai"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4.5M12 17.6v.1"/></svg></span>
+    <span><b>Early warning</b><span>${esc((day.why||"").split(". ")[0])}. Go easy today and check how you feel; if symptoms appear, rest.</span></span></div>`;
+}
+function feelNudge(){
+  // most recent session of the last two days without a feel rating
+  const t=todayISO(),i=DATA.days.findIndex(d=>d.date===t);
+  for(const d of [DATA.days[i],DATA.days[i-1]].filter(Boolean)){
+    const w=(d.workouts||[]).filter(w=>w.type&&w.id).reverse().find(w=>w.feel==null);
+    if(w) return `<a class="nudge" href="${INTERVALS}/activities/${encodeURIComponent(w.id)}" target="_blank" rel="noopener">
+      <span class="ni"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg></span>
+      <span><b>How did ${d.date===t?"today's":"yesterday's"} ${esc((w.name||"session").toLowerCase().includes("corsa")||w.type.includes("Run")?"run":w.type.includes("Ride")?"ride":"session")} feel?</b>
+      <span>Rate it 1–5 in Intervals: it's how the score gets tuned to you.</span></span></a>`;
+  }
+  return "";
+}
+function weekReviewSection(){
+  const today=new Date(todayISO()+"T12:00"),monday=today.getDay()===1;
+  const R=monday&&DATA.last_week_review?DATA.last_week_review:DATA.week_review; if(!R||!R.cur.days) return "";
+  const c=R.cur,p=R.prev;
+  const delta=(a,b,better=1,unit="")=>a==null||b==null?"":`<em class="${(a-b)*better>0?"up":(a-b)*better<0?"down":""}">${a-b>0?"+":""}${Math.round((a-b)*10)/10}${unit}</em>`;
+  const tile=(lab,val,d)=>`<div><small>${lab}</small><b>${val??"–"}</b>${d}</div>`;
+  const hrs=h=>h?hmh(h):"–";
+  const mk=R.markers||{},mtxt=[mk.vo2max!=null?`VO₂max <b>${mk.vo2max>0?"+":""}${mk.vo2max}</b>`:"",mk.ftp!=null?`FTP <b>${mk.ftp>0?"+":""}${Math.round(mk.ftp)} W</b>`:"",
+    mk.easy_pace!=null?`Easy pace <b>${mk.easy_pace>0?"+":"−"}${Math.abs(Math.round(mk.easy_pace))}s/km</b>`:""].filter(Boolean);
+  return `<section class="sec"><div class="sec-h"><h2>${monday?"Last week":"This week so far"}</h2><span>vs the week before</span></div>
+    <div class="wr"><p class="wr-h">${esc(R.headline||"")}</p><div class="wr-g">
+      ${tile("RECOVERY",c.recovery,delta(c.recovery,p.recovery))}
+      ${tile("SLEEP",c.sleep,delta(c.sleep,p.sleep))}
+      ${tile("SLEEP / NIGHT",hrs(c.hours),c.hours&&p.hours?`<em class="${c.hours>=p.hours?"up":"down"}">${c.hours>=p.hours?"+":"−"}${Math.round(Math.abs(c.hours-p.hours)*60)} min</em>`:"")}
+      ${tile("TRAINING",c.minutes?hm2(c.minutes):"–",`<em>${c.sessions} session${c.sessions===1?"":"s"}</em>`)}
+    </div>${mtxt.length?`<div class="wr-m">${mtxt.join("")}</div>`:""}</div></section>`;
+}
+
+/* ------------------------------------------------------------ notifications */
+const repoInfo=()=>({owner:location.hostname.split(".")[0],repo:location.pathname.split("/").filter(Boolean)[0]});
+const b64u=s=>{const p="=".repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(b,c=>c.charCodeAt(0));};
+async function putRepoFile(path,obj,msg){
+  const token=LS.get("rd_token"); if(!token) throw new Error("connect GitHub first");
+  const {owner,repo}=repoInfo(),url=`https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  const hdr={Authorization:"Bearer "+token,Accept:"application/vnd.github+json"};
+  let sha; const cur=await fetch(url,{headers:hdr}); if(cur.ok) sha=(await cur.json()).sha;
+  const env=await encryptObj(obj,LS.get("rd_pass"));
+  const r=await fetch(url,{method:"PUT",headers:{...hdr,"Content-Type":"application/json"},
+    body:JSON.stringify({message:msg,content:btoa(JSON.stringify(env)),...(sha?{sha}:{})})});
+  if(!r.ok) throw new Error(r.status===403||r.status===404?"the GitHub token can't write to the repository":"GitHub "+r.status);
+}
+async function enableNotifications(st){
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)) throw new Error("this browser doesn't support notifications; open the app from the home-screen icon");
+  if(!DATA.push_key) throw new Error("the server isn't ready yet, try again in a few minutes");
+  const perm=await Notification.requestPermission(); if(perm!=="granted") throw new Error("notifications are blocked for this app in the phone settings");
+  st("Setting up…");
+  const reg=await navigator.serviceWorker.register("sw.js"); await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(DATA.push_key)});
+  await putRepoFile("push/subscription.json",sub.toJSON(),"Push subscription");
+  LS.set("rd_push","1");
+}
+function tokenURL(){
+  const {owner,repo}=repoInfo(),q=new URLSearchParams({name:"Readiness app",description:"Lets the Readiness app save check-ins, notes and notifications",
+    target_name:owner,expires_in:"366",contents:"write",actions:"write"});
+  return `https://github.com/settings/personal-access-tokens/new?${q}`;
 }
 
 /* ------------------------------------------------------------ fitness markers */
@@ -1120,7 +1204,7 @@ function pendingNote(){
   return `<div class="pending"><p>Last night's sleep hasn't reached Garmin yet. Open Garmin Connect on your phone to sync the watch: the score appears within a few minutes${prev?`; yesterday you were at <b>${prev.score}</b>`:""}.</p>
     <button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p></div>`;
 }
-let TAB=(()=>LS.get("rd_tab")||"today")();
+let TAB=(()=>new URLSearchParams(location.search).get("tab")||LS.get("rd_tab")||"today")();
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
 function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; LS.set("rd_tab",t); render(); scrollTo(0,0); }
 function tabbar(){
@@ -1158,7 +1242,9 @@ function renderToday(){
   <p class="adj">${has?esc(deltaTxt(day)):""}</p>
   ${has?`<button class="verdict-b" id="guide"><span class="verdict">${esc(day.advice)}</span><span class="why">${esc(day.why)}</span><span class="more">What this means for today</span></button>`:""}
   ${isToday&&!has?pendingNote():""}
+  ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
+  ${isToday?feelNudge():""}
   ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
 
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
@@ -1317,13 +1403,19 @@ function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
     <div class="field"><label for="s-pw">Passphrase</label><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"></div>
     <div class="field"><label for="s-tk">GitHub token</label><input id="s-tk" type="password" placeholder="Not set" value="${esc(LS.get("rd_token")||"")}">
-      <p>Needed only to sync the check-in, so the server recalculates the score. Fine-grained token, access to this repository only, with Contents and Actions set to read and write.</p></div>
+      <p>Lets the app save check-ins, notes and notifications. <a href="${tokenURL()}" target="_blank" rel="noopener" style="color:var(--glacier)">Create one on GitHub</a>: choose only the <b>Readiness</b> repository, keep Contents and Actions on read and write, generate, then paste it here.</p></div>
+    <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
+      <button class="btn ${LS.get("rd_push")?"quiet":""}" id="s-push">${LS.get("rd_push")?"On":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0"></p>
     <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
   $("s-save").onclick=()=>{const p=$("s-pw").value.trim(),t=$("s-tk").value.trim();
     if(p) LS.set("rd_pass",p); t?LS.set("rd_token",t):LS.del("rd_token"); closeSheet(); load();};
   $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
   $("s-val").onclick=openValidation;
+  $("s-push").onclick=async()=>{const st=t=>$("s-pst").textContent=t,t=$("s-tk").value.trim();
+    if(t) LS.set("rd_token",t);
+    try{ await enableNotifications(st); st("Done. A test notification arrives in a couple of minutes."); $("s-push").textContent="On"; $("s-push").classList.add("quiet"); }
+    catch(e){ st("Couldn't turn them on: "+e.message+"."); }};
 }
 
 /* ------------------------------------------------------------ save check-in */

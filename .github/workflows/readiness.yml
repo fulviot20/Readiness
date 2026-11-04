@@ -8,6 +8,7 @@ on:
     paths:
       - "answers/**"
       - "notes/**"
+      - "push/**"
       - "site/**"
       - "*.py"
   workflow_dispatch:
@@ -41,7 +42,7 @@ jobs:
           READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
           GARMIN_API_KEY: ${{ secrets.GARMIN_API_KEY }}
         run: |
-          pip install --quiet cryptography
+          pip install --quiet cryptography pywebpush
           python readiness.py
 
       # only fingerprints and the encrypted cache are committed (no readable personal data)
