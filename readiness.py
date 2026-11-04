@@ -727,7 +727,7 @@ def main():
     try:
         push.run(data, cache, pw, encrypt, decrypt, dt.datetime.now(TZ))
     except Exception as e:
-        print("push skipped:", type(e).__name__)
+        print("push skipped:", type(e).__name__, str(e)[:120])
     engine.save_cache(cache, pw, encrypt)
     os.makedirs("site", exist_ok=True)
     with open("site/data.enc", "w") as f:

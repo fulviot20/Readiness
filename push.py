@@ -51,11 +51,15 @@ def subscription(pw, decrypt):
 def send(sub, priv_pem, payload):
     from pywebpush import webpush, WebPushException
     try:
-        webpush(subscription_info=sub, data=json.dumps(payload), vapid_private_key=priv_pem,
+        from py_vapid import Vapid
+        webpush(subscription_info=sub, data=json.dumps(payload), vapid_private_key=Vapid.from_pem(priv_pem.encode()),
                 vapid_claims={"sub": CONTACT}, ttl=6 * 3600)
         return True
     except WebPushException as e:
         print("push failed:", getattr(e.response, "status_code", "?"))
+        return False
+    except Exception as e:
+        print("push failed:", type(e).__name__)
         return False
 
 
