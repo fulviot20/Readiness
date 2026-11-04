@@ -1041,7 +1041,7 @@ function deltaTxt(day){
 }
 function pendingNote(){
   const prev=DATA.days.slice(0,sel).reverse().find(d=>d.score!=null);
-  return `<div class="pending"><p>Today's score isn't ready yet. It's calculated once your Garmin has synced to Intervals${prev?`; yesterday you were at <b>${prev.score}</b>`:""}.</p>
+  return `<div class="pending"><p>Last night's sleep hasn't reached Garmin yet. Open Garmin Connect on your phone to sync the watch: the score appears within a few minutes${prev?`; yesterday you were at <b>${prev.score}</b>`:""}.</p>
     <button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p></div>`;
 }
 let TAB=(()=>LS.get("rd_tab")||"today")();
