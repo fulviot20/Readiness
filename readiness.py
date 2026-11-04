@@ -23,6 +23,7 @@ import urllib.error
 import urllib.request
 from zoneinfo import ZoneInfo
 
+import energy
 import engine
 import fitness
 import garmin
@@ -215,7 +216,7 @@ def summary(a, streams):
     first = lambda *ks: next((a[k] for k in ks if a.get(k) not in (None, 0)), None)
     out = {
         "id": a.get("id"), "type": a.get("type"), "name": a.get("name"), "feel": a.get("feel"),
-        "rpe": a.get("icu_rpe"), "minutes": mins,
+        "rpe": a.get("icu_rpe"), "minutes": mins, "kcal": a.get("calories"),
         "load": first("icu_training_load"),
         "avg_w": first("icu_average_watts", "average_watts"),
         "np": first("icu_weighted_avg_watts", "weighted_average_watts"),
@@ -693,7 +694,7 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
                             "n": len(eraws) if eng else len(raws)},
             "weights": engine.WEIGHTS if eng else WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
             "volume": volume(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals",
-            "fitness": fit}
+            "fitness": fit, "energy": energy.build(gdays, days, today)}
 
 
 def main():
@@ -749,6 +750,8 @@ def main():
         }
         fs = next((x for x in data.get("fitness", {}).get("series", []) if x["date"] == d["date"]), {})
         flags.update({k: fs.get(k) is not None for k in ("vo2max", "ftp", "easy_pace")})
+        if d["date"] == data["today"]:
+            flags["energy"] = bool((data.get("energy") or {}).get("today"))
         print("check", d["date"], flags)
     last = data["days"][-1] if data["days"] else {}
     # the repository is public: log only what is present, never the values

@@ -97,6 +97,18 @@ button{font:inherit;color:inherit}
 .wr-m b{color:var(--text);font-weight:600}
 .tog{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px}
 .tog label{font-size:15px}.tog p{font-size:13px;color:var(--faint);margin:4px 0 0}
+.energy{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;background:none;border:0;padding:0;margin-top:10px;cursor:pointer;color:var(--text);text-align:left}
+.en-c{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:18px;padding:12px 14px;min-width:0}
+.en-c small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--muted)}
+.en-c b{display:block;font-family:var(--cond);font-size:28px;font-weight:400;line-height:1.15;margin-top:2px}
+.en-c b u{text-decoration:none;font-family:var(--ui);font-size:12px;color:var(--faint);margin-left:4px;font-weight:500}
+.en-c span{display:block;font-size:12px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.en-bar{height:6px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;margin:8px 0 6px;display:flex}
+.en-bar i{display:block;height:100%}
+.en-parts{display:grid;gap:8px;margin:6px 0 16px}
+.en-parts div{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.en-parts i{width:10px;height:10px;border-radius:3px;flex:none}
+.en-parts span{flex:1;color:var(--muted)}.en-parts b{font-variant-numeric:tabular-nums}
 .kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:14.5px;margin:6px 0 16px}
 .kv span{color:var(--muted)}.kv b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
 .vrow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
@@ -1000,6 +1012,55 @@ function renderTraining(){
   document.querySelectorAll(".mk[data-mk]").forEach(b=>b.onclick=()=>openMarker(b.dataset.mk));
 }
 
+/* ------------------------------------------------------------ steps & calories */
+const EN_COL={basal:"#64748b",active_so_far:"#f59e0b",rest_of_day:"#fcd34d",planned:"#fb923c"};
+const EN_TXT={basal:"Basal (resting, whole day)",active_so_far:"Active so far",rest_of_day:"Rest of the day, usual pace",planned:"Planned training still to do"};
+const fmtK=n=>n==null?"–":Number(n).toLocaleString("en-GB");
+const asofTxt=h=>`${String(Math.floor(h)).padStart(2,"0")}:${String(Math.round(h%1*60)).padStart(2,"0")}`;
+function energyCard(){
+  const E=DATA.energy?.today; if(!E) return "";
+  const p=E.parts,tot=E.projected||1,seg=k=>`<i style="width:${p[k]/tot*100}%;background:${EN_COL[k]}"></i>`;
+  const sp=E.goal?Math.min(100,E.steps/E.goal*100):0;
+  return `<button class="energy" id="energy">
+    <div class="en-c"><small>CALORIES</small><b>${fmtK(E.kcal_now)}<u>kcal</u></b>
+      <div class="en-bar">${["basal","active_so_far","rest_of_day","planned"].map(seg).join("")}</div>
+      <span>Day on track for ~${fmtK(E.projected)}</span></div>
+    <div class="en-c"><small>STEPS</small><b>${fmtK(E.steps)}</b>
+      <div class="en-bar"><i style="width:${sp}%;background:#34d399"></i></div>
+      <span>${E.goal?(E.steps>=E.goal?"Goal reached":`${fmtK(E.goal-E.steps)} to ${fmtK(E.goal)}`):E.km?E.km+" km":""}</span></div></button>`;
+}
+let enPick=null,enKey="kcal";
+function enBars(key,n){
+  const h=(DATA.energy?.history||[]).slice(-n),W=320,H=120,bw=W/h.length,vals=h.map(d=>d[key]||0),max=Math.max(...vals,1);
+  const pick=enPick==null||enPick>=h.length?h.length-1:enPick,col=key==="kcal"?"#f59e0b":"#34d399";
+  const bars=h.map((d,i)=>{const v=d[key],hh=v?Math.max(3,v/max*H):2;
+    return `<rect x="${(i*bw+1.2).toFixed(1)}" y="${(H-hh).toFixed(1)}" width="${(bw-2.4).toFixed(1)}" height="${hh.toFixed(1)}" rx="2" fill="${v?col:"var(--line)"}" opacity="${i===pick?1:.4}"/>
+      <rect data-ei="${i}" x="${(i*bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer"/>`;}).join("");
+  const goal=key==="steps"&&h[pick].goal?`<line x1="0" x2="${W}" y1="${H-h[pick].goal/max*H}" y2="${H-h[pick].goal/max*H}" stroke="var(--muted)" stroke-dasharray="3 4" opacity="${h[pick].goal<=max?.6:0}"/>`:"";
+  const pd=h[pick],det=key==="kcal"?(pd.active!=null?`${fmtK(pd.active)} active + ${fmtK(pd.resting)} basal`:""):(pd.km?pd.km+" km":"");
+  return `<div class="readout"><span>${fmtDay(pd.date,{weekday:"short",day:"numeric",month:"short"})}</span><b>${fmtK(pd[key])}</b><em style="color:${col}">${key==="kcal"?"kcal":"steps"}</em><span style="margin-left:auto">${esc(det)}</span></div>
+    <div class="sh-chart bars30"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${goal}${bars}</svg>
+    <div class="ax"><span>${fmtDay(h[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(h[h.length-1].date,{day:"numeric",month:"short"})}</span></div></div>`;
+}
+function openEnergy(n=7,keep=false){
+  if(!keep) enPick=null;
+  const E=DATA.energy?.today; if(!E) return;
+  const y=$("sheet").scrollTop,p=E.parts;
+  openSheet(`<div class="sh-top"><h2>Energy</h2>${X}</div>
+    <div class="sh-big" style="color:#f59e0b">~${fmtK(E.projected)}<small>kcal by tonight</small></div>
+    <p class="sh-desc">${fmtK(E.kcal_now)} kcal burned so far (data at ${asofTxt(E.asof)}). The projection adds your full-day basal burn, the rest of the day at your usual pace outside workouts${E.planned_names.length?` and ${esc(E.planned_names.join(", "))} at your usual cost for that sport`:""}. It updates every 10 minutes as the day goes.</p>
+    <div class="en-bar" style="height:10px">${["basal","active_so_far","rest_of_day","planned"].map(k=>`<i style="width:${p[k]/(E.projected||1)*100}%;background:${EN_COL[k]}"></i>`).join("")}</div>
+    <div class="en-parts">${["basal","active_so_far","rest_of_day","planned"].filter(k=>p[k]>0).map(k=>`<div><i style="background:${EN_COL[k]}"></i><span>${EN_TXT[k]}</span><b>${fmtK(p[k])}</b></div>`).join("")}</div>
+    <div class="kv"><span>Steps</span><b>${fmtK(E.steps)}${E.goal?` / ${fmtK(E.goal)}`:""}</b><span>Steps by tonight, at your usual pace</span><b>~${fmtK(E.steps_projected)}</b>${E.km?`<span>Distance</span><b>${E.km} km</b>`:""}</div>
+    <div class="range"><button data-k="kcal" class="${enKey==="kcal"?"on":""}">Calories</button><button data-k="steps" class="${enKey==="steps"?"on":""}">Steps</button></div>
+    <div class="range" style="margin-left:8px"><button data-n="7" class="${n===7?"on":""}">7 days</button><button data-n="30" class="${n===30?"on":""}">30 days</button></div>
+    ${enBars(enKey,n)}`);
+  if(keep) $("sheet").scrollTop=y;
+  $("sheet").querySelectorAll(".range button[data-n]").forEach(b=>b.onclick=()=>openEnergy(+b.dataset.n,true));
+  $("sheet").querySelectorAll(".range button[data-k]").forEach(b=>b.onclick=()=>{enKey=b.dataset.k;openEnergy(n,true);});
+  $("sheet").querySelectorAll("rect[data-ei]").forEach(r=>r.onclick=()=>{enPick=+r.dataset.ei;openEnergy(n,true);});
+}
+
 /* ------------------------------------------------------------ early warning, feel reminder, week in review */
 function alertCard(day){
   return `<div class="alert" role="alert"><span class="ai"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4.5M12 17.6v.1"/></svg></span>
@@ -1215,6 +1276,7 @@ function renderToday(){
   ${isToday&&!has?pendingNote():""}
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
+  ${isToday?energyCard():""}
   ${isToday?feelNudge():""}
   ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
 
@@ -1237,6 +1299,7 @@ function bind(raw){
   const g=$("guide"); if(g) g.onclick=()=>openGuide();
   $("m-sleep").onclick=()=>openSleepScore(); $("m-strain").onclick=()=>openStrain();
   const of=$("off"); if(of) of.onclick=openOff;
+  const en=$("energy"); if(en) en.onclick=()=>openEnergy();
   const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].sleep_score) openSleepScore(); else if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));

@@ -147,10 +147,16 @@ def refresh(cache, today, errors, hrmax_hint):
     for d in (res.get("data") or []) if isinstance(res, dict) else []:
         if d.get("calendarDate"):
             hr, stress, bb = d.get("heartRate") or {}, d.get("stress") or {}, d.get("bodyBattery") or {}
+            cal, steps = d.get("calories") or {}, (d.get("movement") or {}).get("steps") or {}
             days.setdefault(d["calendarDate"], {})["daily"] = {
                 "rhr": _num(hr.get("restingValue")), "stress": _num(stress.get("avgLevel")),
                 "bb_max": _num(bb.get("maxValue")), "bb_charged": _num(bb.get("chargedValue")),
-                "resp": _num((d.get("respiration") or {}).get("avgValue"))}
+                "resp": _num((d.get("respiration") or {}).get("avgValue")),
+                "steps": _num(steps.get("value")), "steps_goal": _num(steps.get("goal")),
+                "km": round(steps["distanceInMeters"] / 1000, 1) if _num(steps.get("distanceInMeters")) else None,
+                "kcal_active": _num(cal.get("burnedActive")), "kcal_resting": _num(cal.get("burnedResting")),
+                "kcal_total": _num(cal.get("burnedTotal")),
+                "asof": (d.get("wellnessChronology") or {}).get("endTimestampLocal")}
 
     # per-day detail: recent days every run, older ones a batch at a time
     recent = [(today - dt.timedelta(days=k)).isoformat() for k in range(DETAIL_DAYS)]
