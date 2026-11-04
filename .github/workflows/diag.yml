@@ -22,7 +22,7 @@ jobs:
           GARMIN_API_KEY: ${{ secrets.GARMIN_API_KEY }}
         run: |
           pip install --quiet cryptography
-          python diag/sleep_today.py || true
+          python diag/fitness_fields.py || true
           python readiness.py
       - name: Render app
         env:
