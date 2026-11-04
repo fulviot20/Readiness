@@ -1,0 +1,32 @@
+name: Diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build data
+        env:
+          INTERVALS_API_KEY: ${{ secrets.INTERVALS_API_KEY }}
+          INTERVALS_ATHLETE_ID: ${{ secrets.INTERVALS_ATHLETE_ID }}
+          READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
+          GARMIN_API_KEY: ${{ secrets.GARMIN_API_KEY }}
+        run: |
+          pip install --quiet cryptography
+          python diag/sleep_today.py || true
+          python readiness.py
+      - name: Render app
+        env:
+          READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
+        run: |
+          npm install --silent playwright-core@1.47.2 >/dev/null 2>&1
+          node diag/render.js
