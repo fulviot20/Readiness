@@ -72,6 +72,13 @@ button{font:inherit;color:inherit}
 .stg-k{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin-bottom:8px}
 .stg-k i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
 .stg-k b{color:var(--text);font-weight:600}
+.mks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mk{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:16px;padding:12px 12px 11px;text-align:left;color:var(--text);cursor:pointer;min-width:0}
+.mk small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.1em;color:var(--muted)}
+.mk b{display:block;font-family:var(--cond);font-size:30px;font-weight:400;line-height:1.1;margin-top:4px}
+.mk b u{text-decoration:none;font-family:var(--ui);font-size:11px;color:var(--faint);margin-left:3px;font-weight:500}
+.mk span{display:block;font-size:11.5px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk span.up{color:var(--alpine)}.mk span.down{color:var(--amber)}
 .kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:14.5px;margin:6px 0 16px}
 .kv span{color:var(--muted)}.kv b{font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
 .vrow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
@@ -991,9 +998,78 @@ function renderTraining(){
   ${streakCard()}
   ${weekSection()}
   ${volumeSection()}
+  ${markersSection()}
   ${fitnessSection()}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}</p>`;
   $("gear").onclick=openSettings; bindVolume(); bindFitness();
+  document.querySelectorAll(".mk[data-mk]").forEach(b=>b.onclick=()=>openMarker(b.dataset.mk));
+}
+
+/* ------------------------------------------------------------ fitness markers */
+const paceTxt=sec=>`${Math.floor(sec/60)}:${String(Math.round(sec%60)).padStart(2,"0")}`;
+const MK={
+  vo2max:{name:"VO₂max",unit:"ml/kg/min",fmt:v=>v.toFixed(1),col:"#5fe08a",better:1,
+    desc:"Estimated from every steady run and ride: the oxygen cost of the effort (from pace and climb, or from power and weight) divided by how much of your heart-rate reserve it took. The value is the median of the last 30 days, so single sessions don't swing it."},
+  ftp:{name:"FTP",unit:"W",fmt:v=>String(Math.round(v)),col:"#3a9cf5",better:1,
+    desc:"Your rolling estimated FTP from Intervals, updated by your rides' power-duration data."},
+  easy_pace:{name:"Easy pace",unit:"/km",fmt:v=>paceTxt(v),col:"#f2a65a",better:-1,
+    desc:"How fast you run at one fixed easy heart rate, worked out from each run's pace and heart rate. As aerobic fitness improves you run faster for the same heart rate, so a lower time per km is better."},
+};
+function mkSeries(key,n){const s=(DATA.fitness?.series||[]);return s.slice(Math.max(0,s.length-n));}
+function mkLatest(key){const s=DATA.fitness?.series||[];for(let i=s.length-1;i>=0;i--) if(s[i][key]!=null) return [s[i],i];return [null,-1];}
+function mkDelta(key){
+  const s=DATA.fitness?.series||[],[l,i]=mkLatest(key); if(!l) return null;
+  const old=s.slice(0,Math.max(0,i-29)).reverse().find(x=>x[key]!=null)||s.slice(Math.max(0,i-30),i).find(x=>x[key]!=null);
+  return old?l[key]-old[key]:null;
+}
+function markersSection(){
+  if(!DATA.fitness) return "";
+  const card=key=>{const m=MK[key],[l]=mkLatest(key),d=mkDelta(key);
+    if(!l) return `<button class="mk" disabled><small>${m.name.toUpperCase()}</small><b>–</b><span>Not enough data</span></button>`;
+    const v=l[key],cls=d==null||Math.abs(d)<(key==="easy_pace"?2:key==="ftp"?2:.3)?"":(d*m.better>0?"up":"down");
+    const dt=d==null?"":key==="easy_pace"?`${d<0?"−":"+"}${Math.abs(Math.round(d))}s in 30 days`:`${d>0?"+":"−"}${key==="ftp"?Math.abs(Math.round(d)):Math.abs(d).toFixed(1)} in 30 days`;
+    const sub=key==="ftp"&&l.wkg?`${l.wkg} W/kg`:key==="easy_pace"?`at ${DATA.fitness.easy_hr} bpm`:"";
+    return `<button class="mk" data-mk="${key}"><small>${m.name.toUpperCase()}</small><b>${m.fmt(v)}<u>${key==="easy_pace"?"/km":m.unit==="W"?"W":""}</u></b>
+      <span class="${cls}">${esc(dt||sub)}</span>${dt&&sub?`<span>${esc(sub)}</span>`:""}</button>`;};
+  return `<section class="sec"><div class="sec-h"><h2>Fitness markers</h2><span>Tap for history</span></div>
+    <div class="mks">${card("vo2max")}${card("ftp")}${card("easy_pace")}</div></section>`;
+}
+let mkPick=null;
+function mkChart(key,n){
+  const m=MK[key],s=mkSeries(key,n),W=320,H=170,PL=4,PR=40,PT=12,PB=8;
+  const vals=s.filter(p=>p[key]!=null).map(p=>p[key]);
+  if(vals.length<2) return "<p class='sh-desc'>Not enough data in this period yet.</p>";
+  let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.15||(key==="ftp"?5:key==="easy_pace"?5:.5);lo-=pad;hi+=pad;
+  const inv=key==="easy_pace";                       // faster pace (fewer seconds) drawn higher
+  const y=v=>inv?PT+(v-lo)/(hi-lo)*(H-PT-PB):PT+(hi-v)/(hi-lo)*(H-PT-PB),x=i=>PL+(i+.5)*((W-PL-PR)/s.length);
+  const pick=mkPick==null||mkPick>=s.length||s[mkPick][key]==null?s.map(p=>p[key]!=null).lastIndexOf(true):mkPick;
+  const line=s.map((p,i)=>p[key]!=null?`${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`:null).filter(Boolean).join(" ");
+  const r=n>7?2.8:4.4;
+  const dots=s.map((p,i)=>p[key]==null?"":`<circle cx="${x(i)}" cy="${y(p[key])}" r="${i===pick?r+2:r}" fill="${i===pick?m.col:"var(--surface)"}" stroke="${m.col}" stroke-width="2"/>`).join("");
+  const hits=s.map((p,i)=>`<rect data-mi="${i}" x="${x(i)-(W-PL-PR)/s.length/2}" y="0" width="${(W-PL-PR)/s.length}" height="${H}" fill="transparent" style="cursor:pointer"/>`).join("");
+  const ticks=[hi-pad,lo+pad].map(v=>`<line x1="${PL}" x2="${W-PR+4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".4"/><text x="${W-PR+8}" y="${y(v)+4}" class="rl">${m.fmt(v)}</text>`).join("");
+  const pk=s[pick];
+  return `<div class="readout"><span>${fmtDay(pk.date,{weekday:"short",day:"numeric",month:"short"})}</span><b>${m.fmt(pk[key])}</b><em style="color:${m.col}">${key==="ftp"&&pk.wkg?pk.wkg+" W/kg":m.unit}</em></div>
+    <div class="sh-chart"><svg viewBox="0 0 ${W} ${H}">${ticks}
+      <line x1="${x(pick)}" x2="${x(pick)}" y1="${PT}" y2="${H-PB}" stroke="var(--muted)" opacity=".5"/>
+      <polyline points="${line}" fill="none" stroke="${m.col}" stroke-width="2" stroke-linejoin="round"/>${dots}${hits}</svg>
+    <div class="ax"><span>${fmtDay(s[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(s[s.length-1].date,{day:"numeric",month:"short"})}</span></div></div>`;
+}
+function openMarker(key,n=30,keep=false){
+  if(!keep) mkPick=null;
+  const m=MK[key],[l]=mkLatest(key); if(!l) return;
+  const extra=key==="vo2max"?`<div class="kv"><span>Sessions in the last 30 days</span><b>${l.vo2_n}</b><span>Heart rate used (rest / max)</span><b>${DATA.fitness.rest} / ${DATA.fitness.hrmax}</b></div>`
+    :key==="easy_pace"?`<div class="kv"><span>Reference heart rate</span><b>${DATA.fitness.easy_hr} bpm</b></div>`
+    :l.wkg?`<div class="kv"><span>Power to weight</span><b>${l.wkg} W/kg</b></div>`:"";
+  const y=$("sheet").scrollTop;
+  openSheet(`<div class="sh-top"><h2>${m.name}</h2>${X}</div>
+    <div class="sh-big" style="color:${m.col}">${m.fmt(l[key])}<small>${m.unit}</small></div>
+    <p class="sh-desc">${m.desc}</p>
+    <div class="range"><button data-n="7" class="${n===7?"on":""}">7 days</button><button data-n="30" class="${n===30?"on":""}">30 days</button></div>
+    ${mkChart(key,n)}${extra}`);
+  if(keep) $("sheet").scrollTop=y;
+  $("sheet").querySelectorAll(".range button").forEach(b=>b.onclick=()=>openMarker(key,+b.dataset.n));
+  $("sheet").querySelectorAll("rect[data-mi]").forEach(r=>r.onclick=()=>{mkPick=+r.dataset.mi;openMarker(key,n,true);});
 }
 
 /* ------------------------------------------------------------ check-in */

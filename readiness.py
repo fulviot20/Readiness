@@ -24,6 +24,7 @@ import urllib.request
 from zoneinfo import ZoneInfo
 
 import engine
+import fitness
 import garmin
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -637,12 +638,20 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
 
     upcoming = {d: p for d, p in plans.items() if d >= today.isoformat()}
     weeks = week_summary(done, plans, today)
+    recent = dates[-30:]
+    rests = [v for v in (engine.night_hr(gdays.get(d) or {}) for d in recent) if v] or \
+            [r["rhr"] for r in rows[-30:] if r.get("rhr")]
+    hrmax = max([(v.get("hr") or {}).get("max") or 0 for v in gdays.values()] +
+                [a.get("max_heartrate") or 0 for a in activities] + [0])
+    fit = fitness.series(activities, st.median(rests) if rests else None, hrmax if hrmax >= 150 else None,
+                         dates[-KEEP_DAYS:])
     return {"generated_at": dt.datetime.now(TZ).isoformat(timespec="minutes"),
             "today": today.isoformat(),
             "calibration": {"mu": emu if eng else mu, "sigma": esig if eng else sigma,
                             "n": len(eraws) if eng else len(raws)},
             "weights": engine.WEIGHTS if eng else WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
-            "volume": volume(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals"}
+            "volume": volume(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals",
+            "fitness": fit}
 
 
 def main():
@@ -683,6 +692,8 @@ def main():
             "plans_done": f"{sum(1 for p in d.get('plan', []) if p.get('done'))}/{len(d.get('plan', []))}",
             "workouts": len(d.get("workouts", [])),
         }
+        fs = next((x for x in data.get("fitness", {}).get("series", []) if x["date"] == d["date"]), {})
+        flags.update({k: fs.get(k) is not None for k in ("vo2max", "ftp", "easy_pace")})
         print("check", d["date"], flags)
     last = data["days"][-1] if data["days"] else {}
     # the repository is public: log only what is present, never the values
