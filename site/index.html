@@ -1062,6 +1062,14 @@ function openEnergy(n=7,keep=false){
 }
 
 /* ------------------------------------------------------------ early warning, feel reminder, week in review */
+function keyNotice(){
+  const k=DATA.garmin_key; if(!k) return "";
+  const days=Math.round((new Date(k.expires+"T12:00")-new Date(todayISO()+"T12:00"))/864e5);
+  if(!k.error&&days>30) return "";
+  const msg=k.error||days<=0?"Garmin isn't accepting the personal API key any more, so new data has stopped.":`Your Garmin personal API key expires in ${days} day${days===1?"":"s"}.`;
+  return `<div class="alert" role="alert"><span class="ai"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/></svg></span>
+    <span><b>Garmin key</b><span>${msg} Create a new one in Garmin Connect (Settings → Personal API key) and ask Claude to put it in place.</span></span></div>`;
+}
 function alertCard(day){
   return `<div class="alert" role="alert"><span class="ai"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4.5M12 17.6v.1"/></svg></span>
     <span><b>Early warning</b><span>${esc((day.why||"").split(". ")[0])}. Go easy today and check how you feel; if symptoms appear, rest.</span></span></div>`;
@@ -1274,6 +1282,7 @@ function renderToday(){
   <p class="adj">${has?esc(deltaTxt(day)):""}</p>
   ${has?`<button class="verdict-b" id="guide"><span class="verdict">${esc(day.advice)}</span><span class="why">${esc(day.why)}</span><span class="more">What this means for today</span></button>`:""}
   ${isToday&&!has?pendingNote():""}
+  ${isToday?keyNotice():""}
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
   ${isToday?energyCard():""}

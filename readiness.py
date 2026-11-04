@@ -719,11 +719,14 @@ def main():
         for e in sorted(set(errors))[:10]:
             print("garmin:", e[:160])
         gdays = cache.get("days", {})
+        cache["garmin_auth_error"] = any(" 401" in e or " 403" in e or "token" in e.lower() for e in errors)
         print(f"garmin: {len(gdays)} days cached, {sum(1 for v in gdays.values() if v.get('detail'))} with detail")
     mail = cache.get("mail", {})
     answers = {**load_answers(pw), **mail.get("answers", {})}
     notes = {**load_notes(pw), **mail.get("notes", {})}
     data = build(wellness, activities, events, answers, today, streams, notes, gdays)
+    # personal Garmin key created on 3 Nov 2026 for one year
+    data["garmin_key"] = {"expires": "2027-11-03", "error": bool(cache.get("garmin_auth_error"))}
     try:
         push.run(data, cache, pw, encrypt, decrypt, dt.datetime.now(TZ))
     except Exception as e:
