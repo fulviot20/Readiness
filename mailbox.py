@@ -1,0 +1,44 @@
+"""Token-free channel from the app to the calculation.
+
+The app posts end-to-end encrypted messages (check-in, notes, push subscription) to an ntfy.sh topic
+whose name is derived from the passphrase, so only someone with the passphrase can find or read it.
+ntfy keeps messages for 12 hours; every run (each 10 minutes) collects them into the encrypted cache.
+"""
+import hashlib
+import json
+import urllib.request
+
+BASE = "https://ntfy.sh"
+
+
+def topic(pw):
+    return "rd-" + hashlib.sha256(("readiness-mailbox:" + pw).encode()).hexdigest()[:32]
+
+
+def collect(cache, pw, decrypt):
+    """Read new messages into cache['mail'] = {'answers': {date: ..}, 'notes': {date: ..}, 'sub': ..}."""
+    url = f"{BASE}/{topic(pw)}/json?poll=1&since=24h"
+    req = urllib.request.Request(url, headers={"User-Agent": "readiness-score/1.0"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        lines = r.read().decode().splitlines()
+    mail = cache.setdefault("mail", {"answers": {}, "notes": {}})
+    seen = cache.setdefault("mail_seen", [])
+    new = 0
+    for line in lines:
+        try:
+            m = json.loads(line)
+            if m.get("event") != "message" or m.get("id") in seen:
+                continue
+            env = json.loads(m.get("message") or "{}")
+            obj = decrypt(env["env"], pw)
+        except Exception:
+            continue
+        kind = env.get("kind")
+        if kind in ("answers", "notes") and obj.get("date"):
+            mail[kind][obj["date"]] = obj
+        elif kind == "sub":
+            mail["sub"] = obj
+        seen.append(m["id"])
+        new += 1
+    cache["mail_seen"] = seen[-300:]
+    return new

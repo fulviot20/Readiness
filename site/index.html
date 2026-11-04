@@ -433,25 +433,14 @@ let loadedAt=0,polling=false,autoTries=0;
 // GitHub's schedule is unreliable (runs can be skipped for hours): every time the app opens
 // with stale data, it asks GitHub to recalculate and waits for the new score by itself
 async function autoRefresh(){
+  // the server recalculates every 10 minutes: when today's score is missing or old, keep checking
   const latest=DATA.days[DATA.days.length-1],age=Date.now()-new Date(DATA.generated_at).getTime();
-  const stale=((latest.date!==todayISO()||latest.score==null)&&new Date().getHours()>=5)||age>120*60000;
-  const token=LS.get("rd_token");
-  if(!stale||!token||polling||autoTries>=2) return;
-  autoTries++;
-  const last=+(LS.get("rd_dispatch")||0);
-  if(Date.now()-last>3*60000){
-    try{
-      const owner=location.hostname.split(".")[0],repo=location.pathname.split("/").filter(Boolean)[0];
-      const r=await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/readiness.yml/dispatches`,
-        {method:"POST",headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({ref:"main"})});
-      if(!r.ok) return;
-      LS.set("rd_dispatch",String(Date.now()));
-    }catch(e){ return; }
-  }
-  polling=true; setNote("Updating…");
+  const stale=((latest.date!==todayISO()||latest.score==null)&&new Date().getHours()>=5)||age>30*60000;
+  if(!stale||polling||autoTries>=2) return;
+  autoTries++; polling=true; setNote("Checking for new data…");
   const was=DATA.generated_at,pass=LS.get("rd_pass"),t0=Date.now();
-  while(Date.now()-t0<4*60000){
-    await new Promise(r=>setTimeout(r,15000));
+  while(Date.now()-t0<11*60000&&document.visibilityState==="visible"){
+    await new Promise(r=>setTimeout(r,20000));
     try{
       const r=await fetch("data.enc?t="+Date.now(),{cache:"no-store"}); if(!r.ok) continue;
       const d=await decryptEnv(await r.json(),pass);
@@ -466,8 +455,7 @@ document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible"&&DATA&&!$("sheet").classList.contains("open")){ autoTries=0; if(Date.now()-loadedAt>60000) load(); else autoRefresh(); }
 });
 async function requestUpdate(btn){
-  if(!LS.get("rd_token")){ $("upd-note").textContent="Add a GitHub token in settings to update from here."; return; }
-  LS.del("rd_dispatch"); autoTries=0; polling=false; autoRefresh();
+  autoTries=0; polling=false; autoRefresh();
 }
 
 const LOGO_SEGS=[["#ff5d6c",0,50],["#f7c948",74,124],["#34d399",148,212],["#4aa3ff",236,300]];
@@ -612,27 +600,15 @@ function openOff(){
   openSheet(`<div class="sh-top"><h2>Something off?</h2>${X}</div>
     <p class="sh-desc">Note it now while it's fresh. After a few weeks these notes, together with how your sessions felt, are used to retune the score.</p>
     <div class="picks">${Object.entries(OFF).map(([k,t])=>`<button data-o="${k}" class="${k===kind?"on":""}">${t}</button>`).join("")}</div>
-    <div class="field"><label for="o-tx">What happened (optional)</label><textarea id="o-tx" placeholder="e.g. legs felt great on the climbs">${esc(prev.text||"")}</textarea></div>
+    <div class="field"><label for="o-tx">What happened (optional)</label><textarea id="o-tx" maxlength="800" placeholder="e.g. legs felt great on the climbs">${esc(prev.text||"")}</textarea></div>
     <div class="savebar" style="margin-top:16px"><span class="st" id="o-st"></span><button class="btn" id="o-save" ${kind?"":"disabled"}>Save note</button></div>`);
   document.querySelectorAll(".picks button").forEach(b=>b.onclick=()=>{kind=b.dataset.o;
     document.querySelectorAll(".picks button").forEach(x=>x.classList.toggle("on",x===b)); $("o-save").disabled=false;});
   $("o-save").onclick=async()=>{
     const note={date:raw.date,kind,text:$("o-tx").value.trim(),score:raw.score??null};
     LS.set("note:"+raw.date,JSON.stringify(note)); raw.note=note;
-    const token=LS.get("rd_token"),st=$("o-st"); $("o-save").disabled=true;
-    if(!token){ st.textContent="Saved on this phone. Add a GitHub token in settings to sync."; return; }
-    st.textContent="Saving…";
-    try{
-      const owner=location.hostname.split(".")[0],repo=location.pathname.split("/").filter(Boolean)[0];
-      const url=`https://api.github.com/repos/${owner}/${repo}/contents/notes/${raw.date}.json`;
-      const hdr={Authorization:"Bearer "+token,Accept:"application/vnd.github+json"};
-      let sha; const cur=await fetch(url,{headers:hdr}); if(cur.ok) sha=(await cur.json()).sha;
-      const env=await encryptObj(note,LS.get("rd_pass"));
-      const r=await fetch(url,{method:"PUT",headers:{...hdr,"Content-Type":"application/json"},
-        body:JSON.stringify({message:"Note "+raw.date,content:btoa(JSON.stringify(env)),...(sha?{sha}:{})})});
-      if(!r.ok) throw new Error("GitHub "+r.status);
-      st.textContent="Saved. Thanks, it's on record.";
-    }catch(e){ st.textContent=`Saved on this phone only (${e.message}).`; }
+    const st=$("o-st"); $("o-save").disabled=true; st.textContent="Saving…";
+    try{ await sendMail("notes",note); st.textContent="Saved. Thanks, it's on record.";    }catch(e){ st.textContent=`Saved on this phone only (${e.message}).`; }
   };
 }
 function openValidation(){
@@ -1062,15 +1038,15 @@ function weekReviewSection(){
 /* ------------------------------------------------------------ notifications */
 const repoInfo=()=>({owner:location.hostname.split(".")[0],repo:location.pathname.split("/").filter(Boolean)[0]});
 const b64u=s=>{const p="=".repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(b,c=>c.charCodeAt(0));};
-async function putRepoFile(path,obj,msg){
-  const token=LS.get("rd_token"); if(!token) throw new Error("connect GitHub first");
-  const {owner,repo}=repoInfo(),url=`https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-  const hdr={Authorization:"Bearer "+token,Accept:"application/vnd.github+json"};
-  let sha; const cur=await fetch(url,{headers:hdr}); if(cur.ok) sha=(await cur.json()).sha;
+// token-free channel to the server: encrypted messages on an ntfy.sh topic derived from the passphrase
+async function mailTopic(){
+  const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("readiness-mailbox:"+LS.get("rd_pass")));
+  return "rd-"+[...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,32);
+}
+async function sendMail(kind,obj){
   const env=await encryptObj(obj,LS.get("rd_pass"));
-  const r=await fetch(url,{method:"PUT",headers:{...hdr,"Content-Type":"application/json"},
-    body:JSON.stringify({message:msg,content:btoa(JSON.stringify(env)),...(sha?{sha}:{})})});
-  if(!r.ok) throw new Error(r.status===403||r.status===404?"the GitHub token can't write to the repository":"GitHub "+r.status);
+  const r=await fetch("https://ntfy.sh/"+await mailTopic(),{method:"POST",body:JSON.stringify({kind,env})});
+  if(!r.ok) throw new Error("no connection ("+r.status+")");
 }
 async function enableNotifications(st){
   if(!("serviceWorker" in navigator)||!("PushManager" in window)) throw new Error("this browser doesn't support notifications; open the app from the home-screen icon");
@@ -1080,13 +1056,8 @@ async function enableNotifications(st){
   const reg=await navigator.serviceWorker.register("sw.js"); await navigator.serviceWorker.ready;
   let sub=await reg.pushManager.getSubscription();
   if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(DATA.push_key)});
-  await putRepoFile("push/subscription.json",sub.toJSON(),"Push subscription");
+  await sendMail("sub",sub.toJSON());
   LS.set("rd_push","1");
-}
-function tokenURL(){
-  const {owner,repo}=repoInfo(),q=new URLSearchParams({name:"Readiness app",description:"Lets the Readiness app save check-ins, notes and notifications",
-    target_name:owner,expires_in:"366",contents:"write",actions:"write"});
-  return `https://github.com/settings/personal-access-tokens/new?${q}`;
 }
 
 /* ------------------------------------------------------------ fitness markers */
@@ -1163,7 +1134,7 @@ function checkin(raw){
       `<button data-k="${key}" data-v="${i+1}" class="${v===i+1?"on":""}" aria-label="${i+1}: ${o[0]}">${i+1}</button>`).join("")}</div>
       <div class="anchor">${v?`<b>${q.opts[v-1][0]}</b>: ${q.opts[v-1][1]}`:esc(q.hint)}</div></div>`;};
   const saved=raw.answers&&sameAns(raw.answers,draft);
-  const tok=!!LS.get("rd_token");
+  const tok=true;
   return `<section class="sec"><div class="sec-h"><h2>Morning check-in</h2><span>Optional</span></div>
   <div class="checkin"><p class="lead">Answer within 30 minutes of waking, before coffee. It nudges the score by up to 15 points.</p>
     ${scale("sleep")}${scale("feel")}
@@ -1402,19 +1373,15 @@ function openGuide(){
 function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
     <div class="field"><label for="s-pw">Passphrase</label><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"></div>
-    <div class="field"><label for="s-tk">GitHub token</label><input id="s-tk" type="password" placeholder="Not set" value="${esc(LS.get("rd_token")||"")}">
-      <p>Lets the app save check-ins, notes and notifications. <a href="${tokenURL()}" target="_blank" rel="noopener" style="color:var(--glacier)">Create one on GitHub</a>: choose only the <b>Readiness</b> repository, keep Contents and Actions on read and write, generate, then paste it here.</p></div>
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${LS.get("rd_push")?"quiet":""}" id="s-push">${LS.get("rd_push")?"On":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0"></p>
     <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
-  $("s-save").onclick=()=>{const p=$("s-pw").value.trim(),t=$("s-tk").value.trim();
-    if(p) LS.set("rd_pass",p); t?LS.set("rd_token",t):LS.del("rd_token"); closeSheet(); load();};
+  $("s-save").onclick=()=>{const p=$("s-pw").value.trim(); if(p) LS.set("rd_pass",p); closeSheet(); load();};
   $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
   $("s-val").onclick=openValidation;
-  $("s-push").onclick=async()=>{const st=t=>$("s-pst").textContent=t,t=$("s-tk").value.trim();
-    if(t) LS.set("rd_token",t);
-    try{ await enableNotifications(st); st("Done. A test notification arrives in a couple of minutes."); $("s-push").textContent="On"; $("s-push").classList.add("quiet"); }
+  $("s-push").onclick=async()=>{const st=t=>$("s-pst").textContent=t;
+    try{ await enableNotifications(st); st("Done. A test notification arrives within 10 minutes."); $("s-push").textContent="On"; $("s-push").classList.add("quiet"); }
     catch(e){ st("Couldn't turn them on: "+e.message+"."); }};
 }
 
@@ -1423,21 +1390,11 @@ async function saveAnswers(raw){
   const st=$("qst"),btn=$("qsave"); btn.disabled=true;
   LS.set("ans:"+raw.date,JSON.stringify(draft));
   Object.assign(raw,applyAnswers(raw,{...draft}));
-  const token=LS.get("rd_token");
   const done=msg=>{const y=scrollY; render(); scrollTo(0,y); $("qst").textContent=msg;};
-  if(!token) return done("Saved on this phone. Add a GitHub token in settings to sync.");
   st.textContent="Saving…";
   try{
-    const owner=location.hostname.split(".")[0],repo=location.pathname.split("/").filter(Boolean)[0];
-    const url=`https://api.github.com/repos/${owner}/${repo}/contents/answers/${raw.date}.json`;
-    const hdr={Authorization:"Bearer "+token,Accept:"application/vnd.github+json"};
-    let sha; const cur=await fetch(url,{headers:hdr}); if(cur.ok) sha=(await cur.json()).sha;
-    const env=await encryptObj({date:raw.date,...draft},LS.get("rd_pass"));
-    const r=await fetch(url,{method:"PUT",headers:{...hdr,"Content-Type":"application/json"},
-      body:JSON.stringify({message:"Check-in "+raw.date,content:btoa(JSON.stringify(env)),...(sha?{sha}:{})})});
-    if(!r.ok) throw new Error("GitHub "+r.status);
-    done("Saved and synced. The server updates in a couple of minutes.");
-  }catch(e){ done(`Saved on this phone only (${e.message}).`); }
+    await sendMail("answers",{date:raw.date,...draft});
+    done("Saved. The score updates within 10 minutes.");  }catch(e){ done(`Saved on this phone only (${e.message}).`); }
 }
 
 load();

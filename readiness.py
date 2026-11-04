@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 import engine
 import fitness
 import garmin
+import mailbox
 import push
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -699,27 +700,34 @@ def main():
     today = dt.datetime.now(TZ).date()
     pw = os.environ["READINESS_PASSPHRASE"]
     wellness, activities, events, streams = load_data(today)
+    cache = engine.load_cache(pw, decrypt)
     gdays = {}
+    try:
+        n = mailbox.collect(cache, pw, decrypt)
+        if n:
+            print(f"mailbox: {n} new message(s)")
+    except Exception as e:
+        print("mailbox skipped:", type(e).__name__)
     if os.environ.get("GARMIN_API_KEY"):
         errors = []
-        cache = engine.load_cache(pw, decrypt)
         hrmax_hint = max([a.get("max_heartrate") or 0 for a in activities] + [0])
         try:
             cache = engine.refresh(cache, today, errors, hrmax_hint)
-            engine.save_cache(cache, pw, encrypt)
         except SystemExit as e:
             errors.append(str(e))
         for e in sorted(set(errors))[:10]:
             print("garmin:", e[:160])
         gdays = cache.get("days", {})
         print(f"garmin: {len(gdays)} days cached, {sum(1 for v in gdays.values() if v.get('detail'))} with detail")
-    data = build(wellness, activities, events, load_answers(pw), today, streams, load_notes(pw), gdays)
-    if os.environ.get("GARMIN_API_KEY"):
-        try:
-            if push.run(data, cache, pw, encrypt, decrypt, dt.datetime.now(TZ)):
-                engine.save_cache(cache, pw, encrypt)
-        except Exception as e:
-            print("push skipped:", type(e).__name__)
+    mail = cache.get("mail", {})
+    answers = {**load_answers(pw), **mail.get("answers", {})}
+    notes = {**load_notes(pw), **mail.get("notes", {})}
+    data = build(wellness, activities, events, answers, today, streams, notes, gdays)
+    try:
+        push.run(data, cache, pw, encrypt, decrypt, dt.datetime.now(TZ))
+    except Exception as e:
+        print("push skipped:", type(e).__name__)
+    engine.save_cache(cache, pw, encrypt)
     os.makedirs("site", exist_ok=True)
     with open("site/data.enc", "w") as f:
         json.dump(encrypt(data, pw), f)

@@ -88,7 +88,7 @@ def run(data, cache, pw, encrypt, decrypt, now):
     """Adds the public key to the data and sends what's due. Returns True if the cache changed."""
     priv, pub = vapid_keys(pw, encrypt, decrypt)
     data["push_key"] = pub
-    sub = subscription(pw, decrypt)
+    sub = (cache.get("mail") or {}).get("sub") or subscription(pw, decrypt)
     if not sub:
         return False
     sent = cache.setdefault("push_sent", [])
