@@ -41,7 +41,7 @@ jobs:
               print(time.strftime("%H:%M:%S"), why, "ok" if r.returncode == 0 else "failed")
 
           end = time.time() + 340 * 60
-          last_run, since = 0, int(time.time())
+          last_run, since, pending = 0, int(time.time()), False
           while time.time() < end:
               ping = False
               try:
@@ -56,8 +56,9 @@ jobs:
               except Exception as e:
                   print("poll skipped:", type(e).__name__)
               now = time.time()
-              if ping and now - last_run > 90:
-                  dispatch("app opened"); last_run = now
+              pending = pending or ping              # a ping is never lost, only delayed a few seconds
+              if pending and now - last_run > 40:
+                  dispatch("app opened"); last_run = now; pending = False
               elif now - last_run >= 600:
                   dispatch("scheduled"); last_run = now
               time.sleep(15)

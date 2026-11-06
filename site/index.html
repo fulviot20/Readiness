@@ -121,6 +121,7 @@ button{font:inherit;color:inherit}
 .pending{background:var(--surface);border-radius:18px;padding:16px;margin-top:14px;text-align:center}
 .pending p{margin:0 0 12px;color:var(--muted);font-size:14.5px}
 .pending .st{margin:10px 0 0;font-size:13.5px}
+.pending a.btn{display:inline-block;text-decoration:none;padding:13px 22px}
 .notice{font-size:14px;color:var(--muted);text-align:center;margin:12px 0 0}
 
 /* sections */
@@ -493,9 +494,11 @@ async function pingServer(){
 async function autoRefresh(){
   const latest=DATA.days[DATA.days.length-1],age=Date.now()-new Date(DATA.generated_at).getTime();
   const stale=((latest.date!==todayISO()||latest.score==null)&&new Date().getHours()>=5)||age>30*60000;
-  if(age<3*60000||polling||autoTries>=2) return;
+  const synced=Date.now()-syncAt<10*60000;          // just back from Garmin Connect
+  if((age<3*60000&&!synced)||polling||autoTries>=2) return;
+  if(synced) LS.del("rd_ping");
   pingServer();
-  autoTries++; polling=true; if(stale) setNote("Checking for new data…");
+  autoTries++; polling=true; if(stale) setNote(synced?"Getting last night from Garmin…":"Checking for new data…");
   const was=DATA.generated_at,pass=LS.get("rd_pass"),t0=Date.now(),limit=(stale?11:6)*60000;
   while(Date.now()-t0<limit&&document.visibilityState==="visible"){
     await new Promise(r=>setTimeout(r,20000));
@@ -1526,10 +1529,16 @@ function deltaTxt(day){
   if(prev){const d=day.score-prev.score; parts.push(d===0?"same as yesterday":`${d>0?"+":""}${d} vs yesterday`);}
   return parts.join(", ");
 }
+// opens Garmin Connect (the only app that can pull the night off the watch); back in Readiness the score follows
+const GC_INTENT="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.garmin.android.apps.connectmobile;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.garmin.android.apps.connectmobile;end";
+let syncAt=0;
 function pendingNote(){
   const prev=DATA.days.slice(0,sel).reverse().find(d=>d.score!=null);
-  return `<div class="pending"><p>Last night's sleep hasn't reached Garmin yet: it arrives as soon as the watch syncs in the background, and the score follows within a couple of minutes${prev?`; yesterday you were at <b>${prev.score}</b>`:""}.</p>
-    <button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p></div>`;
+  const android=/Android/i.test(navigator.userAgent);
+  return `<div class="pending"><p>Last night's sleep hasn't left your watch yet${prev?`; yesterday you were at <b>${prev.score}</b>`:""}.</p>
+    ${android?`<a class="btn" id="sync" href="${GC_INTENT}">Get today's score</a>
+    <p class="st" id="upd-note">Garmin Connect opens for a moment to collect the night: come back here and the score appears by itself.</p>`
+    :`<button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p>`}</div>`;
 }
 let TAB=(()=>new URLSearchParams(location.search).get("tab")||LS.get("rd_tab")||"today")();
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
@@ -1588,6 +1597,7 @@ function renderToday(){
 
   if(has){animateGauge(prevScore,day.score); prevScore=day.score;}
   const u=$("upd"); if(u) u.onclick=()=>requestUpdate(u);
+  const sy=$("sync"); if(sy) sy.onclick=()=>{syncAt=Date.now(); LS.del("rd_ping");};
   bind(raw);
 }
 
