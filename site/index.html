@@ -1756,13 +1756,14 @@ function openGuide(){
 }
 function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
-    <div class="field"><label for="s-pw">Passphrase</label><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"></div>
+    <div class="field"><label for="s-pw">Passphrase</label><div style="display:flex;gap:8px"><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"><button class="btn quiet" id="s-show" type="button">Show</button></div></div>
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.`:""}</p>
     <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
   $("s-save").onclick=()=>{const p=$("s-pw").value.trim(); if(p) LS.set("rd_pass",p); closeSheet(); load();};
   $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
+  $("s-show").onclick=()=>{const i=$("s-pw"),h=i.type==="password";i.type=h?"text":"password";$("s-show").textContent=h?"Hide":"Show";};
   $("s-val").onclick=openValidation;
   $("s-push").onclick=async()=>{const st=t=>$("s-pst").textContent=t,b=$("s-push");b.disabled=true;
     try{ await enableNotifications(st); await sendMail("test",{ts:Date.now()}); LS.del("rd_ping"); await pingServer();
