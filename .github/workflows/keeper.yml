@@ -2,6 +2,8 @@ name: Keeper
 
 # GitHub's own schedule is unreliable (runs get skipped for hours), so this job stays alive
 # for almost 6 hours and asks for a fresh calculation every 10 minutes, then restarts itself.
+# It also listens to the app: when you open Readiness it posts a "refresh" ping on the private
+# mailbox topic, and a calculation starts within ~20 seconds instead of waiting for the next slot.
 on:
   schedule:
     - cron: "11 */3 * * *"
@@ -20,16 +22,46 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
-      - name: Ricalcola ogni 10 minuti
+      - name: Ricalcola ogni 10 minuti o quando apri l'app
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
         run: |
-          end=$(( $(date +%s) + 340*60 ))
-          while [ "$(date +%s)" -lt "$end" ]; do
-            gh api -X POST "repos/$REPO/actions/workflows/readiness.yml/dispatches" -f ref=main || true
-            sleep 600
-          done
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess, time, urllib.request
+          pw = os.environ["READINESS_PASSPHRASE"]
+          topic = "rd-" + hashlib.sha256(("readiness-mailbox:" + pw).encode()).hexdigest()[:32]
+          print("::add-mask::" + topic)          # the topic name never appears in the public log
+
+          def dispatch(why):
+              r = subprocess.run(["gh", "api", "-X", "POST",
+                                  f"repos/{os.environ['REPO']}/actions/workflows/readiness.yml/dispatches",
+                                  "-f", "ref=main"], capture_output=True)
+              print(time.strftime("%H:%M:%S"), why, "ok" if r.returncode == 0 else "failed")
+
+          end = time.time() + 340 * 60
+          last_run, since = 0, int(time.time())
+          while time.time() < end:
+              ping = False
+              try:
+                  req = urllib.request.Request(f"https://ntfy.sh/{topic}/json?poll=1&since={since}",
+                                               headers={"User-Agent": "readiness-keeper/1.0"})
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      for line in r.read().decode().splitlines():
+                          m = json.loads(line)
+                          since = max(since, int(m.get("time") or 0) + 1)
+                          if m.get("event") == "message" and '"refresh"' in (m.get("message") or ""):
+                              ping = True
+              except Exception as e:
+                  print("poll skipped:", type(e).__name__)
+              now = time.time()
+              if ping and now - last_run > 90:
+                  dispatch("app opened"); last_run = now
+              elif now - last_run >= 600:
+                  dispatch("scheduled"); last_run = now
+              time.sleep(15)
+          PY
       - name: Riparti
         if: always()
         env:

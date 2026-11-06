@@ -16,7 +16,9 @@ def topic(pw):
 
 
 def collect(cache, pw, decrypt):
-    """Read new messages into cache['mail'] = {'answers': {date: ..}, 'notes': {date: ..}, 'sub': ..}."""
+    """Read new messages into cache['mail']: answers/notes by date, push subscription, athlete profile and metrics.
+
+    Messages of kind "refresh" carry nothing: they only wake the Keeper workflow (see keeper.yml)."""
     url = f"{BASE}/{topic(pw)}/json?poll=1&since=24h"
     req = urllib.request.Request(url, headers={"User-Agent": "readiness-score/1.0"})
     with urllib.request.urlopen(req, timeout=30) as r:
@@ -38,6 +40,15 @@ def collect(cache, pw, decrypt):
             mail[kind][obj["date"]] = obj
         elif kind == "sub":
             mail["sub"] = obj
+        elif kind == "profile":                      # athlete profile: birth date, sex, height
+            if (obj.get("ts") or 0) >= (mail.get("profile") or {}).get("ts", 0):
+                mail["profile"] = obj
+        elif kind == "metric" and obj.get("key") in ("weight", "lthr") and obj.get("date"):
+            series = mail.setdefault("metrics", {}).setdefault(obj["key"], {})
+            if obj.get("value") is None:
+                series.pop(obj["date"], None)
+            else:
+                series[obj["date"]] = obj["value"]
         seen.append(m["id"])
         new += 1
     cache["mail_seen"] = seen[-300:]

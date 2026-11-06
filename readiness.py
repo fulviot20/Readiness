@@ -41,6 +41,7 @@ SLEEP_TARGET = 7.0
 KDF_ITER = 200_000
 STREAM_DAYS = 3
 PROFILE_POINTS = 140
+FITNESS_DAYS = 365          # history kept for the fitness markers (Athlete tab)
 
 
 # ---------------------------------------------------------------- data
@@ -92,6 +93,39 @@ def load_data(today):
             except SystemExit as e:
                 print(f"streams skipped for {a['id']}: {e}")
     return wellness, activities, events, streams
+
+
+def run_lthr():
+    """Running LTHR from Intervals' sport settings, when it's set there (used until you enter your own)."""
+    if os.environ.get("FIXTURE_DIR"):
+        return None
+    try:
+        ath = fetch(f"athlete/{os.environ.get('INTERVALS_ATHLETE_ID') or '0'}", {})
+    except SystemExit as e:
+        print(f"athlete settings skipped: {str(e)[:80]}")
+        return None
+    for sp in ath.get("sportSettings") or []:
+        if "Run" in (sp.get("types") or []) and sp.get("lthr"):
+            return sp["lthr"]
+    return None
+
+
+def athlete(wellness, mail, fit, lthr_intervals):
+    """Athlete tab: your profile and logged values (from the app) plus weights recorded on Intervals.
+
+    Age and fitness age are worked out in the app from the birth date, so they move on by themselves."""
+    rest, hrmax = fit.get("rest"), fit.get("hrmax")
+    if lthr_intervals:
+        lthr, src = lthr_intervals, "intervals"
+    elif rest and hrmax:                    # about 88% of heart-rate reserve until you set your own
+        lthr, src = round(rest + 0.88 * (hrmax - rest)), "estimate"
+    else:
+        lthr, src = None, None
+    return {"profile": mail.get("profile"),
+            "metrics": mail.get("metrics", {}),
+            "weights": [{"date": w["id"], "kg": round(w["weight"], 1)} for w in sorted(wellness, key=lambda x: x["id"])
+                        if w.get("weight")],
+            "lthr_default": lthr, "lthr_src": src}
 
 
 # ---------------------------------------------------------------- encryption
@@ -681,8 +715,8 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
             [r["rhr"] for r in rows[-30:] if r.get("rhr")]
     hrmax = max([(v.get("hr") or {}).get("max") or 0 for v in gdays.values()] +
                 [a.get("max_heartrate") or 0 for a in activities] + [0])
-    fit = fitness.series(activities, st.median(rests) if rests else None, hrmax if hrmax >= 150 else None,
-                         dates[-KEEP_DAYS:])
+    year = [(today - dt.timedelta(days=k)).isoformat() for k in range(FITNESS_DAYS - 1, -1, -1)]
+    fit = fitness.series(activities, st.median(rests) if rests else None, hrmax if hrmax >= 150 else None, year)
     data_days = days
     monday = today - dt.timedelta(days=today.weekday())
     reviews = [week_review(data_days, fit, monday, today), week_review(data_days, fit, monday - dt.timedelta(days=7),
@@ -725,6 +759,7 @@ def main():
     answers = {**load_answers(pw), **mail.get("answers", {})}
     notes = {**load_notes(pw), **mail.get("notes", {})}
     data = build(wellness, activities, events, answers, today, streams, notes, gdays)
+    data["athlete"] = athlete(wellness, mail, data["fitness"], run_lthr())
     # personal Garmin key created on 3 Nov 2026 for one year
     data["garmin_key"] = {"expires": "2027-11-03", "error": bool(cache.get("garmin_auth_error"))}
     try:

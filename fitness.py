@@ -6,6 +6,8 @@ VO2max   Each steady session gives an estimate: oxygen cost of the effort (ACSM 
              VO2max = 3.5 + (VO2_effort - 3.5) / %HRR
          The daily value is the median of the last 30 days (at least 3 sessions).
 FTP      Intervals' rolling eFTP from your rides (best recent power-duration estimate), carried forward.
+Threshold pace  Same HR-speed line taken up to your lactate-threshold heart rate (computed in the app, so a
+         new LTHR applies at once): speed x (LTHR - rest) / (HR - rest), median of the last 30 days.
 Easy pace  Running speed scaled to one fixed easy heart rate (65% of HRR) using the linear HR-speed
          relationship; median of the last 30 days. Faster = better aerobic fitness.
 """
@@ -41,6 +43,7 @@ def session_points(activities, rest, hrmax):
             p.update(sport="run", vo2max=3.5 + (vo2 - 3.5) / hrr)
             z2 = rest + 0.65 * (hrmax - rest)
             p["easy_speed"] = v * (z2 - rest) / (hr - rest)
+            p["v"], p["hr"] = v, hr
         elif "Ride" in t:
             w, kg = _n(a.get("icu_average_watts")), _n(a.get("icu_weight"))
             vi = a.get("icu_variability_index") or 1
@@ -83,4 +86,6 @@ def series(activities, rest, hrmax, dates):
                     "easy_pace": round(1000 / st.median(ez)) if len(ez) >= 2 else None})   # seconds per km
     return {"series": out, "easy_hr": round(rest + 0.65 * (hrmax - rest)) if rest and hrmax else None,
             "hrmax": hrmax, "rest": round(rest) if rest else None,
-            "sessions": [{"date": p["date"], "sport": p["sport"], "vo2max": round(p["vo2max"], 1)} for p in pts[-60:]]}
+            "sessions": [{"date": p["date"], "sport": p["sport"], "vo2max": round(p["vo2max"], 1)} for p in pts[-60:]],
+            # steady runs (speed m/s, average HR): the app scales each to your LTHR for the threshold pace
+            "runs": [{"date": p["date"], "v": round(p["v"], 3), "hr": round(p["hr"])} for p in pts if p.get("v")]}
