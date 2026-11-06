@@ -38,8 +38,11 @@ def collect(cache, pw, decrypt):
         kind = env.get("kind")
         if kind in ("answers", "notes") and obj.get("date"):
             mail[kind][obj["date"]] = obj
-        elif kind == "sub":
-            mail["sub"] = obj
+        elif kind == "sub" and obj.get("endpoint"):          # one per device
+            import hashlib
+            mail.setdefault("subs", {})[hashlib.sha256(obj["endpoint"].encode()).hexdigest()[:16]] = obj
+        elif kind == "test":
+            mail["test"] = obj.get("ts")
         elif kind == "profile":                      # athlete profile: birth date, sex, height
             if (obj.get("ts") or 0) >= (mail.get("profile") or {}).get("ts", 0):
                 mail["profile"] = obj

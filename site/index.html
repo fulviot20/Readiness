@@ -479,6 +479,7 @@ async function load(quiet=false){
   sel=DATA.days.findIndex(d=>d.date===today);
   draft={...(DATA.days[sel].answers||{})};
   loadedAt=Date.now(); if(!quiet) prevScore=0; ATH_CACHE=null; render(); if(quiet) scrollTo(0,keepY);
+  keepSubscription();
   autoRefresh();
 }
 let loadedAt=0,polling=false,autoTries=0;
@@ -1175,8 +1176,20 @@ async function enableNotifications(st){
   let sub=await reg.pushManager.getSubscription();
   if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(DATA.push_key)});
   await sendMail("sub",sub.toJSON());
-  LS.set("rd_push","1");
+  LS.set("rd_push","1"); LS.set("rd_sub",sub.endpoint);
 }
+// every time the app opens: make sure this device's current subscription is the one the server has
+// (Android can renew it silently; an old one keeps being "accepted" but never reaches the phone)
+async function keepSubscription(){
+  try{
+    if(!LS.get("rd_push")||!("serviceWorker" in navigator)||!("PushManager" in window)||Notification.permission!=="granted"||!DATA.push_key) return;
+    const reg=await navigator.serviceWorker.register("sw.js"); await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(DATA.push_key)});
+    if(LS.get("rd_sub")!==sub.endpoint){ await sendMail("sub",sub.toJSON()); LS.set("rd_sub",sub.endpoint); }
+  }catch(e){}
+}
+const pushState=()=>!("Notification" in window)?"unsupported":Notification.permission==="denied"?"blocked":LS.get("rd_push")&&Notification.permission==="granted"?"on":"off";
 
 /* ------------------------------------------------------------ fitness markers */
 const paceTxt=sec=>`${Math.floor(sec/60)}:${String(Math.round(sec%60)).padStart(2,"0")}`;
@@ -1745,15 +1758,18 @@ function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
     <div class="field"><label for="s-pw">Passphrase</label><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"></div>
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
-      <button class="btn ${LS.get("rd_push")?"quiet":""}" id="s-push">${LS.get("rd_push")?"On":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0"></p>
+      <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.`:""}</p>
     <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
   $("s-save").onclick=()=>{const p=$("s-pw").value.trim(); if(p) LS.set("rd_pass",p); closeSheet(); load();};
   $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
   $("s-val").onclick=openValidation;
-  $("s-push").onclick=async()=>{const st=t=>$("s-pst").textContent=t;
-    try{ await enableNotifications(st); st("Done. A test notification arrives within 10 minutes."); $("s-push").textContent="On"; $("s-push").classList.add("quiet"); }
-    catch(e){ st("Couldn't turn them on: "+e.message+"."); }};
+  $("s-push").onclick=async()=>{const st=t=>$("s-pst").textContent=t,b=$("s-push");b.disabled=true;
+    try{ await enableNotifications(st); await sendMail("test",{ts:Date.now()}); LS.del("rd_ping"); await pingServer();
+      st("Test sent: it should arrive within about a minute. If it doesn't, check Android Settings → Apps → Readiness → Notifications.");
+      b.textContent="Send a test"; b.classList.add("quiet"); }
+    catch(e){ st("Couldn't turn them on: "+e.message+"."); }
+    b.disabled=false;};
 }
 
 /* ------------------------------------------------------------ save check-in */

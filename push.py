@@ -2,7 +2,8 @@
 
 * VAPID keys are created once inside GitHub Actions; the private key is kept encrypted in
   cache/vapid.enc, the public key travels to the app inside the encrypted data.
-* The app saves its push subscription encrypted in push/subscription.json (through the GitHub token).
+* Each device's push subscription arrives through the encrypted mailbox; every device gets every notification,
+  and a device the browser has dropped (404/410) is forgotten.
 * Which notifications have been sent is remembered in the encrypted feature cache, so each one goes once.
 """
 import base64
@@ -49,18 +50,26 @@ def subscription(pw, decrypt):
 
 
 def send(sub, priv_pem, payload):
+    """'ok', 'gone' (the browser dropped this subscription: forget it) or 'fail'."""
     from pywebpush import webpush, WebPushException
     try:
         from py_vapid import Vapid
         webpush(subscription_info=sub, data=json.dumps(payload), vapid_private_key=Vapid.from_pem(priv_pem.encode()),
-                vapid_claims={"sub": CONTACT}, ttl=6 * 3600)
-        return True
+                vapid_claims={"sub": CONTACT}, ttl=6 * 3600,
+                headers={"Urgency": "high"})        # delivered at once even when the phone is idle (Doze)
+        return "ok"
     except WebPushException as e:
-        print("push failed:", getattr(e.response, "status_code", "?"))
-        return False
+        code = getattr(e.response, "status_code", None)
+        print("push failed:", code or "?")
+        return "gone" if code in (404, 410) else "fail"
     except Exception as e:
         print("push failed:", type(e).__name__)
-        return False
+        return "fail"
+
+
+def sub_id(sub):
+    import hashlib
+    return hashlib.sha256((sub.get("endpoint") or "").encode()).hexdigest()[:16]
 
 
 def due(data, sent, now):
@@ -89,26 +98,45 @@ def due(data, sent, now):
 
 
 def run(data, cache, pw, encrypt, decrypt, now):
-    """Adds the public key to the data and sends what's due. Returns True if the cache changed."""
+    """Adds the public key to the data and sends what's due to every device. Returns True if the cache changed."""
     priv, pub = vapid_keys(pw, encrypt, decrypt)
     data["push_key"] = pub
-    sub = (cache.get("mail") or {}).get("sub") or subscription(pw, decrypt)
-    if not sub:
+    mail = cache.setdefault("mail", {})
+    subs = mail.setdefault("subs", {})
+    for old in (mail.pop("sub", None), subscription(pw, decrypt)):   # single-device format used before
+        if old and old.get("endpoint"):
+            subs.setdefault(sub_id(old), old)
+    data["push_devices"] = len(subs)
+    if not subs:
         return False
     sent = cache.setdefault("push_sent", [])
-    changed = False
-    import hashlib
-    h = hashlib.sha256(json.dumps(sub, sort_keys=True).encode()).hexdigest()[:16]
-    if cache.get("push_sub") != h:          # new device: confirm it works
-        if send(sub, priv, {"title": "Notifications are on",
-                            "body": "You'll get your score each morning as soon as it's ready.", "tag": "hello"}):
-            print("push sent: hello")
-        cache["push_sub"] = h
-        changed = True
-    for key, payload in due(data, set(sent), now):
-        if send(sub, priv, payload):
-            sent.append(key)
-            changed = True
-            print("push sent:", key.split(":")[0])
+    hello = set(cache.setdefault("push_hello", []))
+    todo = due(data, set(sent), now)
+    test = mail.get("test")
+    if test and f"test:{test}" not in sent:
+        todo.append((f"test:{test}", {"title": "Test notification",
+                                      "body": "Notifications from Readiness reach this device.", "tag": "test"}))
+    delivered = set()
+    for sid, sub in list(subs.items()):
+        if sid not in hello:                 # new device: confirm it works
+            todo_dev = [("hello", {"title": "Notifications are on",
+                                   "body": "You'll get your score each morning as soon as it's ready.", "tag": "hello"})] + todo
+        else:
+            todo_dev = todo
+        for key, payload in todo_dev:
+            r = send(sub, priv, payload)
+            if r == "gone":
+                subs.pop(sid, None)
+                print("push: removed a device that no longer accepts notifications")
+                break
+            if r == "ok":
+                if key == "hello":
+                    hello.add(sid)
+                else:
+                    delivered.add(key)
+                print("push sent:", key.split(":")[0])
+    sent.extend(k for k, _ in todo if k in delivered)
     cache["push_sent"] = sent[-60:]
-    return changed
+    cache["push_hello"] = sorted(hello & set(subs))
+    data["push_devices"] = len(subs)
+    return True
