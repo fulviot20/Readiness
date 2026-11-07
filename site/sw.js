@@ -6,7 +6,7 @@ self.addEventListener("push", e => {
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: "Readiness", body: e.data ? e.data.text() : "" }; }
   e.waitUntil(self.registration.showNotification(d.title || "Readiness", {
     body: d.body || "", tag: d.tag || "readiness", renotify: true,
-    icon: "icon-192.png", badge: "icon-192.png", data: { url: d.url || "./" }
+    icon: "logo-192.png", badge: "logo-192.png", data: { url: d.url || "./" }
   }));
 });
 self.addEventListener("notificationclick", e => {
