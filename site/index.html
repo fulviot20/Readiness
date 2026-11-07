@@ -520,15 +520,16 @@ async function requestUpdate(btn){
   autoTries=0; polling=false; LS.del("rd_ping"); autoRefresh();
 }
 
-const LOGO_SEGS=[["#ff5d6c",0,50],["#f7c948",74,124],["#34d399",148,212],["#4aa3ff",236,300]];
+const LOGO_C=[[255,93,108],[247,201,72],[52,211,153],[74,163,255]];
 function logoSVG(sz){
-  const P=a=>[50+36*Math.sin(a*Math.PI/180),50-36*Math.cos(a*Math.PI/180)];
-  const arc=(a,b)=>{const[x1,y1]=P(a),[x2,y2]=P(b);return `M${x1.toFixed(2)} ${y1.toFixed(2)}A36 36 0 ${b-a>180?1:0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;};
+  const P=a=>[50+38*Math.sin(a*Math.PI/180),50-38*Math.cos(a*Math.PI/180)];
+  const arc=(a,b)=>{const[x1,y1]=P(a),[x2,y2]=P(b);return `M${x1.toFixed(2)} ${y1.toFixed(2)}A38 38 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;};
+  const mix=t=>{t=Math.min(.9999,t)*3;const i=Math.floor(t),f=t-i,a=LOGO_C[i],b=LOGO_C[i+1];return `rgb(${a.map((v,k)=>Math.round(v+(b[k]-v)*f)).join(",")})`;};
+  let segs="";for(let a=0;a<300;a+=3)segs+=`<path d="${arc(a,a+3.6)}" stroke="${mix(a/300)}" stroke-width="5" fill="none"/>`;
   const[hx,hy]=P(300);
   return `<svg viewBox="0 0 100 100" width="${sz}" height="${sz}" aria-hidden="true">
-    <circle cx="50" cy="50" r="36" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="9"/>
-    ${LOGO_SEGS.map(([col,a,b])=>`<path d="${arc(a,b)}" stroke="${col}" stroke-width="9" stroke-linecap="round" fill="none"/>`).join("")}
-    <circle cx="${hx.toFixed(2)}" cy="${hy.toFixed(2)}" r="2.6" fill="#fff"/></svg>`;
+    <circle cx="50" cy="50" r="38" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="5"/>${segs}<circle cx="50" cy="12" r="2.5" fill="rgb(255,93,108)"/>
+    <circle cx="${hx.toFixed(2)}" cy="${hy.toFixed(2)}" r="4.2" fill="#fff"/><circle cx="${hx.toFixed(2)}" cy="${hy.toFixed(2)}" r="1.6" fill="#121a26"/></svg>`;
 }
 function splash(){return `<div class="splash">${logoSVG(96)}<div class="sp-w">Readiness</div></div>`;}
 function lock(msg){
