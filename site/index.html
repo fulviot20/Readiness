@@ -53,14 +53,14 @@ button{font:inherit;color:inherit}
 .g-legend i{width:6px;height:6px;border-radius:50%;grid-row:span 2}
 .g-legend b{font:600 9.5px/1.1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--text)}
 .g-legend span{font:400 9px/1.2 var(--ui);color:var(--muted);font-variant-numeric:tabular-nums}
-.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
-.mini{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:18px;padding:12px 14px;cursor:pointer;text-align:left;color:var(--text);min-width:0}
-.mini svg{flex:none;width:52px;height:52px}
-.mini .mn{font-family:var(--cond);font-size:19px;font-weight:500;fill:var(--text)}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+.mini{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:20px;padding:16px 16px;cursor:pointer;text-align:left;color:var(--text);min-width:0}
+.mini svg{flex:none;width:64px;height:64px}
+.mini .mn{font-family:var(--cond);font-size:20px;font-weight:500;fill:var(--text)}
 .mini .mt{min-width:0}
-.mini .mt small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--muted)}
-.mini .mt b{display:block;font-size:15px;font-weight:600;margin-top:1px}
-.mini .mt span{display:block;font-size:12px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .mt small{display:block;font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--muted)}
+.mini .mt b{display:block;font-size:17px;font-weight:600;margin-top:2px}
+.mini .mt span{display:block;font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .off{display:block;margin:16px auto 0;background:none;border:0;color:var(--faint);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
 .picks{display:grid;gap:8px;margin:14px 0}
 .picks button{background:var(--surface2);border:1px solid transparent;border-radius:12px;padding:13px 14px;text-align:left;color:var(--text);cursor:pointer;font-size:15px}
@@ -97,7 +97,10 @@ button{font:inherit;color:inherit}
 .wr-m b{color:var(--text);font-weight:600}
 .tog{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px}
 .tog label{font-size:15px}.tog p{font-size:13px;color:var(--faint);margin:4px 0 0}
-.energy{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;background:none;border:0;padding:0;margin-top:10px;cursor:pointer;color:var(--text);text-align:left}
+.day4{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.day4 .en-c{cursor:pointer;color:var(--text);text-align:left;font:inherit}
+.en-c b em{font-style:normal;font-family:var(--ui);font-size:12px;font-weight:500;margin-left:6px}
+.st-bar{display:flex;gap:3px;margin:8px 0 6px}.st-bar i{flex:1;height:6px;border-radius:99px;opacity:.22}.st-bar i.on{opacity:1}
 .en-c{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:18px;padding:12px 14px;min-width:0}
 .en-c small{display:block;font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--muted)}
 .en-c b{display:block;font-family:var(--cond);font-size:28px;font-weight:400;line-height:1.15;margin-top:2px}
@@ -1068,28 +1071,39 @@ const EN_COL={basal:"#64748b",active_so_far:"#f59e0b",rest_of_day:"#fcd34d",plan
 const EN_TXT={basal:"Basal (resting, whole day)",active_so_far:"Active so far",rest_of_day:"Rest of the day, usual pace",planned:"Planned training still to do"};
 const fmtK=n=>n==null?"–":Number(n).toLocaleString("en-GB");
 const asofTxt=h=>`${String(Math.floor(h)).padStart(2,"0")}:${String(Math.round(h%1*60)).padStart(2,"0")}`;
-function energyCard(){
+const STRESS=[[25,"Rest","#60a5fa"],[50,"Low","#fbbf24"],[75,"Medium","#f59e0b"],[100,"High","#f97316"]];
+const stressBand=v=>STRESS.find(b=>v<=b[0]);
+const EN_KEYS={kcal:["Calories","#f59e0b","kcal"],steps:["Steps","#34d399","steps"],km:["Distance","#2dd4bf","km"],stress:["Stress","#f472b6","avg stress"]};
+function yourDay(){
   const E=DATA.energy?.today; if(!E) return "";
   const p=E.parts,tot=E.projected||1,seg=k=>`<i style="width:${p[k]/tot*100}%;background:${EN_COL[k]}"></i>`;
-  const sp=E.goal?Math.min(100,E.steps/E.goal*100):0;
-  return `<button class="energy" id="energy">
-    <div class="en-c"><small>CALORIES</small><b>${fmtK(E.kcal_now)}<u>kcal</u></b>
+  const sp=E.goal?Math.min(100,E.steps/E.goal*100):0,sb=E.stress!=null?stressBand(E.stress):null;
+  return `<section class="sec"><div class="sec-h"><h2>Your day</h2><span>As of ${asofTxt(E.asof)}</span></div>
+  <div class="day4">
+    <button class="en-c" data-en="kcal"><small>CALORIES</small><b>${fmtK(E.kcal_now)}<u>kcal</u></b>
       <div class="en-bar">${["basal","active_so_far","rest_of_day","planned"].map(seg).join("")}</div>
-      <span>Day on track for ~${fmtK(E.projected)}</span></div>
-    <div class="en-c"><small>STEPS</small><b>${fmtK(E.steps)}</b>
+      <span>On track for ~${fmtK(E.projected)}</span></button>
+    <button class="en-c" data-en="steps"><small>STEPS</small><b>${fmtK(E.steps)}</b>
       <div class="en-bar"><i style="width:${sp}%;background:#34d399"></i></div>
-      <span>${E.goal?(E.steps>=E.goal?"Goal reached":`${fmtK(E.goal-E.steps)} to ${fmtK(E.goal)}`):E.km?E.km+" km":""}</span></div></button>`;
+      <span>${E.goal?(E.steps>=E.goal?"Goal reached":`${fmtK(E.goal-E.steps)} to ${fmtK(E.goal)}`):`~${fmtK(E.steps_projected)} by tonight`}</span></button>
+    <button class="en-c" data-en="km"><small>DISTANCE</small><b>${E.km!=null?E.km.toFixed(1):"–"}<u>km</u></b>
+      <div class="en-bar"><i style="width:${E.km&&E.steps_projected?Math.min(100,E.steps/E.steps_projected*100):0}%;background:#2dd4bf"></i></div>
+      <span>Estimate, on the safe side</span></button>
+    <button class="en-c" data-en="stress"><small>STRESS</small><b>${E.stress??"–"}${sb?`<em style="color:${sb[2]}">${sb[1]}</em>`:""}</b>
+      <div class="st-bar">${STRESS.map(b=>`<i class="${sb===b?"on":""}" style="background:${b[2]}"></i>`).join("")}</div>
+      <span>${E.stress!=null?"Day average so far":"No data yet"}</span></button>
+  </div></section>`;
 }
 let enPick=null,enKey="kcal";
 function enBars(key,n){
   const h=(DATA.energy?.history||[]).slice(-n),W=320,H=120,bw=W/h.length,vals=h.map(d=>d[key]||0),max=Math.max(...vals,1);
-  const pick=enPick==null||enPick>=h.length?h.length-1:enPick,col=key==="kcal"?"#f59e0b":"#34d399";
+  const pick=enPick==null||enPick>=h.length?h.length-1:enPick,col=EN_KEYS[key][1];
   const bars=h.map((d,i)=>{const v=d[key],hh=v?Math.max(3,v/max*H):2;
     return `<rect x="${(i*bw+1.2).toFixed(1)}" y="${(H-hh).toFixed(1)}" width="${(bw-2.4).toFixed(1)}" height="${hh.toFixed(1)}" rx="2" fill="${v?col:"var(--line)"}" opacity="${i===pick?1:.4}"/>
       <rect data-ei="${i}" x="${(i*bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer"/>`;}).join("");
   const goal=key==="steps"&&h[pick].goal?`<line x1="0" x2="${W}" y1="${H-h[pick].goal/max*H}" y2="${H-h[pick].goal/max*H}" stroke="var(--muted)" stroke-dasharray="3 4" opacity="${h[pick].goal<=max?.6:0}"/>`:"";
-  const pd=h[pick],det=key==="kcal"?(pd.active!=null?`${fmtK(pd.active)} active + ${fmtK(pd.resting)} basal`:""):(pd.km?pd.km+" km":"");
-  return `<div class="readout"><span>${fmtDay(pd.date,{weekday:"short",day:"numeric",month:"short"})}</span><b>${fmtK(pd[key])}</b><em style="color:${col}">${key==="kcal"?"kcal":"steps"}</em><span style="margin-left:auto">${esc(det)}</span></div>
+  const pd=h[pick],det=key==="kcal"?(pd.active!=null?`${fmtK(pd.active)} active + ${fmtK(pd.resting)} basal`:""):key==="steps"?(pd.km!=null?pd.km.toFixed(1)+" km":""):key==="km"?(pd.steps?fmtK(pd.steps)+" steps":""):(pd.stress!=null?stressBand(pd.stress)[1]:"");
+  return `<div class="readout"><span>${fmtDay(pd.date,{weekday:"short",day:"numeric",month:"short"})}</span><b>${key==="km"&&pd.km!=null?pd.km.toFixed(1):fmtK(pd[key])}</b><em style="color:${col}">${EN_KEYS[key][2]}</em><span style="margin-left:auto">${esc(det)}</span></div>
     <div class="sh-chart bars30"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${goal}${bars}</svg>
     <div class="ax"><span>${fmtDay(h[0].date,{day:"numeric",month:"short"})}</span><span>${fmtDay(h[h.length-1].date,{day:"numeric",month:"short"})}</span></div></div>`;
 }
@@ -1097,14 +1111,15 @@ function openEnergy(n=7,keep=false){
   if(!keep) enPick=null;
   const E=DATA.energy?.today; if(!E) return;
   const y=$("sheet").scrollTop,p=E.parts;
-  openSheet(`<div class="sh-top"><h2>Energy</h2>${X}</div>
+  openSheet(`<div class="sh-top"><h2>Your day</h2>${X}</div>
     <div class="sh-big" style="color:#f59e0b">~${fmtK(E.projected)}<small>kcal by tonight</small></div>
     <p class="sh-desc">${fmtK(E.kcal_now)} kcal burned so far (data at ${asofTxt(E.asof)}). The projection adds your full-day basal burn, the rest of the day at your usual pace outside workouts${E.planned_names.length?` and ${esc(E.planned_names.join(", "))} at your usual cost for that sport`:""}. It updates every 10 minutes as the day goes.</p>
     <div class="en-bar" style="height:10px">${["basal","active_so_far","rest_of_day","planned"].map(k=>`<i style="width:${p[k]/(E.projected||1)*100}%;background:${EN_COL[k]}"></i>`).join("")}</div>
     <div class="en-parts">${["basal","active_so_far","rest_of_day","planned"].filter(k=>p[k]>0).map(k=>`<div><i style="background:${EN_COL[k]}"></i><span>${EN_TXT[k]}</span><b>${fmtK(p[k])}</b></div>`).join("")}</div>
-    <div class="kv"><span>Steps</span><b>${fmtK(E.steps)}${E.goal?` / ${fmtK(E.goal)}`:""}</b><span>Steps by tonight, at your usual pace</span><b>~${fmtK(E.steps_projected)}</b>${E.km?`<span>Distance</span><b>${E.km} km</b>`:""}</div>
-    <div class="range"><button data-k="kcal" class="${enKey==="kcal"?"on":""}">Calories</button><button data-k="steps" class="${enKey==="steps"?"on":""}">Steps</button></div>
-    <div class="range" style="margin-left:8px"><button data-n="7" class="${n===7?"on":""}">7 days</button><button data-n="30" class="${n===30?"on":""}">30 days</button></div>
+    <div class="kv"><span>Steps</span><b>${fmtK(E.steps)}${E.goal?` / ${fmtK(E.goal)}`:""}</b><span>Steps by tonight, at your usual pace</span><b>~${fmtK(E.steps_projected)}</b>${E.km!=null?`<span>Distance (estimate)</span><b>${E.km.toFixed(1)} km</b>`:""}${E.km_garmin?`<span>Garmin's figure</span><b>${E.km_garmin} km</b>`:""}${E.stress!=null?`<span>Stress, day average</span><b>${E.stress} · ${stressBand(E.stress)[1]}</b>`:""}</div>
+    <p class="sh-note">Distance: GPS distance of runs and walks you record, plus the other steps × ${E.stride} m, your walking step length${E.height_known?" from your height":" (add your height in Athlete for a better one)"} shortened a little, since steps around the house are shorter than a real stride. When Garmin's own figure is lower, the lower one is kept, so it errs on the short side.</p>
+    <div class="range">${Object.entries(EN_KEYS).map(([k,v])=>`<button data-k="${k}" class="${enKey===k?"on":""}">${v[0]}</button>`).join("")}</div>
+    <div class="range" style="margin-top:8px"><button data-n="7" class="${n===7?"on":""}">7 days</button><button data-n="30" class="${n===30?"on":""}">30 days</button></div>
     ${enBars(enKey,n)}`);
   if(keep) $("sheet").scrollTop=y;
   $("sheet").querySelectorAll(".range button[data-n]").forEach(b=>b.onclick=()=>openEnergy(+b.dataset.n,true));
@@ -1597,13 +1612,14 @@ function renderToday(){
   ${isToday?keyNotice():""}
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
-  ${isToday?energyCard():""}
   ${isToday?feelNudge():""}
   ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
 
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
     <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
     ${isToday?tonightCard():""}</section>
+
+  ${isToday?yourDay():""}
 
   ${isToday?checkin(raw):""}
   ${sessions(raw)}
@@ -1621,7 +1637,7 @@ function bind(raw){
   const g=$("guide"); if(g) g.onclick=()=>openGuide();
   $("m-sleep").onclick=()=>openSleepScore(); $("m-strain").onclick=()=>openStrain();
   const of=$("off"); if(of) of.onclick=openOff;
-  const en=$("energy"); if(en) en.onclick=()=>openEnergy();
+  document.querySelectorAll(".day4 [data-en]").forEach(b=>b.onclick=()=>{enKey=b.dataset.en;openEnergy();});
   const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].sleep_score) openSleepScore(); else if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));

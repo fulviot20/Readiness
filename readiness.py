@@ -258,6 +258,7 @@ def summary(a, streams):
         "avg_hr": first("average_heartrate"), "max_hr": first("max_heartrate"),
         "kj": round(a["icu_joules"] / 1000) if a.get("icu_joules") else None,
         "km": round(a["distance"] / 1000, 1) if a.get("distance") else None,
+        "cadence": first("average_cadence"),
         "elev": round(a["total_elevation_gain"]) if a.get("total_elevation_gain") else None,
         "ftp": first("icu_ftp"),
         "event": a.get("paired_event_id"),
@@ -760,6 +761,8 @@ def main():
     notes = {**load_notes(pw), **mail.get("notes", {})}
     data = build(wellness, activities, events, answers, today, streams, notes, gdays)
     data["athlete"] = athlete(wellness, mail, data["fitness"], run_lthr())
+    prof = mail.get("profile") or {}             # height and sex sharpen the distance estimate
+    data["energy"] = energy.build(gdays, data["days"], today, prof.get("height"), prof.get("sex"))
     # personal Garmin key created on 3 Nov 2026 for one year
     data["garmin_key"] = {"expires": "2027-11-03", "error": bool(cache.get("garmin_auth_error"))}
     try:
