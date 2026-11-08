@@ -423,6 +423,36 @@ button{font:inherit;color:inherit}
 @keyframes swl{from{opacity:.2;transform:translateX(28px)}}@keyframes swr{from{opacity:.2;transform:translateX(-28px)}}
 .sheet.drag{transition:none}
 button:focus-visible{outline:2px solid var(--glacier);outline-offset:2px}
+
+.subtabs{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:14px;padding:4px;margin:6px 0 14px}
+.subtabs button{background:none;border:0;border-radius:10px;padding:9px 0;color:var(--muted);font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;transition:background .2s,color .2s}
+.subtabs button.on{background:var(--surface2);color:var(--text);box-shadow:0 1px 0 rgba(255,255,255,.05) inset}
+.f-day{justify-content:center;margin:2px 0 0}
+.lib-c{display:flex;align-items:center;gap:12px;width:100%;background:none;border:1px dashed var(--line);border-radius:16px;padding:12px 14px;color:var(--muted);cursor:pointer;text-align:left;font:inherit}
+.lib-c span{flex:1}.lib-c b{display:block;color:var(--text);font-size:15px;font-weight:600}.lib-c small{display:block;font-size:12.5px;color:var(--faint)}
+.ml-copy.mine{border-style:solid;border-color:rgba(245,158,11,.35);color:#fbbf24;background:rgba(245,158,11,.06)}
+.ml-save{display:block;margin:0 0 10px auto;background:none;border:0;color:var(--faint);font:inherit;font-size:12.5px;cursor:pointer;padding:2px 0}
+.af-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.af-acts button{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--surface2);border:0;border-radius:12px;padding:10px 0 8px;color:var(--text);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:transform .12s}
+.af-acts button:active{transform:scale(.95)}.af-acts svg{color:#fbbf24}
+.af-ai{display:block;width:100%;margin:10px 0;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);color:#c4b5fd;border-radius:12px;padding:11px;font:inherit;font-size:14px;cursor:pointer}
+.tray{position:sticky;bottom:calc(-24px - env(safe-area-inset-bottom));margin:14px -20px calc(-24px - env(safe-area-inset-bottom));padding:12px 20px calc(14px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(26,36,51,.85),var(--surface) 30%);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.tray.pop{animation:pop .35s cubic-bezier(.2,.8,.2,1)}@keyframes pop{40%{transform:scale(1.03)}}
+.tr-l{flex:1;background:none;border:0;text-align:left;color:var(--text);cursor:pointer;font:inherit;padding:0}
+.tr-l b{display:block;font-size:15px}.tr-l span{font-size:13px;color:var(--muted)}
+.tv-r{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tv-r.miss .tv-n{color:var(--amber)}
+.tv-m{flex:none;width:58px;background:var(--surface2);border:0;border-radius:8px;padding:6px 0;color:var(--text);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.tv-n{flex:1;min-width:0;font-size:14.5px;overflow:hidden;text-overflow:ellipsis}.tv-n small{display:block;font-size:12px;color:var(--faint)}
+.tv-g{width:58px;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:14px;padding:6px;text-align:right}
+.tv-r em{font-style:normal;font-size:12px;color:var(--faint);margin-left:-4px}
+.tv-r b{width:46px;text-align:right;font-family:var(--cond);font-size:19px;font-weight:500}
+.tv-x{background:none;border:0;color:var(--faint);font-size:22px;line-height:1;cursor:pointer;padding:0 2px}
+.tv-f{padding:6px 12px;font-size:13px}
+.sm-t{width:100%;min-height:150px;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font:inherit;font-size:15px;resize:vertical}
+.mic.on{background:#f0798a;color:#fff;animation:pulse 1.4s infinite}@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(240,121,138,.15)}}
+.ph-i{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:14px;margin-top:12px;background:var(--bg)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* athlete */
@@ -458,7 +488,7 @@ button:focus-visible{outline:2px solid var(--glacier);outline-offset:2px}
 .ent span{color:var(--muted)}.ent b{font-variant-numeric:tabular-nums;margin-left:auto;margin-right:10px}
 .ent button{background:none;border:0;color:var(--faint);cursor:pointer;padding:4px 6px;font-size:13px}
 .src{font-size:12.5px;color:var(--faint);margin:-6px 0 14px}
-.tabbar button{flex-basis:96px}
+.tabbar button{flex-basis:120px}
 .hb{background:none;border:0;padding:0;text-align:left;color:var(--text);cursor:pointer;min-width:0}
 .hb:disabled{cursor:default}
 .sh-sub{font-size:15px;font-weight:600;margin:20px 0 10px}
@@ -1174,7 +1204,7 @@ function yourDay(){
   <div class="day4">
     <button class="en-c" data-en="kcal"><small>CALORIES</small><b>${fmtK(E.kcal_now)}<u>kcal</u></b>
       <div class="en-bar">${["basal","active_so_far","rest_of_day","planned"].map(seg).join("")}</div>
-      <span>${(()=>{const e=ftot(foodDay(todayISO())).kcal,t=targetOf(todayISO());return e?`Eaten ${fmtK(Math.round(e))}${t?` · ${fmtK(Math.max(0,Math.round(t.kcal-e)))} left`:""}`:`On track for ~${fmtK(E.projected)}`;})()}</span></button>
+      <span>${(()=>{const e=foodOn()?ftot(foodDay(todayISO())).kcal:0,t=e?targetOf(todayISO()):null;return e?`Eaten ${fmtK(Math.round(e))}${t?` · ${fmtK(Math.max(0,Math.round(t.kcal-e)))} left`:""}`:`On track for ~${fmtK(E.projected)}`;})()}</span></button>
     <button class="en-c" data-en="steps"><small>STEPS</small><b>${fmtK(E.steps)}</b>
       <div class="en-bar"><i style="width:${sp}%;background:#34d399"></i></div>
       <span>${E.goal?(E.steps>=E.goal?"Goal reached":`${fmtK(E.goal-E.steps)} to ${fmtK(E.goal)}`):`~${fmtK(E.steps_projected)} by tonight`}</span></button>
@@ -1220,154 +1250,395 @@ function openEnergy(n=7,keep=false){
 }
 
 /* ------------------------------------------------------------ food: reference table */
-// Common foods, values per 100 g (raw or dry unless the name says otherwise), from the Italian CREA tables
-// and USDA. Columns: name, Italian/other names to search by, kcal, protein, carbs, fat, unit, unit grams.
-const FOOD_REF=[
-["Pasta, dry","pasta secca spaghetti penne fusilli rigatoni",353,12.5,71,1.5,"portion",80],
-["Pasta, cooked","pasta cotta",158,5.8,31,0.9],
-["Whole-wheat pasta, dry","pasta integrale",340,13,64,2.5,"portion",80],
-["Rice, dry","riso",350,7,79,0.6,"portion",80],
-["Rice, cooked","riso cotto",130,2.7,28,0.3],
-["Basmati rice, dry","riso basmati",355,8,78,0.9,"portion",80],
-["Brown rice, dry","riso integrale",360,7.5,76,2.7,"portion",80],
-["Couscous, dry","cous cous couscous",360,12.5,72,1.1,"portion",80],
-["Quinoa, dry","quinoa",368,14,64,6,"portion",70],
-["Oats","avena fiocchi d'avena porridge",372,13,60,7,"portion",50],
-["Bread","pane comune rosetta baguette",270,8.5,55,1.3,"slice",30],
-["Whole-wheat bread","pane integrale",245,9,46,2.5,"slice",30],
-["Sandwich bread","pan carrè pancarrè pane in cassetta toast",265,8,48,4,"slice",25],
-["Crackers","cracker salati",430,10,70,11,"pack",25],
-["Rusks","fette biscottate",410,11,73,7,"rusk",10],
-["Breadsticks","grissini",420,12,68,10,"breadstick",6],
-["Rice cakes","gallette di riso",385,8,81,3,"cake",8],
-["Piadina","piadina romagnola",320,8,50,9.5,"piadina",120],
-["Pizza margherita","pizza margherita",250,10,32,8.5,"pizza",330],
-["Focaccia","focaccia",300,7,45,10,"slice",80],
-["Potatoes","patate",77,2,17,0.1,"potato",150],
-["Sweet potato","patata dolce patate americane",86,1.6,20,0.1,"potato",150],
-["Potato gnocchi","gnocchi di patate",160,4,34,0.5,"portion",150],
-["Polenta, cooked","polenta",70,1.6,15,0.3],
-["Flour","farina 00",345,11,73,1.2],
-["Corn flakes","cornflakes cereali",378,7,84,0.9,"bowl",30],
-["Muesli","muesli",370,10,62,7,"bowl",40],
-["Granola","granola",450,10,60,18,"bowl",40],
-["Croissant","cornetto brioche",400,8,45,21,"croissant",60],
-["Biscuits","biscotti frollini",460,7,70,17,"biscuit",10],
-["Chicken breast","petto di pollo",110,23,0,1.2,"breast",150],
-["Chicken thigh","cosce di pollo sovracosce",170,18,0,11],
-["Turkey breast","petto di tacchino fesa",107,24,0,1],
-["Lean beef","manzo magro bistecca vitello",130,21,0,5],
-["Minced beef","macinato carne macinata hamburger",210,19,0,15,"burger",100],
-["Pork loin","lonza maiale braciola",150,21,0,7],
-["Salmon","salmone",185,20,0,12,"fillet",125],
-["Tuna in water, drained","tonno al naturale",105,25,0,1,"can",56],
-["Tuna in oil, drained","tonno sott'olio",190,25,0,10,"can",52],
-["Cod","merluzzo baccalà",80,18,0,0.7],
-["Sea bass","branzino spigola orata",97,18,0,2.5],
-["Shrimp","gamberi gamberetti",85,18,0,1],
-["Eggs","uova uovo",143,12.5,0.7,10,"egg",55],
-["Egg whites","albume albumi",48,10.5,0.7,0.2],
-["Prosciutto crudo","prosciutto crudo parma",250,26,0,16,"slice",15],
-["Prosciutto cotto","prosciutto cotto",140,20,1,6,"slice",20],
-["Bresaola","bresaola",155,33,0,2,"slice",10],
-["Sliced turkey","fesa di tacchino affettata",100,20,1.5,1.5,"slice",15],
-["Mortadella","mortadella",290,15,1,25,"slice",20],
-["Salami","salame",400,25,1,33,"slice",8],
-["Tofu","tofu",120,13,2,7],
-["Chickpeas, cooked","ceci",120,7,16,2.4,"can",240],
-["Lentils, cooked","lenticchie",116,9,20,0.4],
-["Lentils, dry","lenticchie secche",325,24,52,1.5],
-["Beans, cooked","fagioli borlotti cannellini",110,7.5,18,0.5,"can",240],
-["Peas","piselli",70,5,10,0.4],
-["Whole milk","latte intero",64,3.3,4.9,3.6,"glass",200],
-["Semi-skimmed milk","latte parzialmente scremato",46,3.4,4.9,1.6,"glass",200],
-["Skimmed milk","latte scremato",35,3.4,5,0.2,"glass",200],
-["Plain yogurt","yogurt bianco intero",66,3.8,4.7,3.5,"pot",125],
-["Greek yogurt 0%","yogurt greco magro 0",57,10,4,0.2,"pot",170],
-["Greek yogurt, full fat","yogurt greco intero",97,9,4,5,"pot",150],
-["Skyr","skyr",63,11,4,0.2,"pot",150],
-["Mozzarella","mozzarella fior di latte",250,18.7,0.7,19.5,"ball",125],
-["Light mozzarella","mozzarella light",165,20,1,9,"ball",125],
-["Parmigiano","parmigiano grana padano reggiano",395,33,0,28,"tablespoon",5],
-["Pecorino","pecorino",390,26,0,32],
-["Ricotta","ricotta",145,9.5,3.5,10.5],
-["Cottage cheese","fiocchi di latte cottage",100,12,3,4.5,"pot",150],
-["Stracchino","stracchino crescenza",280,17,1,23],
-["Cheese slices","sottilette formaggio a fette",270,14,6,21,"slice",20],
-["Butter","burro",740,0.8,0.6,82,"teaspoon",5],
-["Whey protein","proteine in polvere whey",380,78,7,5,"scoop",30],
-["Olive oil","olio d'oliva olio evo extravergine",899,0,0,99.9,"tablespoon",10],
-["Peanut butter","burro di arachidi",600,25,15,50,"tablespoon",15],
-["Almonds","mandorle",603,22,4.6,55,"handful",30],
-["Walnuts","noci",689,14.3,5.1,68,"handful",30],
-["Hazelnuts","nocciole",655,14,6,64,"handful",30],
-["Peanuts","arachidi noccioline",600,26,8,50,"handful",30],
-["Dark chocolate 70%","cioccolato fondente",590,8,34,43,"square",10],
-["Milk chocolate","cioccolato al latte",545,7.5,55,32,"square",10],
-["Nutella","nutella crema spalmabile nocciole",539,6.3,57.5,30.9,"tablespoon",15],
-["Avocado","avocado",160,2,2,15,"half",80],
-["Mayonnaise","maionese",680,1,1.5,75,"tablespoon",15],
-["Pesto","pesto genovese",480,5,5,48,"tablespoon",15],
-["Hummus","hummus",250,7,14,18,"tablespoon",20],
-["Apple","mela",52,0.3,12,0.2,"apple",180],
-["Banana","banana",89,1.1,21,0.3,"banana",120],
-["Orange","arancia",47,0.9,11,0.1,"orange",150],
-["Mandarin","mandarino clementina",53,0.8,12,0.3,"mandarin",70],
-["Pear","pera",57,0.4,13,0.1,"pear",170],
-["Kiwi","kiwi",61,1.1,13,0.5,"kiwi",75],
-["Grapes","uva",69,0.7,17,0.2],
-["Strawberries","fragole",32,0.7,7,0.3],
-["Blueberries","mirtilli",57,0.7,13,0.3],
-["Peach","pesca",39,0.9,9,0.3,"peach",150],
-["Apricot","albicocca albicocche",48,1.4,10,0.4,"apricot",40],
-["Cherries","ciliegie",63,1,15,0.2],
-["Pineapple","ananas",50,0.5,12,0.1],
-["Watermelon","anguria cocomero",30,0.6,7.5,0.2],
-["Melon","melone",34,0.8,8,0.2],
-["Dates","datteri",280,2.5,67,0.4,"date",8],
-["Raisins","uvetta uva passa",300,3,72,0.5],
-["Dried apricots","albicocche secche",240,3.4,55,0.5],
-["Fruit juice","succo di frutta spremuta",45,0.3,11,0,"glass",200],
-["Jam","marmellata confettura",250,0.4,62,0.1,"tablespoon",15],
-["Honey","miele",304,0.3,82,0,"teaspoon",7],
-["Sugar","zucchero",400,0,100,0,"teaspoon",5],
-["Mixed salad","insalata lattuga rucola valeriana",15,1.3,2,0.2,"bowl",80],
-["Tomatoes","pomodori pomodorini",18,0.9,3.5,0.2,"tomato",120],
-["Tomato passata","passata di pomodoro sugo polpa",30,1.4,5,0.2],
-["Carrots","carote",41,0.9,9,0.2,"carrot",80],
-["Zucchini","zucchine",17,1.2,3,0.3],
-["Broccoli","broccoli",34,2.8,4.4,0.4],
-["Spinach","spinaci",23,2.9,1.4,0.4],
-["Peppers","peperoni",26,1,5,0.3],
-["Aubergine","melanzane",24,1,3.5,0.2],
-["Green beans","fagiolini",31,1.8,5,0.2],
-["Mushrooms","funghi champignon",22,3,2,0.3],
-["Onion","cipolla",40,1.1,9,0.1],
-["Cucumber","cetrioli cetriolo",15,0.7,3,0.1],
-["Fennel","finocchio finocchi",20,1.2,3,0.2],
-["Cauliflower","cavolfiore",25,1.9,3,0.3],
-["Pumpkin","zucca",26,1,6,0.1],
-["Sweetcorn, canned","mais",85,2.9,15,1.2],
-["Frozen mixed vegetables","verdure miste minestrone surgelato",40,2.5,6,0.5],
-["Lasagne","lasagne",160,8,15,7.5],
-["Sushi","sushi nigiri maki",150,6,28,1.5,"piece",30],
-["Ice cream","gelato",210,3.7,25,10,"scoop",70],
-["Espresso","caffè espresso",2,0.1,0.3,0,"cup",30],
-["Cappuccino","cappuccino",40,2.2,3.3,2,"cup",150],
-["Beer","birra",43,0.5,3.6,0,"bottle",330],
-["Red wine","vino rosso",85,0.1,2.6,0,"glass",125],
-["White wine","vino bianco",80,0.1,2.6,0,"glass",125],
-["Cola","coca cola",42,0,10.6,0,"can",330],
-["Sports drink","sali minerali isotonico sport drink",25,0,6,0,"bottle",500],
-["Energy gel","gel energetico",270,0,67,0,"gel",40],
-["Energy bar","barretta energetica",370,8,65,8,"bar",40],
-["Protein bar","barretta proteica",370,32,35,12,"bar",55],
-["Almond drink","bevanda alla mandorla latte di mandorla",24,0.5,3,1.1,"glass",200],
-["Soy drink","bevanda di soia latte di soia",40,3.3,2.5,1.8,"glass",200],
-].map(r=>({name:r[0],alias:r[1],k:r[2],p:r[3],c:r[4],f:r[5],unit:r[6]?[r[6],r[7]]:null,src:"ref"}));
+// Common foods and Italian dishes, values per 100 g (raw or dry unless the name says otherwise), from the
+// Italian CREA tables, USDA and typical recipes. Columns: name | other names to search by | kcal | protein | carbs | fat | unit | unit grams
+const FOOD_REF=`
+Pasta, dry|pasta secca spaghetti penne fusilli rigatoni|353|12.5|71|1.5|portion|80
+Pasta, cooked|pasta cotta|158|5.8|31|0.9
+Whole-wheat pasta, dry|pasta integrale|340|13|64|2.5|portion|80
+Rice, dry|riso|350|7|79|0.6|portion|80
+Rice, cooked|riso cotto|130|2.7|28|0.3
+Basmati rice, dry|riso basmati|355|8|78|0.9|portion|80
+Brown rice, dry|riso integrale|360|7.5|76|2.7|portion|80
+Couscous, dry|cous cous couscous|360|12.5|72|1.1|portion|80
+Quinoa, dry|quinoa|368|14|64|6|portion|70
+Oats|avena fiocchi d'avena porridge|372|13|60|7|portion|50
+Bread|pane comune rosetta baguette|270|8.5|55|1.3|slice|30
+Whole-wheat bread|pane integrale|245|9|46|2.5|slice|30
+Sandwich bread|pan carrè pancarrè pane in cassetta toast|265|8|48|4|slice|25
+Crackers|cracker salati|430|10|70|11|pack|25
+Rusks|fette biscottate|410|11|73|7|rusk|10
+Breadsticks|grissini|420|12|68|10|breadstick|6
+Rice cakes|gallette di riso|385|8|81|3|cake|8
+Piadina|piadina romagnola|320|8|50|9.5|piadina|120
+Pizza margherita|pizza margherita|250|10|32|8.5|pizza|330
+Focaccia|focaccia|300|7|45|10|slice|80
+Potatoes|patate|77|2|17|0.1|potato|150
+Sweet potato|patata dolce patate americane|86|1.6|20|0.1|potato|150
+Potato gnocchi|gnocchi di patate|160|4|34|0.5|portion|150
+Polenta, cooked|polenta|70|1.6|15|0.3
+Flour|farina 00|345|11|73|1.2
+Corn flakes|cornflakes cereali|378|7|84|0.9|bowl|30
+Muesli|muesli|370|10|62|7|bowl|40
+Granola|granola|450|10|60|18|bowl|40
+Croissant|cornetto brioche|400|8|45|21|croissant|60
+Biscuits|biscotti frollini|460|7|70|17|biscuit|10
+Chicken breast|petto di pollo|110|23|0|1.2|breast|150
+Chicken thigh|cosce di pollo sovracosce|170|18|0|11
+Turkey breast|petto di tacchino fesa|107|24|0|1
+Lean beef|manzo magro bistecca vitello|130|21|0|5
+Minced beef|macinato carne macinata hamburger|210|19|0|15|burger|100
+Pork loin|lonza maiale braciola|150|21|0|7
+Salmon|salmone|185|20|0|12|fillet|125
+Tuna in water, drained|tonno al naturale|105|25|0|1|can|56
+Tuna in oil, drained|tonno sott'olio|190|25|0|10|can|52
+Cod|merluzzo baccalà|80|18|0|0.7
+Sea bass|branzino spigola orata|97|18|0|2.5
+Shrimp|gamberi gamberetti|85|18|0|1
+Eggs|uova uovo|143|12.5|0.7|10|egg|55
+Egg whites|albume albumi|48|10.5|0.7|0.2
+Prosciutto crudo|prosciutto crudo parma|250|26|0|16|slice|15
+Prosciutto cotto|prosciutto cotto|140|20|1|6|slice|20
+Bresaola|bresaola|155|33|0|2|slice|10
+Sliced turkey|fesa di tacchino affettata|100|20|1.5|1.5|slice|15
+Mortadella|mortadella|290|15|1|25|slice|20
+Salami|salame|400|25|1|33|slice|8
+Tofu|tofu|120|13|2|7
+Chickpeas, cooked|ceci|120|7|16|2.4|can|240
+Lentils, cooked|lenticchie|116|9|20|0.4
+Lentils, dry|lenticchie secche|325|24|52|1.5
+Beans, cooked|fagioli borlotti cannellini|110|7.5|18|0.5|can|240
+Peas|piselli|70|5|10|0.4
+Whole milk|latte intero|64|3.3|4.9|3.6|glass|200
+Semi-skimmed milk|latte parzialmente scremato|46|3.4|4.9|1.6|glass|200
+Skimmed milk|latte scremato|35|3.4|5|0.2|glass|200
+Plain yogurt|yogurt bianco intero|66|3.8|4.7|3.5|pot|125
+Greek yogurt 0%|yogurt greco magro 0|57|10|4|0.2|pot|170
+Greek yogurt, full fat|yogurt greco intero|97|9|4|5|pot|150
+Skyr|skyr|63|11|4|0.2|pot|150
+Mozzarella|mozzarella fior di latte|250|18.7|0.7|19.5|ball|125
+Light mozzarella|mozzarella light|165|20|1|9|ball|125
+Parmigiano|parmigiano grana padano reggiano|395|33|0|28|tablespoon|5
+Pecorino|pecorino|390|26|0|32
+Ricotta|ricotta|145|9.5|3.5|10.5
+Cottage cheese|fiocchi di latte cottage|100|12|3|4.5|pot|150
+Stracchino|stracchino crescenza|280|17|1|23
+Cheese slices|sottilette formaggio a fette|270|14|6|21|slice|20
+Butter|burro|740|0.8|0.6|82|teaspoon|5
+Whey protein|proteine in polvere whey|380|78|7|5|scoop|30
+Olive oil|olio d'oliva olio evo extravergine|899|0|0|99.9|tablespoon|10
+Peanut butter|burro di arachidi|600|25|15|50|tablespoon|15
+Almonds|mandorle|603|22|4.6|55|handful|30
+Walnuts|noci|689|14.3|5.1|68|handful|30
+Hazelnuts|nocciole|655|14|6|64|handful|30
+Peanuts|arachidi noccioline|600|26|8|50|handful|30
+Dark chocolate 70%|cioccolato fondente|590|8|34|43|square|10
+Milk chocolate|cioccolato al latte|545|7.5|55|32|square|10
+Nutella|nutella crema spalmabile nocciole|539|6.3|57.5|30.9|tablespoon|15
+Avocado|avocado|160|2|2|15|half|80
+Mayonnaise|maionese|680|1|1.5|75|tablespoon|15
+Pesto|pesto genovese|480|5|5|48|tablespoon|15
+Hummus|hummus|250|7|14|18|tablespoon|20
+Apple|mela|52|0.3|12|0.2|apple|180
+Banana|banana|89|1.1|21|0.3|banana|120
+Orange|arancia|47|0.9|11|0.1|orange|150
+Mandarin|mandarino clementina|53|0.8|12|0.3|mandarin|70
+Pear|pera|57|0.4|13|0.1|pear|170
+Kiwi|kiwi|61|1.1|13|0.5|kiwi|75
+Grapes|uva|69|0.7|17|0.2
+Strawberries|fragole|32|0.7|7|0.3
+Blueberries|mirtilli|57|0.7|13|0.3
+Peach|pesca|39|0.9|9|0.3|peach|150
+Apricot|albicocca albicocche|48|1.4|10|0.4|apricot|40
+Cherries|ciliegie|63|1|15|0.2
+Pineapple|ananas|50|0.5|12|0.1
+Watermelon|anguria cocomero|30|0.6|7.5|0.2
+Melon|melone|34|0.8|8|0.2
+Dates|datteri|280|2.5|67|0.4|date|8
+Raisins|uvetta uva passa|300|3|72|0.5
+Dried apricots|albicocche secche|240|3.4|55|0.5
+Fruit juice|succo di frutta spremuta|45|0.3|11|0|glass|200
+Jam|marmellata confettura|250|0.4|62|0.1|tablespoon|15
+Honey|miele|304|0.3|82|0|teaspoon|7
+Sugar|zucchero|400|0|100|0|teaspoon|5
+Mixed salad|insalata lattuga rucola valeriana|15|1.3|2|0.2|bowl|80
+Tomatoes|pomodori pomodorini|18|0.9|3.5|0.2|tomato|120
+Tomato passata|passata di pomodoro sugo polpa|30|1.4|5|0.2
+Carrots|carote|41|0.9|9|0.2|carrot|80
+Zucchini|zucchine|17|1.2|3|0.3
+Broccoli|broccoli|34|2.8|4.4|0.4
+Spinach|spinaci|23|2.9|1.4|0.4
+Peppers|peperoni|26|1|5|0.3
+Aubergine|melanzane|24|1|3.5|0.2
+Green beans|fagiolini|31|1.8|5|0.2
+Mushrooms|funghi champignon|22|3|2|0.3
+Onion|cipolla|40|1.1|9|0.1
+Cucumber|cetrioli cetriolo|15|0.7|3|0.1
+Fennel|finocchio finocchi|20|1.2|3|0.2
+Cauliflower|cavolfiore|25|1.9|3|0.3
+Pumpkin|zucca|26|1|6|0.1
+Sweetcorn, canned|mais|85|2.9|15|1.2
+Frozen mixed vegetables|verdure miste minestrone surgelato|40|2.5|6|0.5
+Lasagne|lasagne|160|8|15|7.5
+Sushi|sushi nigiri maki|150|6|28|1.5|piece|30
+Ice cream|gelato|210|3.7|25|10|scoop|70
+Espresso|caffè espresso|2|0.1|0.3|0|cup|30
+Cappuccino|cappuccino|40|2.2|3.3|2|cup|150
+Beer|birra|43|0.5|3.6|0|bottle|330
+Red wine|vino rosso|85|0.1|2.6|0|glass|125
+White wine|vino bianco|80|0.1|2.6|0|glass|125
+Cola|coca cola|42|0|10.6|0|can|330
+Sports drink|sali minerali isotonico sport drink|25|0|6|0|bottle|500
+Energy gel|gel energetico|270|0|67|0|gel|40
+Energy bar|barretta energetica|370|8|65|8|bar|40
+Protein bar|barretta proteica|370|32|35|12|bar|55
+Almond drink|bevanda alla mandorla latte di mandorla|24|0.5|3|1.1|glass|200
+Soy drink|bevanda di soia latte di soia|40|3.3|2.5|1.8|glass|200
+Crostata (jam tart)|crostata di marmellata confettura jam tart|400|5|62|15|slice|80
+Crostata alla Nutella|crostata alla nutella cioccolato nutella tart|450|6|58|22|slice|80
+Fruit tart (crostata di frutta)|crostata di frutta crema|260|4|36|11|slice|100
+Sponge cake|torta margherita pan di spagna torta paradiso|370|7|58|12|slice|60
+Ring cake (ciambellone)|ciambellone ciambella torta yogurt|380|6.5|55|15|slice|60
+Apple cake|torta di mele|250|3.5|38|9.5|slice|100
+Chocolate cake|torta al cioccolato tenerina sacher|420|6|50|22|slice|80
+Tiramisù|tiramisu|290|6|30|16|portion|120
+Panna cotta|panna cotta|230|3|25|13|portion|120
+Cheesecake|cheesecake|320|6|28|21|slice|100
+Apple strudel|strudel|260|3|37|11|slice|100
+Panettone|panettone|360|7|52|14|slice|80
+Pandoro|pandoro|410|8|50|20|slice|80
+Colomba|colomba pasquale|400|7|55|17|slice|80
+Cannolo|cannolo siciliano cannoli|380|7|42|20|piece|100
+Doughnut (bombolone)|bombolone krapfen ciambella fritta donut|400|6|45|22|piece|70
+Muffin|muffin|400|5|52|19|muffin|80
+Plumcake|plumcake plum cake|400|6|55|17|piece|35
+Snack cake|merendina merendine flauto|420|6|58|18|piece|35
+Wafer|wafer|520|6|62|27|pack|45
+Cream croissant|cornetto alla crema brioche crema|380|7|46|18|croissant|80
+Jam croissant|cornetto alla marmellata brioche marmellata|370|6|52|15|croissant|80
+Whole-wheat croissant|cornetto integrale brioche integrale|360|8|48|15|croissant|70
+Pain au chocolat|saccottino al cioccolato|420|7|45|23|piece|70
+Sfogliatella|sfogliatella|360|7|45|17|piece|100
+Maritozzo|maritozzo con panna|380|6|40|22|piece|120
+Whole-wheat biscuits|biscotti integrali|450|8|65|17|biscuit|10
+Dry biscuits|biscotti secchi oro saiwa|420|8|77|9|biscuit|6
+Chocolate biscuits|biscotti al cioccolato pan di stelle gocciole|490|7|66|22|biscuit|10
+Ladyfingers|savoiardi|390|8|80|4|piece|8
+Amaretti|amaretti|450|8|75|13|piece|6
+Cantucci|cantucci cantuccini|430|10|65|14|piece|10
+Sorbet|sorbetto|130|0.5|32|0.2|scoop|70
+Hot chocolate|cioccolata calda|110|3.5|15|4|cup|200
+Whipped cream|panna montata|320|2|13|29|tablespoon|15
+Custard|crema pasticcera|170|4|25|6|tablespoon|30
+Nougat|torrone|450|9|60|20|piece|25
+Sweets|caramelle|390|0|97|0|piece|5
+Chocolate bar|barretta di cioccolato snickers mars|490|9|58|24|bar|50
+Chocolate wafer bar|kinder bueno barretta wafer cioccolato|560|8|50|37|bar|22
+Pancakes|pancake|230|6|30|9|pancake|40
+Waffle|waffle|290|7|38|12|waffle|50
+Crêpe|crepe crespella|220|7|28|9|crepe|60
+Spaghetti with tomato sauce|spaghetti al pomodoro pasta al sugo|130|4.5|22|3|plate|300
+Pasta with ragù|pasta al ragu bolognese tagliatelle al ragu|160|7|21|5.5|plate|300
+Carbonara|pasta alla carbonara spaghetti carbonara|220|9.5|23|10|plate|300
+Amatriciana|pasta all'amatriciana|180|6|23|7|plate|300
+Cacio e pepe|cacio e pepe|230|9|27|10|plate|280
+Pasta with pesto|pasta al pesto trofie al pesto|210|6|25|10|plate|300
+Arrabbiata|penne all'arrabbiata|140|4.5|24|3|plate|300
+Pasta with tuna|pasta al tonno|170|9|22|5|plate|300
+Spaghetti with clams|spaghetti alle vongole|150|8|22|3.5|plate|300
+Pasta salad|insalata di pasta pasta fredda|170|6|24|6|plate|300
+Pasta and beans|pasta e fagioli|110|5|16|2.5|bowl|350
+Pasta and chickpeas|pasta e ceci|120|5|17|3|bowl|350
+Cannelloni|cannelloni|160|7.5|15|8|piece|120
+Tortellini, fresh|tortellini freschi cappelletti|300|12|45|8|portion|125
+Tortellini in broth|tortellini in brodo|75|3.5|10|2.2|bowl|350
+Ravioli, fresh|ravioli ricotta e spinaci freschi|260|10|37|8|portion|125
+Egg pasta, dry|pasta all'uovo secca tagliatelle|370|14|68|4|portion|80
+Fresh egg pasta|pasta fresca all'uovo|290|11|51|3.5|portion|125
+Gnocchi with tomato|gnocchi al pomodoro|120|3|23|2|plate|300
+Risotto|risotto alla parmigiana risotto bianco|160|4|25|4.5|plate|300
+Mushroom risotto|risotto ai funghi|150|4|24|4|plate|300
+Saffron risotto|risotto alla milanese zafferano|165|4|25|5|plate|300
+Rice with oil and parmesan|riso in bianco|160|4|27|4|plate|250
+Paella|paella|160|8|20|5|plate|350
+Minestrone soup|minestrone zuppa di verdure|50|2|8|1|bowl|350
+Vegetable purée soup|passato di verdure vellutata crema di verdure|40|1.5|6|1|bowl|300
+Legume soup|zuppa di legumi zuppa di lenticchie|90|5|13|2|bowl|350
+Broth|brodo vegetale brodo di carne|10|1|0.5|0.5|bowl|300
+Pizza marinara|pizza marinara|220|6|35|6|pizza|300
+Pizza diavola|pizza diavola salame piccante|270|11|30|11.5|pizza|350
+Pizza capricciosa|pizza capricciosa|250|11|29|10|pizza|380
+Four cheese pizza|pizza quattro formaggi|290|13|29|13.5|pizza|350
+Pizza by the slice|pizza al taglio trancio|270|9|36|10|slice|150
+Calzone|calzone|270|11|30|12|calzone|300
+Panzerotto|panzerotto fritto|300|10|30|15|piece|150
+Filled piadina|piadina farcita prosciutto squacquerone|290|12|30|13|piadina|250
+Tramezzino|tramezzino|270|9|25|15|piece|100
+Ham sandwich|panino al prosciutto|260|13|32|8|sandwich|150
+Ham and cheese toast|toast prosciutto e formaggio|280|14|27|13|toast|110
+Hamburger (fast food)|hamburger panino mcdonald's|250|13|27|10|burger|220
+Cheeseburger|cheeseburger|265|14|26|12|burger|120
+French fries|patatine fritte patate fritte|310|3.5|40|15|portion|110
+Chicken nuggets|chicken nuggets crocchette di pollo|280|15|17|17|nugget|18
+Kebab|kebab piadina kebab|220|12|20|10|kebab|350
+Hot dog|hot dog|250|10|22|14|hot dog|130
+Arancino|arancino arancina|250|7|30|11|piece|180
+Supplì|suppli|240|7|28|11|piece|100
+Potato croquettes|crocchette di patate|210|4|22|12|piece|40
+Olive ascolane|olive ascolane|290|9|20|19|piece|15
+Frittata|frittata omelette|160|11|1.5|12|portion|150
+Fried egg|uovo fritto uova al tegamino|200|13.5|0.8|15.5|egg|50
+Aubergine parmigiana|parmigiana di melanzane|160|7|7|11.5|portion|250
+Grilled vegetables|verdure grigliate melanzane grigliate zucchine grigliate|60|1.5|5|4|portion|150
+Caprese salad|insalata caprese|200|11|3|16|plate|200
+Rice salad|insalata di riso|170|6|25|5.5|plate|300
+Chicken salad bowl|insalatona insalata con pollo|110|9|4|6.5|bowl|300
+Meatballs in sauce|polpette al sugo|190|13|6|13|meatball|40
+Breaded cutlet|cotoletta alla milanese cotoletta impanata|260|18|14|15|cutlet|150
+Roast chicken|pollo arrosto|200|27|0|10|portion|200
+Grilled chicken|pollo alla griglia petto di pollo cotto|150|30|0|3|portion|150
+Breaded chicken|petto di pollo impanato|230|19|13|11|piece|120
+Escalopes|scaloppine|180|20|5|9|portion|150
+Porchetta|porchetta arista arrosto di maiale|270|25|0|19|slice|50
+Steak, cooked|bistecca tagliata manzo cotto|190|28|0|8.5|steak|200
+Sausage|salsiccia|300|15|1|26|sausage|100
+Frankfurter|wurstel|270|12|3|23|piece|50
+Beef burger, cooked|hamburger di manzo cotto|250|25|0|16|burger|100
+Smoked salmon|salmone affumicato|175|25|0|8.5|pack|100
+Swordfish|pesce spada|120|19|0|4.5|steak|150
+Octopus|polpo|80|15|2|1|portion|200
+Squid|calamari totani|90|16|3|1.5|portion|150
+Fried seafood|frittura di pesce calamari fritti fritto misto|250|14|15|15|portion|200
+Mussels|cozze|85|12|3.5|2.5|portion|200
+Mackerel|sgombro|200|19|0|14|can|125
+Sardines in oil|sardine sott'olio|210|24|0|12|can|85
+Marinated anchovies|alici marinate acciughe|130|17|1|6|portion|80
+Fish fingers|bastoncini di pesce|230|13|20|11|finger|25
+Poke bowl|poke bowl|150|8|20|4|bowl|400
+Speck|speck|300|28|0|20|slice|10
+Coppa|coppa capocollo|400|24|0|33|slice|10
+Pancetta|pancetta|400|15|0|38|slice|10
+Guanciale|guanciale|650|10|0|68|slice|10
+Bacon, cooked|bacon|540|37|1.4|42|slice|8
+Gorgonzola|gorgonzola|330|19|0|28|portion|50
+Fontina|fontina|340|24|0|27|slice|20
+Emmental|emmental groviera gruyere|380|28|0|30|slice|20
+Scamorza|scamorza provola|310|25|1|23|slice|20
+Asiago|asiago|360|30|0|27|slice|20
+Feta|feta|265|14|4|21|portion|50
+Brie|brie camembert|320|20|0.5|27|portion|30
+Cream cheese|philadelphia formaggio spalmabile|250|5.5|4|23|tablespoon|20
+Light cream cheese|formaggio spalmabile light philadelphia light|150|9|5|11|tablespoon|20
+Burrata|burrata|300|14|1|27|burrata|125
+Mascarpone|mascarpone|450|4.5|4|47|tablespoon|20
+Squacquerone|squacquerone|230|14|2|19|portion|50
+Robiola|robiola|280|16|2|23|portion|50
+Edam|edamer edam|330|25|1|26|slice|20
+Primo sale|primo sale|260|18|2|20|portion|50
+Kefir|kefir|55|3.5|4.5|2.5|glass|200
+Fruit yogurt|yogurt alla frutta|95|3.5|14|2.5|pot|125
+Low-fat yogurt|yogurt magro|45|4.5|5.5|0.2|pot|125
+Soy yogurt|yogurt di soia|50|4|2.5|2.2|pot|125
+Cooking cream|panna da cucina|210|2.5|4|20|tablespoon|15
+Rye bread|pane di segale|230|7|44|1.5|slice|30
+Multigrain bread|pane ai cereali|260|10|45|4.5|slice|30
+Bagel|bagel|260|10|50|1.5|bagel|90
+Tortilla wrap|piadina wrap tortilla|300|8|50|7.5|wrap|60
+Burger bun|panino hamburger pane per hamburger|280|9|50|4.5|bun|60
+Bread roll|panino rosetta michetta|290|9|57|3|roll|60
+Taralli|taralli|470|10|65|19|tarallo|5
+Friselle|friselle|380|11|75|3|frisella|30
+Cereal bar|barretta ai cereali|400|6|70|11|bar|25
+Chocolate cereals|cereali al cioccolato|390|8|77|5|bowl|30
+Bran cereal|crusca all bran fibra|330|14|48|3.5|bowl|40
+Special K-style cereal|cereali special k fitness|370|9|77|1.5|bowl|30
+Puffed rice|riso soffiato|380|7|85|1|bowl|30
+Spelt, dry|farro|340|15|67|2.5|portion|80
+Pearl barley, dry|orzo perlato|350|10|73|1.5|portion|80
+Bulgur, dry|bulgur|340|12|69|1.5|portion|80
+Buckwheat, dry|grano saraceno|340|13|71|3.4|portion|80
+Instant noodles|noodles ramen istantanei|440|9|60|17|pack|75
+Roast potatoes|patate al forno|150|2.5|22|6|portion|200
+Mashed potatoes|purè di patate pure|100|2|14|4.2|portion|200
+Popcorn|popcorn pop corn|380|12|62|4.5|bowl|30
+Crisps|patatine chips san carlo|540|6|50|34|bag|25
+Corn cakes|gallette di mais|380|8|80|2.5|cake|8
+Chickpeas, dry|ceci secchi|334|21|47|6.3|portion|60
+Beans, dry|fagioli secchi|310|22|48|2|portion|60
+Edamame|edamame|120|11|7|5|bowl|100
+Lupini beans|lupini|115|16|7|2.5|handful|50
+Broad beans|fave|70|5|5|0.4|portion|150
+Veggie burger|burger vegetale hamburger vegano|200|15|10|11|burger|100
+Seitan|seitan|140|25|4|2.5|portion|100
+Tempeh|tempeh|190|19|9|11|portion|100
+Falafel|falafel|330|13|32|18|falafel|17
+Figs|fichi|74|0.8|19|0.3|fig|50
+Plums|prugne susine|46|0.7|11|0.3|plum|40
+Prunes|prugne secche|240|2.2|58|0.4|prune|8
+Dried figs|fichi secchi|250|3.3|58|1|fig|20
+Mango|mango|60|0.8|15|0.4|mango|300
+Pomegranate|melograno|75|1.5|17|1|portion|100
+Raspberries|lamponi|34|1.2|6|0.7|punnet|125
+Blackberries|more|36|1.4|6|0.5|punnet|125
+Mixed berries|frutti di bosco|40|1|8|0.4|portion|100
+Grapefruit|pompelmo|42|0.8|10|0.1|grapefruit|250
+Chestnuts, roasted|castagne caldarroste|200|3|42|2|chestnut|10
+Coconut|cocco noce di cocco|354|3.3|6.2|33|piece|40
+Persimmon|cachi kaki|70|0.6|16|0.2|persimmon|200
+Fruit salad|macedonia|55|0.5|13|0.1|bowl|150
+Fruit smoothie|smoothie frullato|55|0.7|13|0.2|bottle|250
+Pistachios|pistacchi|570|20|17|46|handful|30
+Cashews|anacardi|590|18|30|46|handful|30
+Chia seeds|semi di chia|490|17|8|31|tablespoon|10
+Sunflower seeds|semi di girasole|580|21|11|51|tablespoon|10
+Pumpkin seeds|semi di zucca|560|30|5|49|tablespoon|10
+Flaxseeds|semi di lino|530|18|2|42|tablespoon|10
+Almond butter|burro di mandorle crema di mandorle|610|21|9|55|tablespoon|15
+Mixed nuts|frutta secca mista|600|18|15|52|handful|30
+Pine nuts|pinoli|670|14|4|68|tablespoon|10
+Asparagus|asparagi|22|2.4|2.5|0.2|portion|150
+Cabbage|cavolo verza cappuccio|25|2|3|0.1|portion|150
+Brussels sprouts|cavolini di bruxelles|43|3.4|5|0.3|portion|150
+Artichokes|carciofi|30|3|3|0.2|artichoke|100
+Beetroot|barbabietola rape rosse|43|1.6|8|0.2|portion|100
+Celery|sedano|15|0.7|2|0.2|stalk|40
+Radicchio|radicchio|20|1.4|3|0.2|portion|100
+Chard|bietole erbette|20|1.8|2.8|0.2|portion|200
+Turnip tops|cime di rapa friarielli|25|3|2|0.3|portion|200
+Leeks|porri|35|1.5|7|0.3|leek|100
+Olives|olive|145|1|1|15|olive|4
+Ketchup|ketchup|110|1.2|25|0.2|tablespoon|15
+Mustard|senape|66|4|5|3.5|teaspoon|5
+Balsamic vinegar|aceto balsamico|100|0.5|22|0|tablespoon|10
+Soy sauce|salsa di soia|55|8|5|0.1|tablespoon|15
+Ragù sauce|ragu sugo pronto alla bolognese|100|6|5|6|tablespoon|30
+Béchamel|besciamella|130|4|10|8|tablespoon|30
+Seed oil|olio di semi girasole|899|0|0|99.9|tablespoon|10
+Maple syrup|sciroppo d'acero|260|0|67|0|tablespoon|20
+Cocoa powder|cacao amaro in polvere|360|20|11|21|teaspoon|5
+Oat drink|bevanda d'avena latte di avena|45|0.5|7|1.5|glass|200
+Rice drink|bevanda di riso latte di riso|50|0.3|10|1|glass|200
+Chocolate milk|latte al cioccolato|75|3.3|10|2|glass|250
+Iced tea|tè freddo estathe|30|0|7.5|0|bottle|500
+Energy drink|red bull energy drink|46|0|11|0|can|250
+Cola zero|coca zero coca cola zero|0.4|0|0|0|can|330
+Tonic water|acqua tonica|35|0|8.5|0|can|200
+Alcohol-free beer|birra analcolica|25|0.3|5.5|0|bottle|330
+Prosecco|prosecco spumante|75|0.1|1.5|0|glass|125
+Spritz|aperol spritz spritz|75|0|8|0|glass|200
+Gin and tonic|gin tonic|70|0|6|0|glass|250
+Protein shake, ready|frullato proteico shake proteico|60|10|4|0.5|bottle|330
+Maltodextrin|maltodestrine carboidrati in polvere|380|0|95|0|scoop|50
+Energy chews|gommose energetiche chews|330|0|80|0|pack|60
+Burrito|burrito|200|9|24|7|burrito|350
+Pad thai|pad thai|180|7|25|6|plate|350
+Cantonese rice|riso cantonese riso alla cantonese|165|5|25|5|plate|300
+Spring rolls|involtini primavera|230|5|25|12|roll|60
+Dumplings|ravioli al vapore ravioli cinesi gyoza|180|8|25|5|dumpling|25
+`.trim().split("\n").map(l=>{const a=l.split("|");return {name:a[0],alias:a[1]||"",k:+a[2],p:+a[3],c:+a[4],f:+a[5],unit:a[6]?[a[6],+a[7]]:null,src:"ref"};});
 
 const MEALS=[["b","Breakfast"],["l","Lunch"],["d","Dinner"],["s","Snacks"]];
-const MEAL_NAME=Object.fromEntries(MEALS);
+const MEAL_NAME=Object.fromEntries(MEALS),MEAL_TAG={b:"B'fast",l:"Lunch",d:"Dinner",s:"Snack"};
 const KCAL_KG=7700;
 const MAC={p:["Protein","#f07a8c"],c:["Carbs","#6fd3e6"],f:["Fat","#d9c46a"]};
 const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
@@ -1473,14 +1744,14 @@ function renderFood(){
   const chev=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${p}"/></svg>`;
   const mac=k=>{const v=T[k],t=tg?.[k],pc=t?Math.min(100,v/t*100):0;
     return `<div class="mc"><small>${MAC[k][0].toUpperCase()}</small><b>${Math.round(v)}<u>${t?` / ${t} g`:" g"}</u></b><div class="en-bar"><i style="width:${pc}%;background:${MAC[k][1]}"></i></div></div>`;};
+  const nLib=libAll().length;
   $("app").innerHTML=`
-  <div class="top">
-    <div class="daypick">
-      <button class="chev" id="fprev" aria-label="Previous day" ${d<=minD?"disabled":""}>${chev("M15 18l-6-6 6-6")}</button>
-      <span class="d">${esc(label)}</span>
-      <button class="chev" id="fnext" aria-label="Next day" ${isToday?"disabled":""}>${chev("M9 18l6-6-6-6")}</button>
-    </div>
-    <button class="gear" id="gear" aria-label="Settings">${GEAR}</button>
+  <div class="top"><div class="ttl">Athlete</div><button class="gear" id="gear" aria-label="Settings">${GEAR}</button></div>
+  ${athSwitch()}
+  <div class="daypick f-day">
+    <button class="chev" id="fprev" aria-label="Previous day" ${d<=minD?"disabled":""}>${chev("M15 18l-6-6 6-6")}</button>
+    <span class="d">${esc(label)}</span>
+    <button class="chev" id="fnext" aria-label="Next day" ${isToday?"disabled":""}>${chev("M9 18l6-6-6-6")}</button>
   </div>
   <button class="f-hero" id="f-hero" aria-label="How the target works">
     ${foodRing(T.kcal,tg?.kcal)}
@@ -1493,15 +1764,19 @@ function renderFood(){
   </button>
   <div class="macros">${["p","c","f"].map(mac).join("")}</div>
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
-    ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}</section>
+    ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}
+    <button class="lib-c" id="lib-c"><span><b>My meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save your usual breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
   ${goalCard()}
   ${balanceSection()}
-  <p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.<br>Swipe sideways to change day.</p>`;
+  <p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.<br>Swipe sideways to change day. You can hide Food in Settings.</p>`;
   $("gear").onclick=openSettings; $("f-hero").onclick=()=>openTarget(d);
   $("fprev").onclick=()=>foodGo(-1); $("fnext").onclick=()=>foodGo(1);
   document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openAddFood(b.dataset.add,d));
   document.querySelectorAll("[data-fi]").forEach(b=>b.onclick=()=>{const it=items.find(x=>x.id===b.dataset.fi); if(it) openPortion(itemFood(it),{meal:it.meal,date:d,item:it});});
   document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copyMeal(b.dataset.copy,d));
+  document.querySelectorAll("[data-libm]").forEach(b=>b.onclick=()=>{const [id,m]=b.dataset.libm.split("|"),e=libAll().find(x=>x.id===id);if(e) logLibMeal(e,m,d);});
+  document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
+  $("lib-c").onclick=openLibrary; bindSwitch();
   const gc=$("goal-c"); if(gc) gc.onclick=openGoal;
   bindBalance();
 }
@@ -1520,7 +1795,9 @@ function mealCard(m,n,its,d){
   return `<div class="meal"><div class="ml-h"><b>${n}</b><span>${its.length?fmtK(Math.round(T.kcal))+" kcal":""}</span>
       <button class="ml-add" data-add="${m}" aria-label="Add to ${n}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
     ${its.map(x=>`<button class="fi" data-fi="${x.id}"><span class="fn">${esc(x.name)}<small>${x.g?`${fmtNum(x.g)} g`:"Quick add"}${x.brand?` · ${esc(x.brand)}`:""}</small></span><b>${fmtK(Math.round(x.kcal))}</b></button>`).join("")}
-    ${!its.length&&prev.length?`<button class="ml-copy" data-copy="${m}">Same as yesterday · ${prev.length} item${prev.length>1?"s":""}, ${fmtK(Math.round(ftot(prev).kcal))} kcal</button>`:""}</div>`;
+    ${!its.length?libAll().filter(e=>e.kind==="meal"&&e.for===m).map(e=>`<button class="ml-copy mine" data-libm="${e.id}|${m}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join(""):""}
+    ${!its.length&&prev.length?`<button class="ml-copy" data-copy="${m}">Same as yesterday · ${prev.length} item${prev.length>1?"s":""}, ${fmtK(Math.round(ftot(prev).kcal))} kcal</button>`:""}
+    ${its.length?`<button class="ml-save" data-savem="${m}">Save as my meal</button>`:""}</div>`;
 }
 function copyMeal(m,d){
   const src=foodDay(isoAdd(d,-1)).filter(x=>x.meal===m),now=Date.now();
@@ -1625,13 +1902,106 @@ function openGoal(){
 }
 
 /* ------------------------------------------------------------ food: search and add */
-let offCtl=null,offTimer=null;
-function refMatch(q){
-  const ws=norm(q).split(/\s+/).filter(Boolean); if(!ws.length) return [];
-  return FOOD_REF.map(f=>{const n=norm(f.name),a=norm(f.alias),hay=n+" "+a;
-    if(!ws.every(w=>hay.split(/[\s,']+/).some(t=>t.startsWith(w))||hay.includes(w))) return null;
-    const s=(n.startsWith(ws[0])||a.split(" ").some(t=>t.startsWith(ws[0]))?0:1)+n.length/100;
-    return {f,s};}).filter(Boolean).sort((a,b)=>a.s-b.s).slice(0,12).map(x=>x.f);
+/* ------------------------------------------------------------ food: my meals and recipes */
+// Saved meals (one tap logs them all) and recipes (become a food you log by the serving).
+function libLocal(){return lsJSON("rd_lib",{});}
+function libAll(){
+  const m={};
+  for(const e of DATA.nutrition?.lib||[]) m[e.id]=e;
+  for(const e of Object.values(libLocal())) if(!m[e.id]||(e.ts||0)>=(m[e.id].ts||0)) m[e.id]=e;
+  return Object.values(m).filter(e=>!e.del).sort((a,b)=>a.name.localeCompare(b.name));
+}
+const LIB_KEYS=["name","brand","g","kcal","p","c","f","k100","p100","c100","f100","unit","serving","um","uq","src","code"];
+function slim(it,full){const o={};for(const k of full?LIB_KEYS:LIB_KEYS.slice(0,7)) if(it[k]!=null&&it[k]!=="") o[k]=it[k];return o;}
+function libSave(e){
+  e={...e,ts:Date.now()};
+  if(e.items){e.items=e.items.map(x=>slim(x,true)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,false));}
+  const L=libLocal();L[e.id]=e;LS.set("rd_lib",JSON.stringify(L));sendQ("lib",e);
+}
+function recipeFood(e){
+  const T=ftot(e.items),W=e.weight||e.items.reduce((a,x)=>a+(x.g||0),0)||1;
+  return {name:e.name,brand:"My recipe",k:Math.round(T.kcal/W*100),p:r1(T.p/W*100),c:r1(T.c/W*100),f:r1(T.f/W*100),
+    unit:e.servings>0?["serving",Math.round(W/e.servings)]:null,src:"recipe",rid:e.id};
+}
+function logLibMeal(e,meal,date){
+  const now=Date.now();
+  e.items.forEach((x,i)=>foodSave({...x,id:uid(),date,meal,at:now+i,ts:now+i}));
+  buzz(); toast(`${e.name} added · ${fmtK(Math.round(ftot(e.items).kcal))} kcal`); render();
+}
+function openSaveMeal(m,d){
+  const its=foodDay(d).filter(x=>x.meal===m);
+  openSheet(`<div class="sh-top"><h2>Save as my meal</h2>${X}</div>
+    <p class="sh-desc">${its.length} item${its.length>1?"s":""} · ${fmtK(Math.round(ftot(its).kcal))} kcal. It will appear in ${MEAL_NAME[m]}, ready to log with one tap.</p>
+    <div class="field"><label for="sm-n">Name</label><input id="sm-n" type="text" maxlength="40" value="My ${MEAL_NAME[m].toLowerCase().replace(/s$/,"")}"></div>
+    <div class="savebar" style="margin-top:22px"><span></span><button class="btn" id="sm-s">Save</button></div>`);
+  $("sm-s").onclick=()=>{libSave({id:uid(),kind:"meal",for:m,name:$("sm-n").value.trim()||"My meal",items:its});buzz();closeSheet();render();toast("Saved to My meals");};
+}
+function openLibrary(){
+  const L=libAll(),row=e=>`<button class="fr-row" data-lib="${e.id}"><span class="fn">${esc(e.name)}<small>${e.kind==="recipe"?`Recipe · ${e.items.length} ingredients${e.servings?` · ${e.servings} servings`:""}`:`${MEAL_NAME[e.for]||"Meal"} · ${e.items.length} items`}</small></span>
+    <b>${fmtK(Math.round(e.kind==="recipe"?recipeFood(e).k:ftot(e.items).kcal))}<u>${e.kind==="recipe"?"/100 g":"kcal"}</u></b></button>`;
+  const meals=L.filter(e=>e.kind==="meal"),recs=L.filter(e=>e.kind==="recipe");
+  openSheet(`<div class="sh-top"><h2>My meals &amp; recipes</h2>${X}</div>
+    <p class="sh-desc">Save a meal from the diary with "Save as my meal". Recipes become a food you log by the serving.</p>
+    <button class="btn" id="lb-new" style="width:100%">New recipe</button>
+    ${meals.length?`<h3 class="sh-sub">My meals</h3>${meals.map(row).join("")}`:""}
+    ${recs.length?`<h3 class="sh-sub">Recipes</h3>${recs.map(row).join("")}`:""}`);
+  $("lb-new").onclick=()=>openRecipe({id:uid(),kind:"recipe",name:"",servings:4,items:[],isNew:true});
+  $("sheet").querySelectorAll("[data-lib]").forEach(b=>b.onclick=()=>{const e=L.find(x=>x.id===b.dataset.lib);e.kind==="recipe"?openRecipe(structuredClone(e)):openLibMeal(structuredClone(e));});
+}
+function openLibMeal(e){
+  const draw=()=>{
+    openSheet(`<div class="sh-top"><h2>Edit meal</h2>${X}</div>
+      <div class="field"><label for="lm-n">Name</label><input id="lm-n" type="text" maxlength="40" value="${esc(e.name)}"></div>
+      <div class="field"><label>Shows up in</label><div class="seg four" id="lm-m">${MEALS.map(([m,n])=>`<button data-m="${m}" class="${m===e.for?"on":""}">${n}</button>`).join("")}</div></div>
+      <h3 class="sh-sub">${fmtK(Math.round(ftot(e.items).kcal))} kcal</h3>
+      ${e.items.map((x,i)=>`<div class="ent"><span>${esc(x.name)}${x.g?` · ${x.g} g`:""}</span><b>${fmtK(Math.round(x.kcal))}</b><button data-rm="${i}">Remove</button></div>`).join("")}
+      <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="lm-del">Delete</button><button class="btn" id="lm-s">Save</button></div>`);
+    $("lm-m").querySelectorAll("button").forEach(b=>b.onclick=()=>{e.for=b.dataset.m;e.name=$("lm-n").value;draw();});
+    $("sheet").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{e.name=$("lm-n").value;e.items.splice(+b.dataset.rm,1);draw();});
+    $("lm-s").onclick=()=>{e.name=$("lm-n").value.trim()||e.name;if(!e.items.length) return;libSave(e);buzz();openLibrary();render();};
+    $("lm-del").onclick=()=>{libSave({id:e.id,del:true,name:e.name});closeSheet();render();toast(`Deleted ${e.name}`);};
+  };
+  draw();
+}
+function openRecipe(e){
+  const keep=()=>{e.name=$("rc-n").value;e.servings=+$("rc-s").value||0;e.weight=+$("rc-w").value||null;};
+  const T=ftot(e.items),rf=e.items.length?recipeFood(e):null,per=e.servings>0?T.kcal/e.servings:null;
+  openSheet(`<div class="sh-top"><h2>${e.isNew?"New recipe":"Recipe"}</h2>${X}</div>
+    <div class="field"><label for="rc-n">Name</label><input id="rc-n" type="text" maxlength="40" value="${esc(e.name)}" placeholder="e.g. Grandma's jam tart"></div>
+    <div class="qa-m" style="grid-template-columns:1fr 1fr"><div class="field"><label for="rc-s">Servings</label><input id="rc-s" type="number" inputmode="numeric" min="1" max="50" value="${e.servings||""}"></div>
+      <div class="field"><label for="rc-w">Cooked weight (g)</label><input id="rc-w" type="number" inputmode="numeric" min="1" value="${e.weight||""}" placeholder="optional"></div></div>
+    <p class="src" style="margin:8px 0 0">Weigh the finished dish if you can: cooking changes the weight (pasta absorbs water, a cake loses it).</p>
+    <h3 class="sh-sub">Ingredients${e.items.length?` · ${fmtK(Math.round(T.kcal))} kcal`:""}</h3>
+    ${e.items.map((x,i)=>`<div class="ent"><span>${esc(x.name)}${x.g?` · ${x.g} g`:""}</span><b>${fmtK(Math.round(x.kcal))}</b><button data-rm="${i}">Remove</button></div>`).join("")}
+    <button class="btn quiet" id="rc-add" style="width:100%;margin-top:12px">+ Add ingredients</button>
+    ${rf?`<div class="kv" style="margin-top:16px">${per?`<span>Per serving (${rf.unit?rf.unit[1]:"–"} g)</span><b>${fmtK(Math.round(per))} kcal</b>`:""}<span>Per 100 g</span><b>${fmtK(rf.k)} kcal · P ${rf.p} · C ${rf.c} · F ${rf.f}</b></div>`:""}
+    <div class="savebar" style="margin-top:20px">${e.isNew?"<span></span>":`<button class="btn quiet" id="rc-del">Delete</button>`}<button class="btn" id="rc-save">Save recipe</button></div>`);
+  $("rc-add").onclick=()=>{keep();openAddFood(null,null,{mode:"recipe",recipe:e});};
+  $("sheet").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{keep();e.items.splice(+b.dataset.rm,1);openRecipe(e);});
+  $("rc-save").onclick=()=>{keep();if(!e.name.trim()||!e.items.length){toast("Give it a name and at least one ingredient");return;}
+    const {isNew,...rest}=e;libSave(rest);buzz();openLibrary();render();toast("Recipe saved");};
+  const d=$("rc-del"); if(d) d.onclick=()=>{libSave({id:e.id,del:true,name:e.name});openLibrary();render();};
+}
+
+/* ------------------------------------------------------------ food: search */
+let offCtl=null,offTimer=null;const offCache=new Map();
+const stem=w=>w.length>4?w.slice(0,-1):w;
+function scoreFood(q,f){
+  const ws=norm(q).split(/[^a-z0-9]+/).filter(w=>w.length>1); if(!ws.length) return 0;
+  const toks=(norm(f.name)+" "+norm(f.alias||"")+" "+norm(f.brand||"")).split(/[^a-z0-9]+/).filter(Boolean);
+  let hit=0; for(const w of ws){const s=stem(w); if(toks.some(t=>t.startsWith(s)||(t.length>3&&s.startsWith(stem(t))))) hit++;}
+  if(hit<ws.length) return hit/ws.length*.5;
+  const n=norm(f.name);
+  return 1+(n.startsWith(ws[0])?.5:0)+(norm(f.alias||"").startsWith(ws[0])?.3:0)-n.length/200;
+}
+function myFoods(){return libAll().filter(e=>e.kind==="recipe").map(recipeFood);}
+function localSearch(q,n=14){
+  return [...myFoods(),...FOOD_REF].map(f=>({f,s:scoreFood(q,f)})).filter(x=>x.s>=1).sort((a,b)=>b.s-a.s).slice(0,n).map(x=>x.f);
+}
+function bestMatch(q){
+  const pool=[...myFoods(),...recents().map(itemFood),...FOOD_REF];
+  let best=null,bs=0; for(const f of pool){const s=scoreFood(q,f); if(s>bs){bs=s;best=f;}}
+  return bs>=1?best:null;
 }
 function offFood(p){
   const n=p.nutriments||{},k=n["energy-kcal_100g"]??(n["energy_100g"]!=null?n["energy_100g"]/4.184:null);
@@ -1643,13 +2013,15 @@ function offFood(p){
 }
 const OFF_F="code,product_name,product_name_it,product_name_en,brands,nutriments,serving_quantity";
 async function offSearch(q,signal){
-  try{
-    const r=await fetch(`https://search.openfoodfacts.org/search?q=${encodeURIComponent(q)}&page_size=24&langs=it,en&fields=${OFF_F}`,{signal});
-    if(r.ok){const j=await r.json();const h=(j.hits||[]).map(offFood).filter(Boolean);if(h.length) return h;}
-  }catch(e){if(e.name==="AbortError") throw e;}
-  const r=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=24&fields=${OFF_F}`,{signal});
-  if(!r.ok) throw new Error("search unavailable");
-  return ((await r.json()).products||[]).map(offFood).filter(Boolean);
+  if(offCache.has(q)) return offCache.get(q);
+  const t=(u,pick)=>fetch(u,{signal}).then(r=>{if(!r.ok) throw new Error(r.status);return r.json();}).then(j=>{const h=(pick(j)||[]).map(offFood).filter(Boolean);if(!h.length) throw new Error("empty");return h;});
+  // both Open Food Facts search services at once: the first useful answer wins
+  const res=await Promise.any([
+    t(`https://search.openfoodfacts.org/search?q=${encodeURIComponent(q)}&page_size=24&langs=it,en&fields=${OFF_F}`,j=>j.hits),
+    t(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=24&lc=it&fields=${OFF_F}`,j=>j.products),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),12000))]).catch(e=>{if(signal.aborted) throw new DOMException("","AbortError");return [];});
+  if(res.length) offCache.set(q,res);
+  return res;
 }
 async function offBarcode(code){
   const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_F}`);
@@ -1657,43 +2029,120 @@ async function offBarcode(code){
 }
 const foodRow=(f,i)=>`<button class="fr-row" data-fr="${i}"><span class="fn">${esc(f.name)}<small>${f.quick?"Quick add":[f.brand,f.unit?`1 ${f.unit[0]} = ${f.unit[1]} g`:"",f.serving&&!f.unit?`serving ${fmtNum(f.serving)} g`:""].filter(Boolean).map(esc).join(" · ")||"per 100 g"}</small></span>
   <b>${f.quick?fmtK(Math.round(f.kcal)):fmtK(f.k)}<u>${f.quick?"kcal":"/100 g"}</u></b></button>`;
-function openAddFood(meal,date){
+const fromFood=(f,g,meal)=>({meal,name:f.name,brand:f.brand||"",g:Math.round(g),kcal:Math.round(f.k*g/100),p:r1(f.p*g/100),c:r1(f.c*g/100),f:r1(f.f*g/100),
+  k100:f.k,p100:f.p,c100:f.c,f100:f.f,unit:f.unit||null,serving:f.serving||null,src:f.src,code:f.code||null});
+
+/* ------------------------------------------------------------ food: add sheet with a tray */
+// Pick as many foods as you like: they wait in the tray at the bottom and are saved together.
+let ADD=null;
+const trayTot=()=>ftot(ADD.tray.filter(x=>x.kcal!=null));
+function openAddFood(meal,date,o={}){
+  const mode=o.mode||"diary";
+  if(!(ADD&&ADD.tray.length&&ADD.mode===mode&&ADD.date===date&&(mode!=="recipe"||ADD.recipe===o.recipe))) ADD={meal,date,mode,tray:[],q:"",recipe:o.recipe||null};
+  if(meal) ADD.meal=meal; if(o.q!=null) ADD.q=o.q;
+  addView();
+}
+function trayHTML(){
+  if(!ADD.tray.length) return "";
+  const n=ADD.tray.length;
+  return `<div class="tray" id="tray"><button class="tr-l" id="tr-rev"><b>${n} item${n>1?"s":""}</b><span>${fmtK(Math.round(trayTot().kcal))} kcal · review</span></button>
+    <button class="btn" id="tr-save">${ADD.mode==="recipe"?"Add to recipe":"Save all"}</button></div>`;
+}
+function bindTray(){
+  const r=$("tr-rev"); if(r) r.onclick=trayView;
+  const s=$("tr-save"); if(s) s.onclick=commitTray;
+}
+function addView(){
+  const A=ADD,diary=A.mode==="diary",SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   let list=[];
-  openSheet(`<div class="sh-top"><h2>Add food</h2>${X}</div>
-    <div class="seg four" id="af-m">${MEALS.map(([m,n])=>`<button data-m="${m}" class="${m===meal?"on":""}">${n}</button>`).join("")}</div>
+  openSheet(`<div class="sh-top"><h2>${diary?"Add food":"Add ingredients"}</h2>${X}</div>
+    ${diary?`<div class="seg four" id="af-m">${MEALS.map(([m,n])=>`<button data-m="${m}" class="${m===A.meal?"on":""}">${n}</button>`).join("")}</div>`:""}
     <div class="af-bar"><div class="af-in"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="af-q" type="search" placeholder="Search food or brand" autocomplete="off" enterkeyhint="search"></div>
+      <input id="af-q" type="search" placeholder="Search food or brand" autocomplete="off" enterkeyhint="search" value="${esc(A.q)}"></div>
       ${"BarcodeDetector" in window?`<button class="af-ic" id="af-scan" aria-label="Scan a barcode"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg></button>`:""}</div>
-    <button class="af-quick" id="af-quick">Quick add calories</button>
-    <div id="af-res"></div>`);
-  const show=(q)=>{
-    const rec=recents(),nq=norm(q);
-    let html="";list=[];
+    ${diary?`<div class="af-acts">
+      <button id="af-photo"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Photo</button>
+      <button id="af-voice"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>${SR?"Speak":"Type"}</button>
+      <button id="af-paste"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg>Paste list</button>
+      <button id="af-quick"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5 13h6l-1 8 8-10h-6z"/></svg>Quick</button>
+      <input type="file" id="af-file" accept="image/*" capture="environment" hidden></div>`:""}
+    <div id="af-res"></div>${trayHTML()}`);
+  const show=q=>{
+    const rec=recents(),nq=norm(q),lib=libAll();let html="";list=[];
     const add=(title,arr)=>{if(!arr.length) return;html+=`<h3 class="sh-sub">${title}</h3>`+arr.map(f=>foodRow(f,list.push(f)-1)).join("");};
-    if(!q.trim()) add("Recent",rec.slice(0,20).map(itemFood));
-    else{
+    if(!q.trim()){
+      const meals=diary?lib.filter(e=>e.kind==="meal"):[];
+      if(meals.length) html+=`<h3 class="sh-sub">My meals</h3>`+meals.map(e=>`<button class="fr-row" data-lm="${e.id}"><span class="fn">${esc(e.name)}<small>${e.items.map(x=>x.name).slice(0,4).map(esc).join(", ")}</small></span><b>${fmtK(Math.round(ftot(e.items).kcal))}<u>kcal</u></b></button>`).join("");
+      add("My recipes",myFoods());
+      add("Recent",rec.slice(0,20).map(itemFood));
+    }else{
       add("Recent",rec.filter(it=>norm(it.name+" "+(it.brand||"")).includes(nq)).slice(0,5).map(itemFood));
-      add("Basics",refMatch(q));
+      add("Basics",localSearch(q));
       html+=`<div id="af-off">${q.trim().length>=3?`<p class="af-wait"><i class="spin"></i>Searching Open Food Facts…</p>`:""}</div>`;
+      if(aiKey()&&diary) html+=`<button class="af-ai" id="af-ai">✦ Estimate “${esc(q.trim())}” with AI</button>`;
     }
-    if(!html) html=`<p class="sh-note" style="margin-top:16px">Search a food, or scan the barcode of a packaged product. Foods you log show up here for one-tap logging.</p>`;
+    if(!html) html=`<p class="sh-note" style="margin-top:16px">Search a food, scan a barcode, or describe your meal with Photo, Speak or Paste list.</p>`;
     $("af-res").innerHTML=html;bindRows();
   };
-  const bindRows=()=>$("af-res").querySelectorAll("[data-fr]").forEach(b=>b.onclick=()=>{const f=list[+b.dataset.fr];
-    f.quick?openQuick(meal,date,{name:f.name,kcal:f.kcal,p:f.p,c:f.c,f:f.f}):openPortion(f,{meal,date});});
+  const bindRows=()=>{
+    $("af-res").querySelectorAll("[data-fr]").forEach(b=>b.onclick=()=>{const f=list[+b.dataset.fr];
+      f.quick?openQuick(A.meal,A.date,{name:f.name,kcal:f.kcal,p:f.p,c:f.c,f:f.f}):openPortion(f,{tray:true});});
+    $("af-res").querySelectorAll("[data-lm]").forEach(b=>b.onclick=()=>{const e=libAll().find(x=>x.id===b.dataset.lm);
+      e.items.forEach(x=>A.tray.push({...x,meal:A.meal}));buzz();addView();});
+    const ai=$("af-ai"); if(ai) ai.onclick=()=>smartRun(A.q,"text");
+  };
   const q=$("af-q");
-  q.oninput=()=>{const v=q.value;show(v);clearTimeout(offTimer);if(offCtl) offCtl.abort();
+  const search=v=>{show(v);clearTimeout(offTimer);if(offCtl) offCtl.abort();
     if(v.trim().length<3) return;
     offTimer=setTimeout(async()=>{offCtl=new AbortController();
       try{const res=await offSearch(v.trim(),offCtl.signal);const box=$("af-off");if(!box||q.value!==v) return;
-        if(!res.length){box.innerHTML=`<p class="af-wait">Nothing more on Open Food Facts.</p>`;return;}
+        if(!res.length){box.innerHTML=`<p class="af-wait">No products found on Open Food Facts${navigator.onLine?"":" (offline)"}.</p>`;return;}
         box.innerHTML=`<h3 class="sh-sub">Products</h3>`+res.map(f=>foodRow(f,list.push(f)-1)).join("");bindRows();}
-      catch(e){const box=$("af-off");if(box&&e.name!=="AbortError") box.innerHTML=`<p class="af-wait">Open Food Facts isn't answering right now.</p>`;}},450);};
-  $("af-m").querySelectorAll("button").forEach(b=>b.onclick=()=>{meal=b.dataset.m;$("af-m").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
-  $("af-quick").onclick=()=>openQuick(meal,date);
-  const sc=$("af-scan"); if(sc) sc.onclick=()=>openScanner(meal,date);
-  show("");
-  setTimeout(()=>q.focus({preventScroll:true}),320);
+      catch(e){}},offCache.has(v.trim())?0:450);};
+  q.oninput=()=>{A.q=q.value;search(q.value);};
+  if(diary) $("af-m").querySelectorAll("button").forEach(b=>b.onclick=()=>{A.meal=b.dataset.m;
+    A.tray.forEach(x=>{if(!x.fixed) x.meal=A.meal;});$("af-m").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
+  const sc=$("af-scan"); if(sc) sc.onclick=()=>openScanner();
+  if(diary){
+    $("af-quick").onclick=()=>openQuick(A.meal,A.date);
+    $("af-paste").onclick=()=>openSmart(false);
+    $("af-voice").onclick=()=>openSmart(!!SR);
+    $("af-photo").onclick=()=>{if(!aiKey()) return aiNeeded("Recognising food from a photo");$("af-file").click();};
+    $("af-file").onchange=e=>{const f=e.target.files[0];if(f) smartPhoto(f);};
+  }
+  bindTray();
+  search(A.q);
+  if(!A.tray.length&&!A.q) setTimeout(()=>q.focus({preventScroll:true}),320);
+}
+function trayView(){
+  const A=ADD,diary=A.mode==="diary";
+  if(!A.tray.length) return addView();
+  openSheet(`<div class="sh-top"><h2>Review</h2>${X}</div>
+    <p class="sh-desc">${diary?"Tap the meal tag to move an item; change grams if needed.":"These go into the recipe."}</p>
+    <div id="tv">${A.tray.map((x,i)=>`<div class="tv-r${x.kcal==null?" miss":""}">
+      ${diary?`<button class="tv-m" data-mm="${i}">${MEAL_TAG[x.meal||A.meal]}</button>`:""}
+      <span class="tv-n">${esc(x.name)}<small>${x.kcal==null?"Not found":x.guess?"Amount estimated":x.src==="ai"?"AI estimate":x.brand?esc(x.brand):""}</small></span>
+      ${x.kcal==null?`<button class="btn quiet tv-f" data-find="${i}">Search</button>`:`<input class="tv-g" data-g="${i}" type="number" inputmode="numeric" value="${x.g??""}" placeholder="–" ${x.g?"":"disabled"}><em>g</em><b data-k="${i}">${fmtK(Math.round(x.kcal))}</b>`}
+      <button class="tv-x" data-rm="${i}" aria-label="Remove">×</button></div>`).join("")}</div>
+    <div class="kv" style="margin-top:14px"><span>Total</span><b id="tv-t">${fmtK(Math.round(trayTot().kcal))} kcal</b></div>
+    <div class="savebar" style="margin-top:16px"><button class="btn quiet" id="tv-more">Add more</button><button class="btn" id="tv-save">${diary?"Save all":"Add to recipe"}</button></div>`);
+  $("tv").querySelectorAll("[data-mm]").forEach(b=>b.onclick=()=>{const x=A.tray[+b.dataset.mm],i=MEALS.findIndex(m=>m[0]===(x.meal||A.meal));
+    x.meal=MEALS[(i+1)%4][0];x.fixed=true;b.textContent=MEAL_TAG[x.meal];buzz(4);});
+  $("tv").querySelectorAll("[data-g]").forEach(inp=>inp.oninput=()=>{const x=A.tray[+inp.dataset.g],g=+inp.value;if(!(g>0)||!x.g) return;
+    const k=g/x.g;for(const key of ["kcal","p","c","f"]) x[key]=key==="kcal"?x.kcal*k:r1(x[key]*k);x.g=g;x.guess=false;
+    $("tv").querySelector(`[data-k="${inp.dataset.g}"]`).textContent=fmtK(Math.round(x.kcal));$("tv-t").textContent=fmtK(Math.round(trayTot().kcal))+" kcal";});
+  $("tv").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{A.tray.splice(+b.dataset.rm,1);trayView();});
+  $("tv").querySelectorAll("[data-find]").forEach(b=>b.onclick=()=>{const x=A.tray.splice(+b.dataset.find,1)[0];A.q=x.name;if(x.meal) A.meal=x.meal;addView();});
+  $("tv-more").onclick=addView; $("tv-save").onclick=commitTray;
+}
+function commitTray(){
+  const A=ADD,ok=A.tray.filter(x=>x.kcal!=null);
+  if(!ok.length) return toast("Nothing to save yet");
+  if(A.mode==="recipe"){A.recipe.items.push(...ok.map(({meal,fixed,guess,exact,...x})=>x));ADD=null;return openRecipe(A.recipe);}
+  const now=Date.now();
+  ok.forEach(({fixed,guess,exact,miss,...x},i)=>foodSave({...x,id:uid(),date:A.date,meal:x.meal||A.meal,at:now+i,ts:now+i}));
+  const k=Math.round(ftot(ok).kcal);ADD=null;buzz(12);closeSheet();foodSel=A.date;render();
+  toast(`Saved ${ok.length} item${ok.length>1?"s":""} · ${fmtK(k)} kcal`);
 }
 function openPortion(f,o){
   const units=[["g","g",1]];
@@ -1712,30 +2161,34 @@ function openPortion(f,o){
     $("pp-g").textContent=mode==="g"?"":`= ${fmtNum(Math.round(v.g))} g`;
     $("pp-add").disabled=!(v.g>0&&v.g<5000);};
   openSheet(`<div class="sh-top"><h2 class="pp-t">${esc(f.name)}</h2>${X}</div>
-    <p class="src" style="margin:4px 0 10px">${[f.brand,f.src==="off"?"Open Food Facts":f.src==="ref"?"Reference table":"",`${fmtK(f.k)} kcal per 100 g`].filter(Boolean).map(esc).join(" · ")}</p>
+    <p class="src" style="margin:4px 0 10px">${[f.brand,f.src==="off"?"Open Food Facts":f.src==="ref"?"Reference table":f.src==="ai"?"AI estimate":"",`${fmtK(f.k)} kcal per 100 g`].filter(Boolean).map(esc).join(" · ")}</p>
     <div class="sh-big" id="pp-k" style="color:#f59e0b"></div>
     <div class="en-parts" id="pp-m"></div>
     <div class="pp-amt"><button class="stp" id="pp-minus" aria-label="Less">−</button>
       <input id="pp-q" type="number" inputmode="decimal" step="any" min="0" value="${fmtNum(qty)}">
       <button class="stp" id="pp-plus" aria-label="More">+</button></div>
-    <div class="seg pp-u" id="pp-u" style="grid-template-columns:repeat(${units.length},1fr)">${units.map(u=>`<button data-u="${u[0]}" class="${u[0]===mode?"on":""}">${u[0]==="g"?"grams":esc(u[1])+(u[0]!=="g"?` · ${fmtNum(u[2])} g`:"")}</button>`).join("")}</div>
+    <div class="seg pp-u" id="pp-u" style="grid-template-columns:repeat(${units.length},1fr)">${units.map(u=>`<button data-u="${u[0]}" class="${u[0]===mode?"on":""}">${u[0]==="g"?"grams":esc(u[1])+` · ${fmtNum(u[2])} g`}</button>`).join("")}</div>
     <p class="src" id="pp-g" style="text-align:center;margin:8px 0 0"></p>
-    <div class="seg four" id="pp-meal" style="margin-top:18px">${MEALS.map(([m,n])=>`<button data-m="${m}" class="${m===meal?"on":""}">${n}</button>`).join("")}</div>
-    <div class="savebar" style="margin-top:20px">${o.item?`<button class="btn quiet" id="pp-del">Delete</button>`:`<span></span>`}<button class="btn" id="pp-add">${o.item?"Save":"Add to diary"}</button></div>`);
+    ${o.tray?"":`<div class="seg four" id="pp-meal" style="margin-top:18px">${MEALS.map(([m,n])=>`<button data-m="${m}" class="${m===meal?"on":""}">${n}</button>`).join("")}</div>`}
+    <div class="savebar" style="margin-top:20px">${o.item?`<button class="btn quiet" id="pp-del">Delete</button>`:o.tray?`<button class="btn quiet" id="pp-back">Back</button>`:"<span></span>"}
+      <button class="btn" id="pp-add">${o.item?"Save":o.tray?(ADD.tray.length?`Add · ${ADD.tray.length+1} in tray`:"Add"):"Add to diary"}</button></div>`);
   const q=$("pp-q"),step=()=>mode==="g"?(grams()>=100?10:5):0.5;
   q.oninput=()=>{qty=+String(q.value).replace(",",".")||0;upd();};
+  q.onkeydown=e=>{if(e.key==="Enter") $("pp-add").click();};
   $("pp-minus").onclick=()=>{qty=Math.max(0,r1(qty-step()));q.value=fmtNum(qty);buzz(4);upd();};
   $("pp-plus").onclick=()=>{qty=r1(qty+step());q.value=fmtNum(qty);buzz(4);upd();};
   $("pp-u").querySelectorAll("button").forEach(b=>b.onclick=()=>{const g=grams();mode=b.dataset.u;const u=units.find(x=>x[0]===mode);
     qty=mode==="g"?Math.round(g):Math.max(0.5,Math.round(g/u[2]*2)/2);q.value=fmtNum(qty);
     $("pp-u").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));upd();});
-  $("pp-meal").querySelectorAll("button").forEach(b=>b.onclick=()=>{meal=b.dataset.m;$("pp-meal").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
-  $("pp-add").onclick=()=>{const v=calc(),now=Date.now(),u=units.find(x=>x[0]===mode);
-    const item={id:o.item?.id||uid(),date:o.date,meal,name:f.name,brand:f.brand||"",g:Math.round(v.g),kcal:Math.round(v.kcal),p:r1(v.p),c:r1(v.c),f:r1(v.f),
-      k100:f.k,p100:f.p,c100:f.c,f100:f.f,unit:f.unit||null,serving:f.serving||null,um:mode,uq:mode==="g"?null:qty,src:f.src,code:f.code||null,at:o.item?.at||now,ts:now};
-    foodSave(item);buzz();closeSheet();foodSel=o.date;
-    if(TAB==="food") renderFood(); else render();
-    toast(o.item?"Saved":`Added to ${MEAL_NAME[meal]} · ${fmtK(item.kcal)} kcal`);};
+  const pm=$("pp-meal"); if(pm) pm.querySelectorAll("button").forEach(b=>b.onclick=()=>{meal=b.dataset.m;pm.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
+  const bk=$("pp-back"); if(bk) bk.onclick=addView;
+  $("pp-add").onclick=()=>{const v=calc(),now=Date.now();
+    const base={name:f.name,brand:f.brand||"",g:Math.round(v.g),kcal:Math.round(v.kcal),p:r1(v.p),c:r1(v.c),f:r1(v.f),
+      k100:f.k,p100:f.p,c100:f.c,f100:f.f,unit:f.unit||null,serving:f.serving||null,um:mode,uq:mode==="g"?null:qty,src:f.src,code:f.code||null};
+    if(o.tray){ADD.tray.push({...base,meal:ADD.meal});ADD.q="";buzz();addView();
+      const t=$("tray"); if(t){t.classList.remove("pop");void t.offsetWidth;t.classList.add("pop");} return;}
+    foodSave({...base,id:o.item?.id||uid(),date:o.date,meal,at:o.item?.at||now,ts:now});buzz();closeSheet();foodSel=o.date;render();
+    toast(o.item?"Saved":`Added to ${MEAL_NAME[meal]} · ${fmtK(base.kcal)} kcal`);};
   const del=$("pp-del"); if(del) del.onclick=()=>foodDelete(o.item);
   upd();
 }
@@ -1750,21 +2203,25 @@ function openQuick(meal,date,item){
     <div class="field"><label for="qa-n">Name (optional)</label><input id="qa-n" type="text" maxlength="60" value="${esc(item?.name||"")}" placeholder="e.g. Pizza with friends"></div>
     <div class="field"><label for="qa-k">Calories</label><input id="qa-k" type="number" inputmode="numeric" min="1" max="5000" value="${item?.kcal??""}"></div>
     <div class="qa-m">${["p","c","f"].map(k=>`<div class="field"><label for="qa-${k}">${MAC[k][0]} (g)</label><input id="qa-${k}" type="number" inputmode="decimal" min="0" max="500" value="${item?.[k]||""}" placeholder="–"></div>`).join("")}</div>
-    <div class="seg four" id="qa-meal" style="margin-top:18px">${MEALS.map(([m,n])=>`<button data-m="${m}" class="${m===meal?"on":""}">${n}</button>`).join("")}</div>
-    <div class="savebar" style="margin-top:20px">${ed?`<button class="btn quiet" id="qa-del">Delete</button>`:`<span class="st" id="qa-st"></span>`}<button class="btn" id="qa-add">${ed?"Save":"Add to diary"}</button></div>`);
-  $("qa-meal").querySelectorAll("button").forEach(b=>b.onclick=()=>{meal=b.dataset.m;$("qa-meal").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
+    ${ed?`<div class="seg four" id="qa-meal" style="margin-top:18px">${MEALS.map(([m,n])=>`<button data-m="${m}" class="${m===meal?"on":""}">${n}</button>`).join("")}</div>`:""}
+    <div class="savebar" style="margin-top:20px">${ed?`<button class="btn quiet" id="qa-del">Delete</button>`:`<button class="btn quiet" id="qa-back">Back</button>`}<button class="btn" id="qa-add">${ed?"Save":"Add"}</button></div>`);
+  const qm=$("qa-meal"); if(qm) qm.querySelectorAll("button").forEach(b=>b.onclick=()=>{meal=b.dataset.m;qm.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
   const num=id=>+String($(id).value).replace(",",".")||0;
-  $("qa-add").onclick=()=>{const k=num("qa-k");if(!(k>0&&k<=5000)){const s=$("qa-st");if(s) s.textContent="Enter the calories.";return;}
-    const now=Date.now(),it={id:ed?item.id:uid(),date,meal,name:$("qa-n").value.trim()||"Quick add",brand:"",g:null,kcal:Math.round(k),p:r1(num("qa-p")),c:r1(num("qa-c")),f:r1(num("qa-f")),src:"quick",at:item?.at||now,ts:now};
-    foodSave(it);buzz();closeSheet();render();toast(ed?"Saved":`Added to ${MEAL_NAME[meal]} · ${fmtK(it.kcal)} kcal`);};
+  $("qa-add").onclick=()=>{const k=num("qa-k");if(!(k>0&&k<=5000)){toast("Enter the calories");return;}
+    const base={name:$("qa-n").value.trim()||"Quick add",brand:"",g:null,kcal:Math.round(k),p:r1(num("qa-p")),c:r1(num("qa-c")),f:r1(num("qa-f")),src:"quick"};
+    if(!ed&&ADD){ADD.tray.push({...base,meal:ADD.meal});buzz();return addView();}
+    const now=Date.now();foodSave({...base,id:ed?item.id:uid(),date,meal,at:item?.at||now,ts:now});buzz();closeSheet();render();toast("Saved");};
   const d=$("qa-del"); if(d) d.onclick=()=>foodDelete(item);
+  const b=$("qa-back"); if(b) b.onclick=addView;
   setTimeout(()=>$(item?.kcal?"qa-k":"qa-n").focus({preventScroll:true}),320);
 }
 let camStop=null;
-async function openScanner(meal,date){
+async function openScanner(){
   openSheet(`<div class="sh-top"><h2>Scan barcode</h2>${X}</div>
     <div class="scan"><video id="sc-v" playsinline muted></video><div class="sc-frame"></div></div>
-    <p class="sh-note" id="sc-st" style="text-align:center;margin-top:12px">Point the camera at the barcode.</p>`);
+    <p class="sh-note" id="sc-st" style="text-align:center;margin-top:12px">Point the camera at the barcode.</p>
+    <button class="btn quiet" id="sc-b" style="width:100%">Back</button>`);
+  $("sc-b").onclick=addView;
   let stream=null,alive=true;
   camStop=()=>{alive=false;if(stream) stream.getTracks().forEach(t=>t.stop());camStop=null;};
   try{
@@ -1776,12 +2233,149 @@ async function openScanner(meal,date){
       const codes=await det.detect(v).catch(()=>[]);
       if(codes.length){const code=codes[0].rawValue;camStop();buzz(20);$("sc-st").textContent="Looking it up…";
         const f=await offBarcode(code).catch(()=>null);
-        if(f) openPortion(f,{meal,date});
-        else{$("sc-st").innerHTML=`Product ${esc(code)} isn't on Open Food Facts yet.<br><button class="btn quiet" id="sc-q" style="margin-top:12px">Quick add instead</button>`;$("sc-q").onclick=()=>openQuick(meal,date);}
+        if(f) openPortion(f,{tray:true});
+        else{$("sc-st").innerHTML=`Product ${esc(code)} isn't on Open Food Facts yet.<br><button class="btn quiet" id="sc-q" style="margin-top:12px">Quick add instead</button>`;$("sc-q").onclick=()=>openQuick(ADD.meal,ADD.date);}
         return;}
       await new Promise(r=>setTimeout(r,180));
     }
   }catch(e){camStop&&camStop();const s=$("sc-st");if(s) s.textContent="The camera isn't available: allow it for Readiness in the phone settings, or search by name.";}
+}
+
+/* ------------------------------------------------------------ food: paste a list, speak, photo */
+const MEAL_RE=[["b",/(breakfast|colazione)/i],["l",/(lunch|pranzo)/i],["d",/(dinner|cena)/i],["s",/(snacks?|spuntin[oi]|merend[ae])/i]];
+const mealOf=s=>{const m=MEAL_RE.find(([,re])=>re.test(s));return m?m[0]:null;};
+const NUMW={"un'":1,un:1,uno:1,una:1,mezzo:.5,mezza:.5,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,a:1,an:1,one:1,two:2,three:3,four:4,half:.5};
+let AND_PHRASES=null;
+function protectAnd(s){   // keep dishes like "pasta e fagioli" or "cacio e pepe" in one piece
+  if(!AND_PHRASES){AND_PHRASES=new Set();for(const f of FOOD_REF){const t=norm(f.name+" "+f.alias);for(const m of t.matchAll(/([a-z']+) e ([a-z']+)/g)) AND_PHRASES.add(m[0]);}}
+  let t=s;for(const p of AND_PHRASES){const re=new RegExp("\\b"+p.replace(/'/g,"'")+"\\b","gi");t=t.replace(re,m=>m.replace(/ e /i," _e_ "));}
+  return t;
+}
+function parseList(text,def){
+  let meal=def||"b";const out=[];
+  for(const raw of String(text).split(/\n+/)){
+    let line=raw.replace(/\*\*|__/g,"").replace(/^[\s\-–—•*·>#]+/,"").trim(); if(!line) continue;
+    const hm=line.match(/^([^:\d]{0,32}?)\s*(:|$)/);
+    if(hm){const m=mealOf(hm[1]); if(m&&hm[1].trim().split(/\s+/).length<=4){meal=m;line=line.slice(hm[0].length).trim();if(!line) continue;}}
+    const structured=/\d\s*kcal/i.test(line);
+    const chunks=structured?[line]:protectAnd(line).split(/\s*(?:,|;|\+|\.\s|\be\b|\bed\b|\bpoi\b|\band\b|\bthen\b)\s*/i).map(c=>c.replace(/ _e_ /g," e ")).filter(c=>c.trim());
+    for(let ch of chunks){
+      const sm=ch.match(/\b(?:a|per|at|for)\s+(colazione|pranzo|cena|merenda|spuntino|breakfast|lunch|dinner|snack)\b/i);
+      if(sm){meal=mealOf(sm[1]);ch=ch.replace(sm[0]," ");}
+      ch=ch.replace(/\b(stamattina|stasera|oggi|ho mangiato|ho bevuto|ho preso|mangiato|bevuto|i had|i ate|i drank|circa|about|anche)\b/gi," ").trim();
+      if(ch.replace(/[^a-zà-ú0-9]/gi,"").length<2) continue;
+      out.push(...parseItem(ch,meal));
+    }
+  }
+  return out;
+}
+function parseItem(s,meal){
+  let t=" "+s+" ";const N="(\\d+(?:[.,]\\d+)?)";
+  const grab=re=>{const m=t.match(re);if(!m) return null;t=t.replace(m[0]," ");return +m[1].replace(",",".");};
+  const kcal=grab(new RegExp(N+"\\s*kcal","i"));
+  const p=grab(new RegExp("\\b(?:p|prot|protein[ei]?|proteine)\\.?\\s*:?\\s*"+N+"\\s*g?(?![a-z])","i"));
+  const c=grab(new RegExp("\\b(?:c|carb|carbs|carboidrati)\\.?\\s*:?\\s*"+N+"\\s*g?(?![a-z])","i"));
+  const f=grab(new RegExp("\\b(?:f|fat|grassi)\\.?\\s*:?\\s*"+N+"\\s*g?(?![a-z])","i"));
+  const g=grab(new RegExp(N+"\\s*(?:g|gr|grammi|grams?|ml)(?![a-z])","i"));
+  let qty=null,unitSaid=false;const qm=t.match(/^\s*(\d+(?:[.,]\d+)?|un'|un|uno|una|mezzo|mezza|due|tre|quattro|cinque|sei|sette|otto|an?|one|two|three|four|half)\s+(?:di\s+|d'|of\s+)?/i);
+  if(qm){qty=NUMW[qm[1].toLowerCase()]??+qm[1].replace(",",".");t=t.slice(qm[0].length);}
+  // "2 fette di pane", "un bicchiere di latte", "1 slice bread": the unit word goes, the food's own unit is used
+  const um=t.match(/^\s*(?:(?:fett[ae]|pezz[oi]|bicchier[ei]|tazz[ae]|tazzin[ae]|cucchiai(?:o|ni)?|cucchiain[oi]|porzion[ei]|piatt[oi]|vasett[oi]|scatolett[ae]|manciat[ae]|barrett[ae]|lattin[ae]|bottigli(?:a|e|etta))\s+(?:di\s+|d')|(?:slices?|glass(?:es)?|cups?|pieces?|bowls?|plates?|portions?|tablespoons?|teaspoons?|tbsp|tsp|cans?|handfuls?)\s+(?:of\s+)?)/i);
+  if(um){t=t.slice(um[0].length);unitSaid=true;if(qty==null) qty=1;}
+  const name=t.replace(/^\s*(?:di|d'|of)\s+/i,"").replace(/[|·•—–()\[\]]/g," ").replace(/\s[-:]\s/g," ").replace(/^[\s,.\-:]+|[\s,.\-:]+$/g,"").replace(/\s+/g," ").trim();
+  if(!name) return [];
+  const cap=x=>x[0].toUpperCase()+x.slice(1);
+  if(kcal!=null) return [{meal,name:cap(name),brand:"",g:g?Math.round(g):null,kcal:Math.round(kcal),p:r1(p||0),c:r1(c||0),f:r1(f||0),
+    k100:g?Math.round(kcal/g*100):null,p100:g&&p!=null?r1(p/g*100):null,c100:g&&c!=null?r1(c/g*100):null,f100:g&&f!=null?r1(f/g*100):null,src:"list",exact:true}];
+  // whole name first, then shorter versions ("fette biscottate con marmellata" → "fette biscottate"), then each part of "x con y"
+  let m=bestMatch(name),used=name;
+  if(!m){const parts=name.split(/\s+(?:con|col|coi|with|and)\s+/i);
+    if(parts.length>1) return [...parseItem((qty!=null?qty+" ":"")+parts[0]+(g!=null?` ${g} g`:""),meal),...parts.slice(1).flatMap(x=>parseItem(x,meal))];
+    const ws=name.split(/\s+/);for(let k=ws.length-1;k>=1&&!m;k--){m=bestMatch(ws.slice(0,k).join(" "));used=ws.slice(0,k).join(" ");}}
+  if(!m) return [{meal,name:cap(name),kcal:null,miss:true}];
+  const unitG=m.unit?m.unit[1]:m.serving||100;
+  const grams=g??(qty!=null?qty*unitG:unitG);
+  return [{...fromFood(m,grams,meal),guess:g==null&&qty==null,um:g==null&&qty!=null&&m.unit?"u":"g",uq:g==null&&qty!=null&&m.unit?qty:null}];
+}
+function openSmart(listen){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null,base="";
+  openSheet(`<div class="sh-top"><h2>${listen?"Say what you ate":"Paste or type a list"}</h2>${X}</div>
+    <p class="sh-desc">${listen?"Tap the microphone and talk naturally, e.g. “a colazione 2 fette biscottate con marmellata e un cappuccino, a pranzo 100 grammi di pasta al pomodoro”.":"One food per line. Lines like “Breakfast” or “Pranzo:” set the meal. Paste the list Claude prepares for you and everything goes in at once."}</p>
+    <textarea id="sm-t" class="sm-t" placeholder="${listen?"Your words appear here":"Breakfast\nOats, 60 g, 224 kcal, P 8, C 36, F 4\nBanana, 120 g\nLunch\n100 g pasta al pomodoro"}"></textarea>
+    <div class="savebar" style="margin-top:14px">${SR?`<button class="btn quiet mic" id="sm-mic">${listen?"Stop":"Dictate"}</button>`:"<span></span>"}<button class="btn" id="sm-go">Read it</button></div>
+    <p class="src" style="margin-top:12px">${aiKey()?"Understood by AI (Gemini), with your Basics and recipes as a fallback.":"Read on the phone: foods are matched to the Basics, your recipes and recent foods. For free speech and photos, add a free Gemini key in Settings."}</p>
+    <button class="btn quiet" id="sm-b" style="width:100%;margin-top:6px">Back</button>`);
+  const ta=$("sm-t"),mic=$("sm-mic");
+  const stop=()=>{if(rec){rec.onend=null;try{rec.stop();}catch(e){}rec=null;}if(mic){mic.textContent="Dictate";mic.classList.remove("on");}};
+  const start=()=>{rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;base=ta.value?ta.value.trim()+"\n":"";
+    rec.onresult=e=>{let s="";for(const r of e.results) s+=r[0].transcript;ta.value=base+s.trim();};
+    rec.onerror=e=>{toast(e.error==="not-allowed"?"Allow the microphone for Readiness":"Couldn't hear you, try again");stop();};
+    rec.onend=()=>stop();
+    try{rec.start();mic.textContent="Stop";mic.classList.add("on");buzz(10);}catch(e){stop();}};
+  if(mic) mic.onclick=()=>rec?stop():start();
+  $("sm-go").onclick=()=>{stop();const v=ta.value.trim();if(v) smartRun(v,"text");};
+  $("sm-b").onclick=()=>{stop();addView();};
+  const old=camStop;camStop=()=>{stop();camStop=old;};
+  if(listen&&SR) start(); else setTimeout(()=>ta.focus({preventScroll:true}),320);
+}
+async function smartRun(text,kind){
+  const A=ADD;
+  const local=parseList(text,A.meal);
+  const exact=local.length&&local.every(x=>x.exact);
+  let items=local;
+  if(!exact&&aiKey()){
+    openSheet(`<div class="sh-top"><h2>Reading…</h2>${X}</div><p class="af-wait" style="justify-content:center;margin:40px 0"><i class="spin"></i>Working out foods and portions</p>`);
+    try{items=await aiItems([{text:`The user wrote (Italian or English):\n${text}`}]);}
+    catch(e){toast(e.message);items=local;}
+  }
+  if(!items.length){toast("Nothing recognised: try one food per line");return addView();}
+  items.forEach(x=>{x.fixed=true;A.tray.push(x);});
+  buzz();trayView();
+}
+async function smartPhoto(file){
+  openSheet(`<div class="sh-top"><h2>Looking at your plate…</h2>${X}</div><img id="ph-i" class="ph-i" alt=""><p class="af-wait" style="justify-content:center;margin:16px 0"><i class="spin"></i>Recognising foods and portions</p>`);
+  try{
+    const b=await createImageBitmap(file),k=Math.min(1,1024/Math.max(b.width,b.height)),cv=document.createElement("canvas");
+    cv.width=Math.round(b.width*k);cv.height=Math.round(b.height*k);cv.getContext("2d").drawImage(b,0,0,cv.width,cv.height);
+    const url=cv.toDataURL("image/jpeg",.82),im=$("ph-i");if(im) im.src=url;
+    const items=await aiItems([{text:"Identify every food and drink in this photo and estimate each portion's weight from visual cues (a dinner plate is about 26 cm, look at cutlery, packaging and glasses)."},
+      {inline_data:{mime_type:"image/jpeg",data:url.split(",")[1]}}]);
+    if(!items.length){toast("No food recognised in the photo");return addView();}
+    items.forEach(x=>{x.fixed=true;ADD.tray.push(x);});buzz();trayView();
+  }catch(e){toast(e.message||"Couldn't read the photo");addView();}
+}
+
+/* ------------------------------------------------------------ food: AI (your own free Gemini key) */
+const aiKey=()=>LS.get("rd_gemini")||"";
+function aiNeeded(what){
+  openSheet(`<div class="sh-top"><h2>Needs a Gemini key</h2>${X}</div>
+    <p class="sh-desc">${what} uses Google's Gemini. It is free with a personal key: create one at aistudio.google.com (Get API key), then paste it in Settings → AI key. It stays on this phone.</p>
+    <p class="sh-note">On the free tier Google may use what you send to improve its models.</p>
+    <div class="savebar"><button class="btn quiet" id="an-b">Back</button><button class="btn" id="an-s">Open Settings</button></div>`);
+  $("an-b").onclick=addView; $("an-s").onclick=openSettings;
+}
+async function aiItems(parts){
+  const def=ADD?.meal||"b";
+  const rules=`You fill in a food diary. Reply with JSON only, no prose: {"items":[{"meal":"b","name":"","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0}]}.
+meal: "b" breakfast/colazione, "l" lunch/pranzo, "d" dinner/cena, "s" snack/spuntino/merenda; when not stated use "${def}".
+One entry per distinct food or drink. grams = weight as eaten (cooked dishes cooked, drinks in ml). When the amount isn't given, assume a typical Italian portion.
+Use realistic nutrition values (Italian CREA tables, USDA, typical product labels). Keep names short, in the language the user used.`;
+  const body=JSON.stringify({contents:[{role:"user",parts:[{text:rules},...parts]}],generationConfig:{responseMimeType:"application/json",temperature:0.2}});
+  let last="";
+  for(const model of ["gemini-flash-latest","gemini-2.5-flash","gemini-2.0-flash"]){
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":aiKey()},body}).catch(()=>null);
+    if(!r) throw new Error("No connection for the AI");
+    if(r.status===404){last="model";continue;}
+    if(r.status===429) throw new Error("Gemini's free limit is used up for now: try again later");
+    if(r.status===400||r.status===401||r.status===403){const t=await r.text();if(/API key|PERMISSION|API_KEY/i.test(t)) throw new Error("The Gemini key isn't valid: check it in Settings");last=t.slice(0,80);continue;}
+    if(!r.ok){last=String(r.status);continue;}
+    const j=await r.json(),txt=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
+    let o;try{o=JSON.parse(txt.replace(/^```json|```$/g,"").trim());}catch(e){throw new Error("The AI answer couldn't be read, try again");}
+    return (o.items||[]).filter(x=>x&&x.name&&x.kcal>=0).map(x=>{const g=+x.grams||null,k=+x.kcal||0;
+      return {meal:["b","l","d","s"].includes(x.meal)?x.meal:def,name:String(x.name).slice(0,60),brand:"",g:g?Math.round(g):null,kcal:Math.round(k),
+        p:r1(+x.protein||0),c:r1(+x.carbs||0),f:r1(+x.fat||0),k100:g?Math.round(k/g*100):null,p100:g?r1((+x.protein||0)/g*100):null,c100:g?r1((+x.carbs||0)/g*100):null,f100:g?r1((+x.fat||0)/g*100):null,src:"ai"};});
+  }
+  throw new Error("The AI isn't answering right now"+(last==="model"?"":""));
 }
 
 /* ------------------------------------------------------------ feel: toast, haptics, outbox */
@@ -2069,12 +2663,20 @@ function athHero(){
     ${scale}
     <div class="ah-facts">${P.height?`<span>Height <b>${P.height} cm</b></span>`:""}${w?`<span>Weight <b>${w.v.toFixed(1)} kg</b></span>`:""}${bmi?`<span>BMI <b>${bmi.toFixed(1)}</b></span>`:""}<span>${P.sex==="m"?"Male":"Female"}</span></div></div>`;
 }
+// Food lives inside Athlete, as an optional second page (it can be hidden in Settings)
+let ATH_SUB=LS.get("rd_ath_sub")||"profile";
+const foodOn=()=>LS.get("rd_food_off")!=="1";
+const athSwitch=()=>foodOn()?`<div class="subtabs" role="tablist"><button data-sub="profile" class="${ATH_SUB!=="food"?"on":""}">Profile</button><button data-sub="food" class="${ATH_SUB==="food"?"on":""}">Food</button></div>`:"";
+function bindSwitch(){document.querySelectorAll(".subtabs button").forEach(b=>b.onclick=()=>{if(b.dataset.sub===ATH_SUB) return;
+  ATH_SUB=b.dataset.sub;LS.set("rd_ath_sub",ATH_SUB);if(ATH_SUB==="food") foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");});}
 function renderAthlete(){
+  if(ATH_SUB==="food"&&foodOn()) return renderFood();
   ATH_CACHE=null;
   const ftp=athLast("ftp"),wk=athLast("wkg"),L=athLast("lthr"),src=DATA.athlete?.lthr_src;
   const lsub=athEntries("lthr")&&Object.keys(athEntries("lthr")).length?"Set by you":src==="intervals"?"From Intervals":src==="estimate"?"Estimated · tap to set":"";
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><button class="gear" id="gear" aria-label="Settings">${GEAR}</button></div>
+  ${athSwitch()}
   ${athHero()}
   <section class="sec"><div class="sec-h"><h2>Body</h2><span>Tap for history</span></div>
     <div class="amks">${amkCard("weight")}${amkCard("vo2max","Estimated from your sessions")}</div></section>
@@ -2084,7 +2686,7 @@ function renderAthlete(){
     <div class="amks">${amkCard("lthr",lsub)}${amkCard("thr_pace",L?`at ${Math.round(L.v)} bpm`:"")}${amkCard("easy_pace",DATA.fitness?.easy_hr?`at ${DATA.fitness.easy_hr} bpm`:"")}</div></section>
   <p class="foot">Age and fitness age update by themselves. Log your weight once a week, same conditions.</p>`;
   $("gear").onclick=openSettings;
-  $("ath-edit").onclick=openProfile;
+  $("ath-edit").onclick=openProfile; bindSwitch();
   const f=$("ath-fit"); if(f) f.onclick=()=>openAth("fitage");
   document.querySelectorAll(".amk[data-am]").forEach(b=>b.onclick=()=>openAth(b.dataset.am));
   document.querySelectorAll(".amk[disabled]").forEach(b=>{if(b.textContent.includes("Tap to log")){b.disabled=false;b.onclick=()=>openAth("weight");}});
@@ -2254,8 +2856,9 @@ function pendingNote(){
     :`<button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p>`}</div>`;
 }
 let TAB=(()=>new URLSearchParams(location.search).get("tab")||LS.get("rd_tab")||"today")();
+if(TAB==="food"){TAB="athlete";LS.set("rd_tab","athlete");LS.set("rd_ath_sub","food");ATH_SUB="food";}
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
-function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; LS.set("rd_tab",t); if(t==="food") foodSel=todayISO(); buzz(5); render(); scrollTo(0,0); animIn("enter"); }
+function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; LS.set("rd_tab",t); if(t==="athlete") foodSel=todayISO(); buzz(5); render(); scrollTo(0,0); animIn("enter"); }
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
 function tabbar(){
   const ic={today:`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4.5 16.5a8 8 0 1 1 15 0"/><path d="M12 13.5l3.6-3.6"/></svg>`,
@@ -2264,14 +2867,13 @@ function tabbar(){
     athlete:`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/></svg>`};
   let bar=$("tabbar");
   if(!bar){bar=document.createElement("nav");bar.id="tabbar";bar.className="tabbar";document.body.appendChild(bar);}
-  bar.innerHTML=["today","training","food","athlete"].map(t=>`<button data-tab="${t}" class="${TAB===t?"on":""}" aria-current="${TAB===t?"page":"false"}">${ic[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></button>`).join("");
+  bar.innerHTML=["today","training","athlete"].map(t=>`<button data-tab="${t}" class="${TAB===t?"on":""}" aria-current="${TAB===t?"page":"false"}">${ic[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></button>`).join("");
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
 function render(){
   tabbar();
   if(TAB==="training") return renderTraining();
   if(TAB==="athlete") return renderAthlete();
-  if(TAB==="food") return renderFood();
   renderToday();
 }
 function renderToday(){
@@ -2345,7 +2947,7 @@ function go(i){ if(i<0||i>=DATA.days.length) return; const dir=i>sel?"swl":"swr"
   app.addEventListener("touchend",e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0; x0=null;
     if(Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*.6) return;
     if(TAB==="today") go(sel+(dx<0?1:-1));
-    else if(TAB==="food"){ const t=todayISO(),n=isoAdd(foodSel,dx<0?1:-1); if(n<=t&&n>=isoAdd(t,-120)){ foodSel=n; buzz(5); renderFood(); animIn(dx<0?"swl":"swr"); } } },{passive:true});
+    else if(TAB==="athlete"&&ATH_SUB==="food"&&foodOn()){ const t=todayISO(),n=isoAdd(foodSel,dx<0?1:-1); if(n<=t&&n>=isoAdd(t,-120)){ foodSel=n; buzz(5); renderFood(); animIn(dx<0?"swl":"swr"); } } },{passive:true});
 })();
 
 /* ------------------------------------------------------------ sheets */
@@ -2491,9 +3093,18 @@ function openSettings(){
     <div class="field"><label for="s-pw">Passphrase</label><div style="display:flex;gap:8px"><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"><button class="btn quiet" id="s-show" type="button">Show</button></div></div>
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.`:""}</p>
+    <div class="tog"><div><label>Food diary</label><p>Food in Athlete: log meals, daily target and energy balance.</p></div>
+      <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>
+    <div class="field"><label for="s-ai">AI key (Google Gemini, free)</label><div style="display:flex;gap:8px"><input id="s-ai" type="password" autocomplete="off" placeholder="Paste your key" value="${esc(aiKey())}"><button class="btn quiet" id="s-ai-t" type="button">Test</button></div>
+      <p>For food photos, speaking and free-text logging. Create it at aistudio.google.com → Get API key. It stays on this phone; on the free tier Google may use what you send to improve its models.</p><p id="s-ai-st"></p></div>
     <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
-  $("s-save").onclick=()=>{const p=$("s-pw").value.trim(); if(p) LS.set("rd_pass",p); closeSheet(); load();};
+  const keepAI=()=>{const k=$("s-ai").value.trim(); if(k) LS.set("rd_gemini",k); else LS.del("rd_gemini");};
+  $("s-save").onclick=()=>{keepAI(); const p=$("s-pw").value.trim(); if(p) LS.set("rd_pass",p); closeSheet(); load();};
+  $("s-food").onclick=()=>{const on=foodOn(); if(on) LS.set("rd_food_off","1"); else LS.del("rd_food_off"); if(on) ATH_SUB="profile";
+    $("s-food").textContent=on?"Show":"Hide"; $("s-food").classList.toggle("quiet",!on); render();};
+  $("s-ai-t").onclick=async()=>{keepAI(); const st=$("s-ai-st"); if(!aiKey()){st.textContent="Paste a key first.";return;} st.textContent="Testing…";
+    try{const it=await aiItems([{text:"1 banana"}]); st.textContent=it.length?`Works: 1 banana ≈ ${it[0].kcal} kcal.`:"The key works.";}catch(e){st.textContent=e.message;}};
   $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
   $("s-show").onclick=()=>{const i=$("s-pw"),h=i.type==="password";i.type=h?"text":"password";$("s-show").textContent=h?"Hide":"Show";};
   $("s-val").onclick=openValidation;

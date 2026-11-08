@@ -56,6 +56,10 @@ def collect(cache, pw, decrypt):
             old = day.get(obj["id"])
             if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
                 day[obj["id"]] = obj
+        elif kind == "lib" and obj.get("id"):          # saved meals and recipes; deletions stay as tombstones
+            old = mail.setdefault("lib", {}).get(obj["id"])
+            if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
+                mail["lib"][obj["id"]] = obj
         elif kind == "metric" and obj.get("key") in ("weight", "lthr") and obj.get("date"):
             series = mail.setdefault("metrics", {}).setdefault(obj["key"], {})
             if obj.get("value") is None:
