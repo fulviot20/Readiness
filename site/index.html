@@ -507,6 +507,20 @@ button:focus-visible{outline:2px solid var(--glacier);outline-offset:2px}
 .im-t{position:relative;height:8px;border-radius:99px;background:var(--surface2)}
 .im-t::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line)}
 .im-t i{position:absolute;top:0;bottom:0;border-radius:99px}
+
+.nut{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:18px;padding:8px 14px 14px}
+.nut h4{margin:14px 0 2px;font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.nr{display:grid;grid-template-columns:1fr auto 64px 70px;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.nr:last-of-type{border-bottom:0}
+.nr span{font-weight:600}.nr span small{font-weight:400;color:var(--faint);font-size:12px}
+.nr.sub span{font-weight:400;color:var(--muted);padding-left:12px;font-size:13.5px}
+.nr b{font-variant-numeric:tabular-nums;font-weight:600;text-align:right;white-space:nowrap}.nr.sub b{font-weight:500;color:var(--muted)}
+.nr-bar{height:5px;border-radius:99px;background:var(--surface2);overflow:hidden}.nr-bar i{display:block;height:100%;border-radius:99px}
+.nr em{font-style:normal;font-size:11.5px;color:var(--faint);text-align:right;white-space:nowrap}
+.nut-f{font-size:12.5px;color:var(--faint);margin:12px 0 0}
+.pp-nd{margin:4px 0 8px;font-size:14px}.pp-nd summary{cursor:pointer;color:var(--glacier);font-weight:600;padding:4px 0}
+.pp-n{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:6px}
+.pp-n span{display:flex;justify-content:space-between;color:var(--muted);font-size:13.5px}.pp-n b{color:var(--text);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* athlete */
@@ -1708,6 +1722,16 @@ Dumplings|ravioli al vapore ravioli cinesi gyoza|180|8|25|5|dumpling|25
 const MEALS=[["b","Breakfast"],["l","Lunch"],["d","Dinner"],["s","Snacks"]];
 const MEAL_NAME=Object.fromEntries(MEALS),MEAL_TAG={b:"B'fast",l:"Lunch",d:"Dinner",s:"Snack"};
 const KCAL_KG=7700;
+// Detailed nutrients: [key, name, unit, daily reference (adult man, EU/EFSA), kind, group].
+// "limit" = stay under it, "target" = aim to reach it, "info" = no reference.
+const NUT=[["sugars","of which sugars","g",90,"limit","c"],["fiber","Fibre","g",30,"target","c"],
+  ["satfat","Saturated","g",null,"limit","f"],["monofat","Monounsaturated","g",null,"info","f"],["polyfat","Polyunsaturated","g",null,"info","f"],["chol","Cholesterol","mg",300,"limit","f"],
+  ["sodium","Sodium","mg",2000,"limit","m"],["potassium","Potassium","mg",3500,"target","m"],["calcium","Calcium","mg",1000,"target","m"],["iron","Iron","mg",11,"target","m"],["magnesium","Magnesium","mg",350,"target","m"],["zinc","Zinc","mg",11,"target","m"],
+  ["vita","Vitamin A","µg",750,"target","v"],["vitc","Vitamin C","mg",110,"target","v"],["vitd","Vitamin D","µg",15,"target","v"],["vite","Vitamin E","mg",13,"target","v"],["b12","Vitamin B12","µg",4,"target","v"],["folate","Folate","µg",330,"target","v"]];
+const NUT_KEYS=NUT.map(x=>x[0]);
+const nRound=v=>v>=100?Math.round(v):v>=10?Math.round(v*10)/10:Math.round(v*100)/100;
+function scaleN(n,k){if(!n) return null;const o={};for(const key of NUT_KEYS) if(n[key]!=null&&isFinite(n[key])) o[key]=nRound(n[key]*k);return Object.keys(o).length?o:null;}
+const NUT_JSON=`"nutrients":{"sugars":g,"fiber":g,"satfat":g,"monofat":g,"polyfat":g,"chol":mg,"sodium":mg,"potassium":mg,"calcium":mg,"iron":mg,"magnesium":mg,"zinc":mg,"vita":µg RAE,"vitc":mg,"vitd":µg,"vite":mg,"b12":µg,"folate":µg} for the portion`;
 const MAC={p:["Protein","#f07a8c"],c:["Carbs","#6fd3e6"],f:["Fat","#d9c46a"]};
 const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1734,6 +1758,47 @@ function foodDay(date){
 }
 function foodDates(){return [...new Set([...Object.keys(DATA.nutrition?.food||{}),...Object.keys(foodLocal())])].sort();}
 const ftot=items=>items.reduce((a,x)=>({kcal:a.kcal+(x.kcal||0),p:a.p+(x.p||0),c:a.c+(x.c||0),f:a.f+(x.f||0)}),{kcal:0,p:0,c:0,f:0});
+function ntot(items){const sum={},have={};let known=0;
+  for(const x of items){if(!x.n) continue;known++;for(const k of NUT_KEYS) if(x.n[k]!=null){sum[k]=(sum[k]||0)+x.n[k];have[k]=(have[k]||0)+1;}}
+  return {sum,have,known};}
+
+/* ------------------------------------------------------------ food: the day's nutrients */
+function nutrientSection(d){
+  const items=foodDay(d);if(!items.length) return "";
+  const T=ftot(items),N=ntot(items),tg=targetOf(d),missing=items.filter(x=>!x.n&&x.kcal).length;
+  const fmt=(v,u)=>v==null?"–":`${u==="g"?(v>=10?Math.round(v):r1(v)):fmtK(Math.round(v))} ${u}`;
+  const row=(label,v,u,ref,kind,sub)=>{const pc=ref&&v!=null?v/ref*100:null;
+    const col=pc==null?"var(--muted)":kind==="limit"?(pc>100?"#f0798a":pc>80?"#f2a65a":"#5fc795"):kind==="target"?(pc>=100?"#5fc795":"#6fd3e6"):"var(--muted)";
+    return `<div class="nr${sub?" sub":""}"><span>${label}</span><b>${fmt(v,u)}</b><div class="nr-bar">${pc!=null?`<i style="width:${Math.min(100,pc)}%;background:${col}"></i>`:""}</div><em>${pc!=null?Math.round(pc)+"%":""}${pc!=null&&kind==="limit"?" of limit":""}</em></div>`;};
+  const nv=k=>N.have[k]?N.sum[k]:null,ref=x=>x[0]==="satfat"&&tg?Math.round(tg.kcal*.1/9):x[3];
+  const group=g=>NUT.filter(x=>x[5]===g).map(x=>row(x[1],nv(x[0]),x[2],ref(x),x[4],g==="c"||g==="f")).join("");
+  const salt=nv("sodium")!=null?` <small>(${r1(nv("sodium")*2.5/1000)} g salt)</small>`:"";
+  return `<section class="sec" id="nut"><div class="sec-h"><h2>Nutrients</h2><span>${d===todayISO()?"Today so far":fmtDay(d,{weekday:"short",day:"numeric",month:"short"})}</span></div>
+    <div class="nut">
+      ${row("Energy",T.kcal,"kcal",tg?.kcal,"target")}
+      ${row("Protein",T.p,"g",tg?.p,"target")}
+      ${row("Carbohydrates",T.c,"g",tg?.c,"target")}${group("c")}
+      ${row("Fat",T.f,"g",tg?.f,"target")}${group("f")}
+      <h4>Minerals</h4>${group("m").replace("Sodium</span>","Sodium"+salt+"</span>")}
+      <h4>Vitamins</h4>${group("v")}
+      <p class="nut-f">${missing?`Detailed values known for ${N.known} of ${items.length} foods: the others count only for energy and macros.`:"Detailed values known for every food."} References: EU/EFSA daily values for an adult man; saturated fat under 10% of your energy target.</p>
+      ${missing&&aiKey()?`<button class="coach-bar" id="nut-ai">${SPARK}<span>Fill in the missing nutrients with AI (1 request)</span></button>`:""}
+    </div></section>`;
+}
+async function aiFill(d){
+  const items=foodDay(d).filter(x=>!x.n&&x.kcal);if(!items.length) return;
+  const b=$("nut-ai");if(b){b.disabled=true;b.querySelector("span").textContent="Estimating…";}
+  try{
+    const list=items.map((x,i)=>`${i}. ${x.name}${x.brand?` (${x.brand})`:""}, ${x.g?x.g+" g":"1 portion"}, ${x.kcal} kcal, P ${x.p} C ${x.c} F ${x.f}`).join("\n");
+    const {json}=await aiCall([{role:"user",parts:[{text:`Estimate the detailed nutrients of each food portion below (realistic values from the Italian CREA tables, USDA or typical labels).
+Reply with JSON only: {"items":[{"i":0,${NUT_JSON}}]}.\n${list}`}]}]);
+    const now=Date.now();let n=0;
+    for(const r of json.items||[]){const it=items[+r.i];const nn=scaleN(r.nutrients,1);if(!it||!nn) continue;
+      foodSave({...it,n:nn,n100:it.g?scaleN(nn,100/it.g):null,ts:now+n});n++;}
+    toast(n?`Nutrients added for ${n} food${n>1?"s":""}`:"The AI didn't return nutrients");
+  }catch(e){toast(e.message);}
+  render();
+}
 function recents(){
   const m=new Map(),lim=isoAdd(todayISO(),-90);
   for(const d of foodDates()) if(d>=lim) for(const it of foodDay(d)){
@@ -1743,7 +1808,7 @@ function recents(){
   }
   return [...m.values()].sort((a,b)=>(b.n*2+b.last/864e5/7)-(a.n*2+a.last/864e5/7)).map(x=>x.it);
 }
-const itemFood=it=>it.k100!=null?{name:it.name,brand:it.brand,k:it.k100,p:it.p100,c:it.c100,f:it.f100,unit:it.unit||null,serving:it.serving||null,src:it.src,code:it.code,last:{g:it.g,um:it.um,uq:it.uq}}
+const itemFood=it=>it.k100!=null?{name:it.name,brand:it.brand,k:it.k100,p:it.p100,c:it.c100,f:it.f100,unit:it.unit||null,serving:it.serving||null,src:it.src,code:it.code,n100:it.n100||(it.n&&it.g?scaleN(it.n,100/it.g):null),last:{g:it.g,um:it.um,uq:it.uq}}
   :{name:it.name,quick:true,kcal:it.kcal,p:it.p,c:it.c,f:it.f,src:"quick"};
 
 /* ------------------------------------------------------------ food: goal, burn, target */
@@ -1837,6 +1902,7 @@ function renderFood(){
     <button class="lib-c" id="lib-c"><span><b>My meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save your usual breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
   ${goalCard()}
   ${balanceSection()}
+  ${nutrientSection(d)}
   <p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.<br>Swipe sideways to change day. You can hide Food in Settings.</p>`;
   $("gear").onclick=openSettings; $("f-hero").onclick=()=>openTarget(d);
   $("fprev").onclick=()=>foodGo(-1); $("fnext").onclick=()=>foodGo(1);
@@ -1846,6 +1912,7 @@ function renderFood(){
   document.querySelectorAll("[data-libm]").forEach(b=>b.onclick=()=>{const [id,m]=b.dataset.libm.split("|"),e=libAll().find(x=>x.id===id);if(e) logLibMeal(e,m,d);});
   document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
   $("lib-c").onclick=openLibrary; bindSwitch(); bindSwipeDelete();
+  const na=$("nut-ai"); if(na) na.onclick=()=>aiFill(d);
   const fc=$("f-coach"); if(fc) fc.onclick=()=>openAssistant("food");
   const gc=$("goal-c"); if(gc) gc.onclick=openGoal;
   bindBalance();
@@ -2012,16 +2079,17 @@ function libAll(){
   for(const e of Object.values(libLocal())) if(!m[e.id]||(e.ts||0)>=(m[e.id].ts||0)) m[e.id]=e;
   return Object.values(m).filter(e=>!e.del).sort((a,b)=>a.name.localeCompare(b.name));
 }
-const LIB_KEYS=["name","brand","g","kcal","p","c","f","k100","p100","c100","f100","unit","serving","um","uq","src","code"];
-function slim(it,full){const o={};for(const k of full?LIB_KEYS:LIB_KEYS.slice(0,7)) if(it[k]!=null&&it[k]!=="") o[k]=it[k];return o;}
+const LIB_KEYS=["name","brand","g","kcal","p","c","f","n","k100","p100","c100","f100","unit","serving","um","uq","src","code"];
+function slim(it,full){const o={};for(const k of full?LIB_KEYS:LIB_KEYS.slice(0,full===0?8:7)) if(it[k]!=null&&it[k]!=="") o[k]=it[k];return o;}
 function libSave(e){
   e={...e,ts:Date.now()};
-  if(e.items){e.items=e.items.map(x=>slim(x,true)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,false));}
+  if(e.items){e.items=e.items.map(x=>slim(x,true)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,0)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,false));}
   const L=libLocal();L[e.id]=e;LS.set("rd_lib",JSON.stringify(L));sendQ("lib",e);
 }
 function recipeFood(e){
   const T=ftot(e.items),W=e.weight||e.items.reduce((a,x)=>a+(x.g||0),0)||1;
-  return {name:e.name,brand:"My recipe",k:Math.round(T.kcal/W*100),p:r1(T.p/W*100),c:r1(T.c/W*100),f:r1(T.f/W*100),
+  const N=e.items.every(x=>x.n)?scaleN(ntot(e.items).sum,100/W):null;
+  return {name:e.name,brand:"My recipe",k:Math.round(T.kcal/W*100),p:r1(T.p/W*100),c:r1(T.c/W*100),f:r1(T.f/W*100),n100:N,
     unit:e.servings>0?["serving",Math.round(W/e.servings)]:null,src:"recipe",rid:e.id};
 }
 function logLibMeal(e,meal,date){
@@ -2109,8 +2177,14 @@ function offFood(p){
   const name=p.product_name_it||p.product_name||p.product_name_en; if(!name||k==null) return null;
   const brand=Array.isArray(p.brands)?p.brands[0]:String(p.brands||"").split(",")[0].trim();
   const sv=+p.serving_quantity;
+  // Open Food Facts stores minerals and vitamins in grams per 100 g
+  const M={sugars:["sugars",1],fiber:["fiber",1],satfat:["saturated-fat",1],monofat:["monounsaturated-fat",1],polyfat:["polyunsaturated-fat",1],chol:["cholesterol",1e3],
+    sodium:["sodium",1e3],potassium:["potassium",1e3],calcium:["calcium",1e3],iron:["iron",1e3],magnesium:["magnesium",1e3],zinc:["zinc",1e3],
+    vita:["vitamin-a",1e6],vitc:["vitamin-c",1e3],vitd:["vitamin-d",1e6],vite:["vitamin-e",1e3],b12:["vitamin-b12",1e6],folate:["vitamin-b9",1e6]};
+  const N={};for(const [key,[f,m]] of Object.entries(M)){const v=n[f+"_100g"];if(v!=null&&v!==""&&isFinite(+v)) N[key]=+v*m;}
+  if(N.sodium==null&&n.salt_100g!=null&&isFinite(+n.salt_100g)) N.sodium=+n.salt_100g/2.5*1e3;
   return {name:String(name).trim(),brand:brand||"",k:Math.round(k),p:r1(+n.proteins_100g||0),c:r1(+n.carbohydrates_100g||0),f:r1(+n.fat_100g||0),
-    serving:sv>0&&sv<2000?sv:null,src:"off",code:p.code||null};
+    n100:scaleN(N,1),serving:sv>0&&sv<2000?sv:null,src:"off",code:p.code||null};
 }
 const OFF_F="code,product_name,product_name_it,product_name_en,brands,nutriments,serving_quantity";
 async function offSearch(q,signal){
@@ -2131,7 +2205,7 @@ async function offBarcode(code){
 const foodRow=(f,i)=>`<button class="fr-row" data-fr="${i}"><span class="fn">${esc(f.name)}<small>${f.quick?"Quick add":[f.brand,f.unit?`1 ${f.unit[0]} = ${f.unit[1]} g`:"",f.serving&&!f.unit?`serving ${fmtNum(f.serving)} g`:""].filter(Boolean).map(esc).join(" · ")||"per 100 g"}</small></span>
   <b>${f.quick?fmtK(Math.round(f.kcal)):fmtK(f.k)}<u>${f.quick?"kcal":"/100 g"}</u></b></button>`;
 const fromFood=(f,g,meal)=>({meal,name:f.name,brand:f.brand||"",g:Math.round(g),kcal:Math.round(f.k*g/100),p:r1(f.p*g/100),c:r1(f.c*g/100),f:r1(f.f*g/100),
-  k100:f.k,p100:f.p,c100:f.c,f100:f.f,unit:f.unit||null,serving:f.serving||null,src:f.src,code:f.code||null});
+  k100:f.k,p100:f.p,c100:f.c,f100:f.f,n100:f.n100||null,n:scaleN(f.n100,g/100),unit:f.unit||null,serving:f.serving||null,src:f.src,code:f.code||null});
 
 /* ------------------------------------------------------------ food: add sheet with a tray */
 // Pick as many foods as you like: they wait in the tray at the bottom and are saved together.
@@ -2230,7 +2304,7 @@ function trayView(){
   $("tv").querySelectorAll("[data-mm]").forEach(b=>b.onclick=()=>{const x=A.tray[+b.dataset.mm],i=MEALS.findIndex(m=>m[0]===(x.meal||A.meal));
     x.meal=MEALS[(i+1)%4][0];x.fixed=true;b.textContent=MEAL_TAG[x.meal];buzz(4);});
   $("tv").querySelectorAll("[data-g]").forEach(inp=>inp.oninput=()=>{const x=A.tray[+inp.dataset.g],g=+inp.value;if(!(g>0)||!x.g) return;
-    const k=g/x.g;for(const key of ["kcal","p","c","f"]) x[key]=key==="kcal"?x.kcal*k:r1(x[key]*k);x.g=g;x.guess=false;
+    const k=g/x.g;for(const key of ["kcal","p","c","f"]) x[key]=key==="kcal"?x.kcal*k:r1(x[key]*k);if(x.n) x.n=scaleN(x.n,k);x.g=g;x.guess=false;
     $("tv").querySelector(`[data-k="${inp.dataset.g}"]`).textContent=fmtK(Math.round(x.kcal));$("tv-t").textContent=fmtK(Math.round(trayTot().kcal))+" kcal";});
   $("tv").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{A.tray.splice(+b.dataset.rm,1);trayView();});
   $("tv").querySelectorAll("[data-find]").forEach(b=>b.onclick=()=>{const x=A.tray.splice(+b.dataset.find,1)[0];A.q=x.name;if(x.meal) A.meal=x.meal;addView();});
@@ -2260,11 +2334,14 @@ function openPortion(f,o){
     $("pp-k").innerHTML=`${fmtK(Math.round(v.kcal))}<small>kcal</small>`;
     $("pp-m").innerHTML=["p","c","f"].map(k=>`<div><i style="background:${MAC[k][1]}"></i><span>${MAC[k][0]}</span><b>${r1(v[k])} g</b></div>`).join("");
     $("pp-g").textContent=mode==="g"?"":`= ${fmtNum(Math.round(v.g))} g`;
+    const nn=scaleN(f.n100,v.g/100),px=$("pp-n");
+    if(px) px.innerHTML=nn?NUT.filter(x=>nn[x[0]]!=null).map(x=>`<span>${x[1].replace("of which ","")}<b>${nn[x[0]]} ${x[2]}</b></span>`).join(""):"";
     $("pp-add").disabled=!(v.g>0&&v.g<5000);};
   openSheet(`<div class="sh-top"><h2 class="pp-t">${esc(f.name)}</h2>${X}</div>
     <p class="src" style="margin:4px 0 10px">${[f.brand,f.src==="off"?"Open Food Facts":f.src==="ref"?"Reference table":f.src==="ai"?"AI estimate":"",`${fmtK(f.k)} kcal per 100 g`].filter(Boolean).map(esc).join(" · ")}</p>
     <div class="sh-big" id="pp-k" style="color:#f59e0b"></div>
     <div class="en-parts" id="pp-m"></div>
+    ${f.n100?`<details class="pp-nd"><summary>More nutrients</summary><div class="pp-n" id="pp-n"></div></details>`:""}
     <div class="pp-amt"><button class="stp" id="pp-minus" aria-label="Less">−</button>
       <input id="pp-q" type="number" inputmode="decimal" step="any" min="0" value="${fmtNum(qty)}">
       <button class="stp" id="pp-plus" aria-label="More">+</button></div>
@@ -2285,7 +2362,7 @@ function openPortion(f,o){
   const bk=$("pp-back"); if(bk) bk.onclick=addView;
   $("pp-add").onclick=()=>{const v=calc(),now=Date.now();
     const base={name:f.name,brand:f.brand||"",g:Math.round(v.g),kcal:Math.round(v.kcal),p:r1(v.p),c:r1(v.c),f:r1(v.f),
-      k100:f.k,p100:f.p,c100:f.c,f100:f.f,unit:f.unit||null,serving:f.serving||null,um:mode,uq:mode==="g"?null:qty,src:f.src,code:f.code||null};
+      k100:f.k,p100:f.p,c100:f.c,f100:f.f,n100:f.n100||null,n:scaleN(f.n100,v.g/100),unit:f.unit||null,serving:f.serving||null,um:mode,uq:mode==="g"?null:qty,src:f.src,code:f.code||null};
     if(o.tray){ADD.tray.push({...base,meal:ADD.meal});ADD.q="";buzz();addView();
       const t=$("tray"); if(t){t.classList.remove("pop");void t.offsetWidth;t.classList.add("pop");} return;}
     foodSave({...base,id:o.item?.id||uid(),date:o.date,meal,at:o.item?.at||now,ts:now});buzz();closeSheet();foodSel=o.date;render();
@@ -2399,21 +2476,17 @@ function parseItem(s,meal){
   return [{...fromFood(m,grams,meal),guess:g==null&&qty==null,um:g==null&&qty!=null&&m.unit?"u":"g",uq:g==null&&qty!=null&&m.unit?qty:null}];
 }
 function openSmart(listen){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null,base="";
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   openSheet(`<div class="sh-top"><h2>${listen?"Say what you ate":"Paste or type a list"}</h2>${X}</div>
-    <p class="sh-desc">${listen?"Tap the microphone and talk naturally, e.g. “a colazione 2 fette biscottate con marmellata e un cappuccino, a pranzo 100 grammi di pasta al pomodoro”.":"One food per line. Lines like “Breakfast” or “Pranzo:” set the meal. Paste the list Claude prepares for you and everything goes in at once."}</p>
+    <p class="sh-desc">${listen?"Talk as long as you like, pauses included; tap Stop when you're done. E.g. “a colazione 2 fette biscottate con marmellata e un cappuccino, a pranzo 100 grammi di pasta al pomodoro”.":"One food per line. Lines like “Breakfast” or “Pranzo:” set the meal. Paste the list Claude prepares for you and everything goes in at once."}</p>
     <textarea id="sm-t" class="sm-t" placeholder="${listen?"Your words appear here":"Breakfast\nOats, 60 g, 224 kcal, P 8, C 36, F 4\nBanana, 120 g\nLunch\n100 g pasta al pomodoro"}"></textarea>
     <div class="savebar" style="margin-top:14px">${SR?`<button class="btn quiet mic" id="sm-mic">${listen?"Stop":"Dictate"}</button>`:"<span></span>"}<button class="btn" id="sm-go">Read it</button></div>
     <p class="src" style="margin-top:12px">${aiKey()?"Understood by AI (Gemini), with your Basics and recipes as a fallback.":"Read on the phone: foods are matched to the Basics, your recipes and recent foods. For free speech and photos, add a free Gemini key in Settings."}</p>
     <button class="btn quiet" id="sm-b" style="width:100%;margin-top:6px">Back</button>`);
   const ta=$("sm-t"),mic=$("sm-mic");
-  const stop=()=>{if(rec){rec.onend=null;try{rec.stop();}catch(e){}rec=null;}if(mic){mic.textContent="Dictate";mic.classList.remove("on");}};
-  const start=()=>{rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;base=ta.value?ta.value.trim()+"\n":"";
-    rec.onresult=e=>{ta.value=base+srText(e);};
-    rec.onerror=e=>{toast(e.error==="not-allowed"?"Allow the microphone for Readiness":"Couldn't hear you, try again");stop();};
-    rec.onend=()=>stop();
-    try{rec.start();mic.textContent="Stop";mic.classList.add("on");buzz(10);}catch(e){stop();}};
-  if(mic) mic.onclick=()=>rec?stop():start();
+  const D=dictation(ta,null,on=>{if(mic){mic.textContent=on?"Stop":"Dictate";mic.classList.toggle("on",on);}});
+  const stop=()=>D&&D.stop(),start=()=>D&&D.start();
+  if(mic) mic.onclick=()=>D.toggle();
   $("sm-go").onclick=()=>{stop();const v=ta.value.trim();if(v) smartRun(v,"text");};
   $("sm-b").onclick=()=>{stop();addView();};
   const old=camStop;camStop=()=>{stop();camStop=old;};
@@ -2464,6 +2537,20 @@ function srText(e){
     if(!out||tl.startsWith(lo)) out=t; else if(!lo.endsWith(tl)) out=out+" "+t;}
   return out;
 }
+// Dictation: phones end recognition after a short pause, so it restarts by itself and keeps what you said
+// until you tap Stop or Send (or after 10 minutes)
+function dictation(ta,onText,onState){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR) return null;
+  let rec=null,on=false,t0=0,base="";
+  const begin=()=>{rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;base=ta.value.trim()?ta.value.trim()+" ":"";
+    rec.onresult=e=>{ta.value=base+srText(e);onText&&onText();};
+    rec.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"){toast("Allow the microphone for Readiness");stop();}};
+    rec.onend=()=>{if(on&&Date.now()-t0<10*60000){try{begin();}catch(err){stop();}}else stop();};
+    rec.start();};
+  const stop=()=>{const was=on;on=false;if(rec){rec.onend=null;try{rec.stop();}catch(e){}rec=null;}if(was) onState&&onState(false);};
+  const start=()=>{if(on) return;on=true;t0=Date.now();try{begin();onState&&onState(true);buzz(10);}catch(e){stop();}};
+  return {start,stop,toggle:()=>on?stop():start(),get on(){return on;}};
+}
 // Which Gemini models this key can use: asked once a day, newest Flash first (names change over time)
 async function aiModels(){
   const c=lsJSON("rd_gm",null);if(c&&Date.now()-c.t<864e5&&c.k===aiKey().slice(-6)&&c.m.length) return c.m;
@@ -2508,12 +2595,13 @@ async function aiCall(contents){
   const quota=errs.every(e=>/ 429 /.test(e));
   throw new Error(quota?"Gemini's free limit is used up for now: try again in a while":"The AI didn't answer. "+(errs[errs.length-1]||""));
 }
-const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0;
+const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0,n=x.n||scaleN(x.nutrients,1);
   return {meal:["b","l","d","s"].includes(x.meal)?x.meal:def,name:String(x.name||"Food").slice(0,60),brand:"",g:g?Math.round(g):null,kcal:Math.round(k),
-    p:r1(+x.protein||0),c:r1(+x.carbs||0),f:r1(+x.fat||0),k100:g?Math.round(k/g*100):null,p100:g?r1((+x.protein||0)/g*100):null,c100:g?r1((+x.carbs||0)/g*100):null,f100:g?r1((+x.fat||0)/g*100):null,src:"ai"};};
+    p:r1(+x.protein||+x.p||0),c:r1(+x.carbs||+x.c||0),f:r1(+x.fat||+x.f||0),k100:g?Math.round(k/g*100):null,p100:g?r1((+x.protein||+x.p||0)/g*100):null,c100:g?r1((+x.carbs||+x.c||0)/g*100):null,f100:g?r1((+x.fat||+x.f||0)/g*100):null,
+    n,n100:n&&g?scaleN(n,100/g):null,src:"ai"};};
 async function aiItems(parts){
   const def=ADD?.meal||"b";
-  const rules=`You fill in a food diary. Reply with JSON only, no prose: {"items":[{"meal":"b","name":"","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0}]}.
+  const rules=`You fill in a food diary. Reply with JSON only, no prose: {"items":[{"meal":"b","name":"","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,${NUT_JSON}}]}.
 meal: "b" breakfast/colazione, "l" lunch/pranzo, "d" dinner/cena, "s" snack/spuntino/merenda; when not stated use "${def}".
 One entry per distinct food or drink. grams = weight as eaten (cooked dishes cooked, drinks in ml). When the amount isn't given, assume a typical Italian portion.
 Use realistic nutrition values (Italian CREA tables, USDA, typical product labels). Keep names short, in the language the user used.`;
@@ -2563,7 +2651,7 @@ The score is a companion, not a judge: the user decides whether to train and ada
 {"type":"delete_saved","id":"..."}   only ids listed in my_meals
 {"type":"set_goal","target_kg":71,"pace_kg_week":0.5}   pace 0.25, 0.5 or 0.75
 {"type":"log_weight","date":"YYYY-MM-DD","kg":72.4}
-ITEM = {"meal":"b|l|d|s","name":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
+ITEM = {"meal":"b|l|d|s","name":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,${NUT_JSON}}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
 meal: b breakfast/colazione, l lunch/pranzo, d dinner/cena, s snack/spuntino/merenda; if not said, pick from the time of day.
 When the user wants to save something they always eat (e.g. "la mia colazione"), use save_meal with "for" set to that meal so it gets a one-tap button, even if they call it a recipe; use save_recipe for dishes made in several servings or when they talk about servings or the cooked weight.
 To log a saved meal, copy its foods into log_food only if you know them; otherwise tell the user to tap its button.
@@ -2624,7 +2712,7 @@ function asLog(){
 function openAssistant(section){
   AS.section=section||(TAB==="athlete"&&ATH_SUB==="food"?"food":TAB);
   if(!aiKey()){ADD=null;return aiNeeded("The AI coach");}
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   openSheet(`<div class="sh-top"><h2>${AS.section==="food"?"Food coach":"Ask AI"}</h2>${X}</div>
     <div id="as-log" class="as-log">${asLog()}</div>
     <div class="as-in"><textarea id="as-t" rows="1" placeholder="Ask or tell me…" enterkeyhint="send"></textarea>
@@ -2634,7 +2722,8 @@ function openAssistant(section){
   const ta=$("as-t"),mic=$("as-mic");
   const grow=()=>{ta.style.height="auto";ta.style.height=Math.min(140,ta.scrollHeight)+"px";};
   const redraw=()=>{$("as-log").innerHTML=asLog();bind();const sh=$("sheet");sh.scrollTop=sh.scrollHeight;};
-  const stop=()=>{if(rec){rec.onend=null;try{rec.stop();}catch(e){}rec=null;}if(mic) mic.classList.remove("on");};
+  const D=dictation(ta,()=>grow(),on=>{if(mic) mic.classList.toggle("on",on);ta.placeholder=on?"Listening… tap the mic to stop":"Ask or tell me…";});
+  const stop=()=>D&&D.stop();
   const send=async()=>{
     stop();const text=ta.value.trim();if(!text||AS.busy) return;
     ta.value="";grow();AS.msgs.push({role:"user",text});AS.busy=true;redraw();
@@ -2657,12 +2746,7 @@ function openAssistant(section){
   ta.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
   $("as-go").onclick=send;
   const nw=$("as-new"); if(nw) nw.onclick=()=>{AS={msgs:[],pending:null,busy:false};openAssistant();};
-  if(mic) mic.onclick=()=>{if(rec) return stop();
-    rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;const base=ta.value?ta.value.trim()+" ":"";
-    rec.onresult=e=>{ta.value=base+srText(e);grow();};
-    rec.onerror=e=>{toast(e.error==="not-allowed"?"Allow the microphone for Readiness":"Couldn't hear you, try again");stop();};
-    rec.onend=()=>{stop();if(ta.value.trim()) send();};
-    try{rec.start();mic.classList.add("on");buzz(10);}catch(e){stop();}};
+  if(mic) mic.onclick=()=>D.toggle();
   const old=camStop;camStop=()=>{stop();camStop=old;};
   bind();const sh=$("sheet");sh.scrollTop=sh.scrollHeight;
   setTimeout(()=>ta.focus({preventScroll:true}),320);
