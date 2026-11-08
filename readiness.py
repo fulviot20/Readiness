@@ -128,6 +128,17 @@ def athlete(wellness, mail, fit, lthr_intervals):
             "lthr_default": lthr, "lthr_src": src}
 
 
+def nutrition(mail, today, keep=120):
+    """Food diary (entries logged in the app) and the weight goal. Older days are dropped from the cache."""
+    food = mail.get("food") or {}
+    oldest = (today - dt.timedelta(days=400)).isoformat()
+    for d in [d for d in food if d < oldest]:
+        food.pop(d)
+    first = (today - dt.timedelta(days=keep)).isoformat()
+    return {"goal": mail.get("goal"),
+            "food": {d: list(items.values()) for d, items in sorted(food.items()) if d >= first}}
+
+
 # ---------------------------------------------------------------- encryption
 def _key(passphrase, salt):
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=KDF_ITER)
@@ -763,6 +774,7 @@ def main():
     data["athlete"] = athlete(wellness, mail, data["fitness"], run_lthr())
     prof = mail.get("profile") or {}             # height and sex sharpen the distance estimate
     data["energy"] = energy.build(gdays, data["days"], today, prof.get("height"), prof.get("sex"))
+    data["nutrition"] = nutrition(mail, today)
     # personal Garmin key created on 3 Nov 2026 for one year
     data["garmin_key"] = {"expires": "2027-11-03", "error": bool(cache.get("garmin_auth_error"))}
     try:

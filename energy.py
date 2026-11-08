@@ -95,7 +95,7 @@ def build(gdays, days, today, height=None, sex=None):
     steps_hist = [x.get("steps") for _, x in full if x.get("steps")]
 
     history = []
-    for k in range(29, -1, -1):
+    for k in range(89, -1, -1):          # 90 days: enough for the monthly energy balance
         d = (today - dt.timedelta(days=k)).isoformat()
         x = (gdays.get(d) or {}).get("daily") or {}
         stress = x.get("stress") if (x.get("stress") or 0) > 0 else None
