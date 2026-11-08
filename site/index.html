@@ -612,6 +612,12 @@ function applyAnswers(day,ans){
 
 /* ------------------------------------------------------------ state */
 let DATA=null,sel=0,draft={},prevScore=0;
+// a refresh (pull down, or the browser's reload) brings you back to the same page, day and scroll position;
+// closing and reopening the app starts from Today
+const RELOAD=(()=>{try{return performance.getEntriesByType("navigation")[0]?.type==="reload";}catch(e){return false;}})();
+let NAV0=null;if(RELOAD){try{NAV0=JSON.parse(sessionStorage.getItem("rd_nav")||"null");}catch(e){}}
+function saveNav(){try{sessionStorage.setItem("rd_nav",JSON.stringify({t:TAB,s:ATH_SUB,f:foodSel,d:DATA?.days?.[sel]?.date,y:scrollY}));}catch(e){}}
+addEventListener("pagehide",saveNav);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden") saveNav();});
 const todayISO=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Rome"});
 const fmtDay=(iso,o)=>new Date(iso+"T12:00").toLocaleDateString("en-GB",o);
 const hm=h=>{const m=Math.round(h*60);return `${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`};
@@ -631,10 +637,11 @@ function useData(d,quiet,keepY){
     const loc=LS.get("ans:"+today);
     DATA.days.push({date:today,workouts:[],plan:(DATA.upcoming||{})[today]||[],answers:loc?JSON.parse(loc):null});
   }
-  const k=keepDate?DATA.days.findIndex(d=>d.date===keepDate):-1;
+  const k=keepDate?DATA.days.findIndex(d=>d.date===keepDate):NAV0?.d?DATA.days.findIndex(d=>d.date===NAV0.d):-1;
   sel=k>=0?k:DATA.days.findIndex(d=>d.date===today);
   draft=keepDraft&&Object.keys(keepDraft).length?keepDraft:{...(DATA.days[sel].answers||{})};
   loadedAt=Date.now(); if(!quiet) prevScore=0; render(); if(quiet) scrollTo(0,keepY);
+  else if(NAV0&&!NAV0.used){NAV0.used=true;requestAnimationFrame(()=>scrollTo(0,NAV0.y||0));}
 }
 let swDone=false;
 async function load(quiet=false){
@@ -2402,7 +2409,7 @@ function openSmart(listen){
   const ta=$("sm-t"),mic=$("sm-mic");
   const stop=()=>{if(rec){rec.onend=null;try{rec.stop();}catch(e){}rec=null;}if(mic){mic.textContent="Dictate";mic.classList.remove("on");}};
   const start=()=>{rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;base=ta.value?ta.value.trim()+"\n":"";
-    rec.onresult=e=>{let s="";for(const r of e.results) s+=r[0].transcript;ta.value=base+s.trim();};
+    rec.onresult=e=>{ta.value=base+srText(e);};
     rec.onerror=e=>{toast(e.error==="not-allowed"?"Allow the microphone for Readiness":"Couldn't hear you, try again");stop();};
     rec.onend=()=>stop();
     try{rec.start();mic.textContent="Stop";mic.classList.add("on");buzz(10);}catch(e){stop();}};
@@ -2448,21 +2455,58 @@ function aiNeeded(what){
     <div class="savebar"><button class="btn quiet" id="an-b">Back</button><button class="btn" id="an-s">Open Settings</button></div>`);
   $("an-b").onclick=()=>ADD?addView():closeSheet(); $("an-s").onclick=openSettings;
 }
-// one call to Gemini that must answer with JSON; tries the newest free Flash model first
+// Speech on Android Chrome sends each growing version of the phrase as a new result ("sei", "sei in", "sei in grado"…):
+// a result that starts with what we have replaces it instead of being appended
+function srText(e){
+  let out="";
+  for(const r of e.results){const t=r[0].transcript.trim();if(!t) continue;
+    const lo=out.toLowerCase(),tl=t.toLowerCase();
+    if(!out||tl.startsWith(lo)) out=t; else if(!lo.endsWith(tl)) out=out+" "+t;}
+  return out;
+}
+// Which Gemini models this key can use: asked once a day, newest Flash first (names change over time)
+async function aiModels(){
+  const c=lsJSON("rd_gm",null);if(c&&Date.now()-c.t<864e5&&c.k===aiKey().slice(-6)&&c.m.length) return c.m;
+  let m=[];
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",{headers:{"x-goog-api-key":aiKey()}});
+    if(r.ok){const j=await r.json();
+      m=(j.models||[]).filter(x=>(x.supportedGenerationMethods||[]).includes("generateContent")).map(x=>x.name.replace(/^models\//,""))
+        .filter(n=>/flash/.test(n)&&!/(image|tts|audio|live|thinking|exp|embedding|8b)/.test(n));
+      const ver=n=>parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/)||[])[1]||0);
+      const rank=n=>(/latest/.test(n)?100:0)+ver(n)*10-(/lite/.test(n)?3:0)-(/preview/.test(n)?2:0)-(/\d{3}$/.test(n)?1:0);
+      m.sort((a,b)=>rank(b)-rank(a));
+    }else if(r.status===400||r.status===403){const t=await r.text();if(/API key|API_KEY|PERMISSION/i.test(t)) throw new Error("The Gemini key isn't valid: check it in Settings");}
+  }catch(e){if(/key/.test(e.message)) throw e;}
+  if(!m.length) m=["gemini-flash-latest","gemini-2.5-flash","gemini-2.5-flash-lite"];
+  LS.set("rd_gm",JSON.stringify({t:Date.now(),k:aiKey().slice(-6),m:m.slice(0,4)}));
+  return m.slice(0,4);
+}
+// one call to Gemini that must answer with JSON
 async function aiCall(contents){
   const body=JSON.stringify({contents,generationConfig:{responseMimeType:"application/json",temperature:0.2}});
-  let last="";
-  for(const model of ["gemini-flash-latest","gemini-2.5-flash","gemini-2.0-flash"]){
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":aiKey()},body}).catch(()=>null);
-    if(!r) throw new Error("No connection for the AI");
-    if(r.status===404){last="model";continue;}
-    if(r.status===429) throw new Error("Gemini's free limit is used up for now: try again later");
-    if(r.status===400||r.status===401||r.status===403){const t=await r.text();if(/API key|PERMISSION|API_KEY/i.test(t)) throw new Error("The Gemini key isn't valid: check it in Settings");last=t.slice(0,80);continue;}
-    if(!r.ok){last=String(r.status);continue;}
-    const j=await r.json(),txt=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
-    try{return {json:JSON.parse(txt.replace(/^\s*```(?:json)?|```\s*$/g,"").trim()),raw:txt};}catch(e){throw new Error("The AI answer couldn't be read, try again");}
+  const errs=[];
+  for(const model of await aiModels()){
+    for(let attempt=0;attempt<2;attempt++){
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":aiKey()},body}).catch(()=>null);
+      if(!r) throw new Error("No connection for the AI");
+      if(r.ok){
+        const j=await r.json(),txt=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
+        if(!txt){errs.push(`${model}: empty answer (${j.candidates?.[0]?.finishReason||j.promptFeedback?.blockReason||"?"})`);break;}
+        try{return {json:JSON.parse(txt.replace(/^\s*```(?:json)?|```\s*$/g,"").trim()),raw:txt};}
+        catch(e){errs.push(`${model}: answer not readable`);break;}
+      }
+      const t=await r.text();let msg=t;try{msg=JSON.parse(t).error?.message||t;}catch(e){}
+      if(/API key|API_KEY_INVALID/i.test(msg)) throw new Error("The Gemini key isn't valid: check it in Settings");
+      errs.push(`${model}: ${r.status} ${String(msg).slice(0,90)}`);
+      if(r.status===404){LS.del("rd_gm");break;}
+      if(r.status===429&&/quota|exhaust|limit/i.test(msg)&&attempt===0){await new Promise(z=>setTimeout(z,1500));continue;}
+      if(r.status>=500&&attempt===0){await new Promise(z=>setTimeout(z,1200));continue;}
+      break;
+    }
   }
-  throw new Error("The AI isn't answering right now");
+  const quota=errs.every(e=>/ 429 /.test(e));
+  throw new Error(quota?"Gemini's free limit is used up for now: try again in a while":"The AI didn't answer. "+(errs[errs.length-1]||""));
 }
 const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0;
   return {meal:["b","l","d","s"].includes(x.meal)?x.meal:def,name:String(x.name||"Food").slice(0,60),brand:"",g:g?Math.round(g):null,kcal:Math.round(k),
@@ -2615,7 +2659,7 @@ function openAssistant(section){
   const nw=$("as-new"); if(nw) nw.onclick=()=>{AS={msgs:[],pending:null,busy:false};openAssistant();};
   if(mic) mic.onclick=()=>{if(rec) return stop();
     rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;const base=ta.value?ta.value.trim()+" ":"";
-    rec.onresult=e=>{let s="";for(const r of e.results) s+=r[0].transcript;ta.value=base+s.trim();grow();};
+    rec.onresult=e=>{ta.value=base+srText(e);grow();};
     rec.onerror=e=>{toast(e.error==="not-allowed"?"Allow the microphone for Readiness":"Couldn't hear you, try again");stop();};
     rec.onend=()=>{stop();if(ta.value.trim()) send();};
     try{rec.start();mic.classList.add("on");buzz(10);}catch(e){stop();}};
@@ -3189,7 +3233,8 @@ function pendingNote(){
     <p class="st" id="upd-note">Garmin Connect opens for a moment to collect the night: come back here and the score appears by itself.</p>`
     :`<button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p>`}</div>`;
 }
-let TAB=(()=>new URLSearchParams(location.search).get("tab")||"today")();   // every launch opens on Today
+let TAB=(()=>new URLSearchParams(location.search).get("tab")||"today")();   // every launch opens on Today…
+if(NAV0){TAB=NAV0.t||TAB;ATH_SUB=NAV0.s||"profile";if(NAV0.f) foodSel=NAV0.f;}  // …but a refresh stays on the page you were on
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
 function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; if(t==="athlete"){ATH_SUB="profile";foodSel=todayISO();} buzz(5); render(); scrollTo(0,0); animIn("enter"); }
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
@@ -3204,7 +3249,7 @@ function tabbar(){
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
 function render(){
-  tabbar();
+  tabbar(); setTimeout(saveNav,0);
   if(TAB==="training") return renderTraining();
   if(TAB==="athlete") return renderAthlete();
   renderToday();
