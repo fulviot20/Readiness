@@ -60,6 +60,13 @@ def collect(cache, pw, decrypt):
             old = mail.setdefault("lib", {}).get(obj["id"])
             if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
                 mail["lib"][obj["id"]] = obj
+        elif kind == "journal" and obj.get("date"):      # habits tapped for a day; the newest copy wins
+            old = mail.setdefault("journal", {}).get(obj["date"])
+            if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
+                mail["journal"][obj["date"]] = obj
+        elif kind == "jtags":                           # which habits are tracked, plus your own
+            if (obj.get("ts") or 0) >= (mail.get("jtags") or {}).get("ts", 0):
+                mail["jtags"] = obj
         elif kind == "metric" and obj.get("key") in ("weight", "lthr") and obj.get("date"):
             series = mail.setdefault("metrics", {}).setdefault(obj["key"], {})
             if obj.get("value") is None:

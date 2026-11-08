@@ -775,6 +775,9 @@ def main():
     prof = mail.get("profile") or {}             # height and sex sharpen the distance estimate
     data["energy"] = energy.build(gdays, data["days"], today, prof.get("height"), prof.get("sex"))
     data["nutrition"] = nutrition(mail, today)
+    oldest = (today - dt.timedelta(days=400)).isoformat()
+    data["journal"] = {"days": {d: o for d, o in (mail.get("journal") or {}).items() if d >= oldest},
+                       "tags": mail.get("jtags")}
     # personal Garmin key created on 3 Nov 2026 for one year
     data["garmin_key"] = {"expires": "2027-11-03", "error": bool(cache.get("garmin_auth_error"))}
     try:

@@ -489,6 +489,24 @@ button:focus-visible{outline:2px solid var(--glacier);outline-offset:2px}
 .fi-w .fi{border-top:0;position:relative;z-index:1;background:var(--surface);touch-action:pan-y;transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .fi-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding-right:18px;color:#fff;opacity:0;background:#b4404a;border-radius:10px}
 .fi-bg svg{transition:transform .18s cubic-bezier(.2,.8,.2,1)}.fi-bg.armed svg{transform:scale(1.3)}
+
+.jr-d{margin:0}.jr-d button{padding:5px 12px;font-size:13px}
+.jr{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:18px;padding:14px}
+.jr-q{margin:0 0 10px;font-size:15px;font-weight:600}.jr-q span{float:right;font-size:12.5px;font-weight:400;color:var(--faint)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid transparent;border-radius:99px;padding:8px 13px 8px 10px;color:var(--text);font:inherit;font-size:14px;cursor:pointer;transition:background .15s,border-color .15s,transform .12s}
+.chips button i{font-style:normal}.chips button:active{transform:scale(.95)}
+.chips button.on{background:rgba(111,211,230,.16);border-color:rgba(111,211,230,.55)}
+.chips button.none{color:var(--muted);padding-left:13px}.chips button.none.on{background:rgba(255,255,255,.08);border-color:var(--line);color:var(--text)}
+.jr-f{display:flex;justify-content:space-between;margin-top:12px}
+.jr-f button{background:none;border:0;padding:4px 0;font:inherit;font-size:13.5px;color:var(--faint);cursor:pointer}.jr-f #jr-imp{color:var(--glacier);font-weight:600}
+.im{padding:12px 0;border-bottom:1px solid var(--line)}
+.im-h{display:flex;justify-content:space-between;margin-bottom:8px;font-size:15px;font-weight:600}.im-h em{font-style:normal;font-weight:400;font-size:12.5px;color:var(--faint)}
+.im-b{display:grid;grid-template-columns:62px 1fr 34px;align-items:center;gap:8px;margin:4px 0}
+.im-b small{font-size:12px;color:var(--muted)}.im-b b{font-family:var(--cond);font-size:18px;font-weight:500;text-align:right}
+.im-t{position:relative;height:8px;border-radius:99px;background:var(--surface2)}
+.im-t::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line)}
+.im-t i{position:absolute;top:0;bottom:0;border-radius:99px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* athlete */
@@ -2482,6 +2500,8 @@ function aiContext(){
     weight_kg:weightNow(),goal:gs?{target_kg:gs.g.target,pace_kg_week:gs.g.pace,eta:gs.eta}:null,
     my_meals:libAll().map(e=>({id:e.id,kind:e.kind,name:e.name,for:e.for||null})),
     page:AS.section||"today",
+    journal_last_14_days:Object.entries(jAll()).filter(([d])=>d>=isoAdd(t,-14)).map(([d,o])=>({date:d,habits:(o.tags||[]).map(id=>jTags().find(x=>x.id===id)?.label||id)})),
+    habit_impact:habitImpact().filter(x=>!x.need).map(x=>({habit:x.tag.label,days:x.n,next_morning_recovery_diff:x.rec!=null?Math.round(x.rec):null,next_morning_sleep_diff:x.sl!=null?Math.round(x.sl):null})),
     last_7_days:(DATA.days||[]).slice(-8,-1).map(x=>({date:x.date,readiness:x.score??null,sleep:x.sleep_score?.score??null,strain:x.strain?.score??null,
       workouts:(x.workouts||[]).filter(w=>w.type).map(w=>({name:w.name,type:w.type,min:w.minutes,load:w.load,feel:w.feel??null}))})),
     next_days:Object.entries(DATA.upcoming||{}).filter(([d])=>d>t).slice(0,4).map(([d,ps])=>({date:d,plan:ps.map(p=>`${p.name}${p.minutes?` ${p.minutes} min`:""}`)})),
@@ -2602,6 +2622,94 @@ function openAssistant(section){
   const old=camStop;camStop=()=>{stop();camStop=old;};
   bind();const sh=$("sheet");sh.scrollTop=sh.scrollHeight;
   setTimeout(()=>ta.focus({preventScroll:true}),320);
+}
+
+/* ------------------------------------------------------------ journal: habits and what they do to you */
+// Tap what happened on a day; over the weeks the app compares the next morning's recovery and sleep
+// on days with and without each habit. It's a correlation over your own data, not proof.
+const J_DEFAULT=[["alcohol","🍷","Alcohol"],["caffeine","☕","Caffeine after 4 pm"],["late_meal","🍽️","Late dinner"],["big_meal","🍝","Heavy meal"],
+  ["screens","📱","Screens in bed"],["stress","😮‍💨","Stressful day"],["late_workout","🌙","Late workout"],["nap","😴","Nap"],
+  ["travel","🚗","Long commute or travel"],["relax","🧘","Stretching or meditation"]].map(([id,ic,label])=>({id,ic,label}));
+let jDay=null;
+function jTags(){
+  const s=DATA.journal?.tags,l=lsJSON("rd_jtags",null),t=!s?l:!l?s:(l.ts||0)>=(s.ts||0)?l:s;
+  const custom=t?.custom||[],hidden=new Set(t?.hidden||[]);
+  return [...J_DEFAULT.filter(x=>!hidden.has(x.id)),...custom.map(c=>({...c,ic:"✦"}))];
+}
+function jTagCfg(){const s=DATA.journal?.tags,l=lsJSON("rd_jtags",null);return (!s?l:!l?s:(l.ts||0)>=(s.ts||0)?l:s)||{custom:[],hidden:[]};}
+function jAll(){
+  const m={};
+  for(const [d,o] of Object.entries(DATA.journal?.days||{})) m[d]=o;
+  for(const [d,o] of Object.entries(lsJSON("rd_journal",{}))) if(!m[d]||(o.ts||0)>=(m[d].ts||0)) m[d]=o;
+  return m;
+}
+function jSave(date,tags){
+  const o={date,tags,ts:Date.now()},L=lsJSON("rd_journal",{}),lim=isoAdd(todayISO(),-30);
+  L[date]=o;for(const d of Object.keys(L)) if(d<lim) delete L[d];
+  LS.set("rd_journal",JSON.stringify(L));sendQ("journal",o);
+}
+function journalCard(){
+  const t=todayISO();if(!jDay) jDay=new Date().getHours()<15?isoAdd(t,-1):t;
+  const e=jAll()[jDay],on=new Set(e?.tags||[]),done=!!e;
+  return `<section class="sec" id="journal"><div class="sec-h"><h2>Journal</h2>
+      <div class="range jr-d"><button data-jd="${isoAdd(t,-1)}" class="${jDay!==t?"on":""}">Yesterday</button><button data-jd="${t}" class="${jDay===t?"on":""}">Today</button></div></div>
+    <div class="jr"><p class="jr-q">${jDay===t?"What's happening today?":"What happened yesterday?"} <span>${done?"Saved":"Tap all that apply"}</span></p>
+      <div class="chips">${jTags().map(x=>`<button data-jt="${x.id}" class="${on.has(x.id)?"on":""}"><i>${x.ic}</i>${esc(x.label)}</button>`).join("")}
+        <button data-jt="" class="none ${done&&!on.size?"on":""}">None of these</button></div>
+      <div class="jr-f"><button id="jr-edit">Edit habits</button><button id="jr-imp">See what they do to you →</button></div></div></section>`;
+}
+function bindJournal(){
+  const box=$("journal");if(!box) return;
+  box.querySelectorAll("[data-jd]").forEach(b=>b.onclick=()=>{jDay=b.dataset.jd;redrawJournal();});
+  box.querySelectorAll("[data-jt]").forEach(b=>b.onclick=()=>{
+    const e=jAll()[jDay],cur=new Set(e?.tags||[]),id=b.dataset.jt;
+    if(!id) cur.clear(); else cur.has(id)?cur.delete(id):cur.add(id);
+    jSave(jDay,[...cur]);buzz(5);redrawJournal();});
+  $("jr-imp").onclick=openImpact; $("jr-edit").onclick=openJTags;
+}
+function redrawJournal(){const b=$("journal");if(!b) return;b.outerHTML=journalCard();bindJournal();}
+function habitImpact(){
+  const J=jAll(),byDate=Object.fromEntries((DATA.days||[]).map(d=>[d.date,d])),mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
+  const rows=[];
+  for(const [d,o] of Object.entries(J)){const nx=byDate[isoAdd(d,1)];if(!nx) continue;
+    const rec=nx.score??null,sl=nx.sleep_score?.score??null;if(rec==null&&sl==null) continue;rows.push({tags:o.tags||[],rec,sl});}
+  return jTags().map(tag=>{
+    const y=rows.filter(r=>r.tags.includes(tag.id)),n=rows.filter(r=>!r.tags.includes(tag.id));
+    if(y.length<3||n.length<3) return {tag,n:y.length,base:n.length,need:true};
+    const f=(a,k)=>mean(a.map(r=>r[k]).filter(v=>v!=null));
+    const rec=f(y,"rec")!=null&&f(n,"rec")!=null?f(y,"rec")-f(n,"rec"):null,sl=f(y,"sl")!=null&&f(n,"sl")!=null?f(y,"sl")-f(n,"sl"):null;
+    return {tag,n:y.length,base:n.length,rec,sl};
+  }).sort((a,b)=>(a.need-b.need)||Math.abs(b.rec??0)-Math.abs(a.rec??0));
+}
+function openImpact(){
+  const I=habitImpact(),days=Object.keys(jAll()).length;
+  const bar=(v,lbl)=>{if(v==null) return "";const w=Math.min(50,Math.abs(v)/20*50),c=v>=0?"var(--alpine)":"#f0798a";
+    return `<div class="im-b"><small>${lbl}</small><div class="im-t"><i style="${v>=0?`left:50%`:`right:50%`};width:${w}%;background:${c}"></i></div><b style="color:${c}">${v>=0?"+":"−"}${Math.abs(v).toFixed(0)}</b></div>`;};
+  const ready=I.filter(x=>!x.need),wait=I.filter(x=>x.need);
+  openSheet(`<div class="sh-top"><h2>Habits impact</h2>${X}</div>
+    <p class="sh-desc">Next morning's recovery and sleep score on days with each habit, compared with days without it. ${days} day${days===1?"":"s"} journaled so far.</p>
+    ${ready.length?ready.map(x=>`<div class="im"><div class="im-h"><span>${x.tag.ic} ${esc(x.tag.label)}</span><em>${x.n} days${x.n<6?" · early":""}</em></div>${bar(x.rec,"Recovery")}${bar(x.sl,"Sleep")}</div>`).join("")
+      :`<div class="note-card">Nothing to compare yet. Each habit needs at least 3 days with it and 3 without: keep tapping the Journal for a couple of weeks and the first results appear here.</div>`}
+    ${wait.length?`<h3 class="sh-sub">Collecting</h3>${wait.map(x=>`<div class="ent"><span>${x.tag.ic} ${esc(x.tag.label)}</span><b>${x.n<3?`${3-x.n} more day${3-x.n>1?"s":""} with it`:`${3-x.base} more without`}</b></div>`).join("")}`:""}
+    <p class="sh-note" style="margin-top:16px">This is a comparison over your own days, not proof of cause: a late dinner and a bad night may both come from a long shift. Patterns become reliable after 4–6 weeks.</p>
+    ${aiKey()&&ready.length?`<button class="coach-bar" id="im-ai">${SPARK}<span>Ask AI to explain my patterns</span></button>`:""}`);
+  const a=$("im-ai");if(a) a.onclick=()=>{openAssistant("today");setTimeout(()=>{const t=$("as-t");if(t){t.value="Spiegami cosa dicono le correlazioni del mio journal e cosa potrei cambiare.";t.dispatchEvent(new Event("input"));}},50);};
+}
+function openJTags(){
+  const cfg=structuredClone(jTagCfg());cfg.custom=cfg.custom||[];cfg.hidden=cfg.hidden||[];
+  const draw=()=>{
+    openSheet(`<div class="sh-top"><h2>Edit habits</h2>${X}</div>
+      <p class="sh-desc">Choose what to track. Add your own, like "shift at the hospital" or "evening rehearsal".</p>
+      ${J_DEFAULT.map(x=>`<div class="ent"><span>${x.ic} ${esc(x.label)}</span><button data-hd="${x.id}">${cfg.hidden.includes(x.id)?"Show":"Hide"}</button></div>`).join("")}
+      ${cfg.custom.map((c,i)=>`<div class="ent"><span>✦ ${esc(c.label)}</span><button data-rc="${i}">Remove</button></div>`).join("")}
+      <div class="ath-log" style="grid-template-columns:1fr auto;margin-top:16px"><div class="field"><label for="jt-n">New habit</label><input id="jt-n" type="text" maxlength="30" placeholder="e.g. Night shift"></div><button class="btn" id="jt-add">Add</button></div>
+      <div class="savebar" style="margin-top:12px"><span></span><button class="btn" id="jt-save">Done</button></div>`);
+    $("sheet").querySelectorAll("[data-hd]").forEach(b=>b.onclick=()=>{const id=b.dataset.hd,i=cfg.hidden.indexOf(id);i>=0?cfg.hidden.splice(i,1):cfg.hidden.push(id);draw();});
+    $("sheet").querySelectorAll("[data-rc]").forEach(b=>b.onclick=()=>{cfg.custom.splice(+b.dataset.rc,1);draw();});
+    $("jt-add").onclick=()=>{const v=$("jt-n").value.trim();if(!v) return;cfg.custom.push({id:"c_"+uid(),label:v});draw();};
+    $("jt-save").onclick=()=>{cfg.ts=Date.now();LS.set("rd_jtags",JSON.stringify(cfg));sendQ("jtags",cfg);closeSheet();redrawJournal();toast("Habits updated");};
+  };
+  draw();
 }
 
 /* ------------------------------------------------------------ feel: toast, haptics, outbox */
@@ -3136,6 +3244,7 @@ function renderToday(){
   ${isToday?yourDay():""}
 
   ${isToday?checkin(raw):""}
+  ${isToday?journalCard():""}
   ${sessions(raw)}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 
@@ -3151,7 +3260,11 @@ function bind(raw){
   const g=$("guide"); if(g) g.onclick=()=>openGuide();
   $("m-sleep").onclick=()=>openSleepScore(); $("m-strain").onclick=()=>openStrain();
   const of=$("off"); if(of) of.onclick=openOff;
-  document.querySelectorAll(".day4 [data-en]").forEach(b=>b.onclick=()=>{enKey=b.dataset.en;openEnergy();});
+  // Calories opens the food diary (when it's on); the other tiles open their history
+  document.querySelectorAll(".day4 [data-en]").forEach(b=>b.onclick=()=>{
+    if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
+    enKey=b.dataset.en;openEnergy();});
+  bindJournal();
   const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].sleep_score) openSleepScore(); else if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));
