@@ -15,3 +15,10 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 7. Codice più ordinato: dividere il file unico dell'app in moduli, test automatici
 - [ ] 8. Server vero e account (multiutente), senza dipendere da GitHub Actions / ntfy
 - [ ] 9. App nativa Android e widget per la schermata Home
+
+## Miglioramenti proposti (novembre 2026)
+- [ ] 10. Insight del mattino proattivo: una frase AI su Today che collega score, sonno, journal e allenamento del giorno (una richiesta al giorno)
+- [ ] 11. Allenamento del giorno adattato allo score, come proposta (mai obbligo): versione "piena" e "corta" della seduta, con link a Intervals
+- [ ] 12. Fueling in bici e post-allenamento collegati al diario: carboidrati della fiaschetta registrati in automatico dagli allenamenti
+- [ ] 13. Promemoria intelligenti: notifica serale se il journal è vuoto, peso settimanale, check-in del mattino
+- [ ] 14. Sincronizzare anche piano alimentare e note tra telefono e computer (oggi il piano resta sul dispositivo)

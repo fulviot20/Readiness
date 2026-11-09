@@ -125,10 +125,11 @@ function bindPlan(){
   const on=(id,f)=>{const e=$(id);if(e) e.onclick=f;};
   on("pl-key",openSettings); on("pl-quiz",openPlanQuiz); on("pl-notes",openNotes);
   const go=$("pl-go"),ta=$("pl-t");
+  if(ta){try{ta.value=sessionStorage.getItem("rd_pl_draft")||"";}catch(e){}ta.oninput=()=>{try{sessionStorage.setItem("rd_pl_draft",ta.value);}catch(e){}};}
   if(go) go.onclick=async()=>{const t=ta.value.trim();if(!t&&!fnAll().length) return toast("Tell me a little about how you eat first");
-    if(t){go.disabled=true;go.textContent="Saving notes…";try{await learnFood(t);}catch(e){go.disabled=false;go.textContent="Save and build my plan";return toast(e.message);}}
+    if(t){go.disabled=true;go.textContent="Saving notes…";try{await learnFood(t);try{sessionStorage.removeItem("rd_pl_draft");}catch(e){}}catch(e){go.disabled=false;go.textContent="Save and build my plan";return toast(e.message);}}
     genPlan();};
-  const d1=ta?dictation(ta,null,on=>{const m=$("pl-mic");if(m){m.textContent=on?"Stop":"Dictate";m.classList.toggle("on",on);}}):null;
+  const d1=ta?dictation(ta,()=>ta.oninput&&ta.oninput(),on=>{const m=$("pl-mic");if(m){m.textContent=on?"Stop":"Dictate";m.classList.toggle("on",on);}}):null;
   on("pl-mic",()=>d1&&d1.toggle());
   const inp=$("pl-new");
   if(inp){

@@ -2,6 +2,13 @@
 /* ------------------------------------------------------------ journal: habits and what they do to you */
 // Tap what happened on a day; over the weeks the app compares the next morning's recovery and sleep
 // on days with and without each habit. It's a correlation over your own data, not proof.
+// the rule for each habit, so the same day is always tagged the same way
+const J_HINT={alcohol:"Any alcohol, even one glass.",caffeine:"Coffee, tea, cola or energy drinks after 4 pm.",
+  late_meal:"Finished eating less than 2 hours before going to sleep.",big_meal:"A much bigger meal than usual: pizza, fried food, a big dinner out.",
+  screens:"Phone, tablet or TV in bed in the hour before sleep.",stress:"Mental or emotional stress: work, worries, arguments. Not training: that is measured already.",
+  late_workout:"Training that ended less than 3 hours before sleep.",nap:"Any nap during the day.",travel:"Long drive or travel: well over your usual commute.",
+  relax:"Stretching, breathing or meditation before sleep."};
+let jHintId=null;
 const J_DEFAULT=[["alcohol","🍷","Alcohol"],["caffeine","☕","Caffeine after 4 pm"],["late_meal","🍽️","Late dinner"],["big_meal","🍝","Heavy meal"],
   ["screens","📱","Screens in bed"],["stress","😮‍💨","Stressful day"],["late_workout","🌙","Late workout"],["nap","😴","Nap"],
   ["travel","🚗","Long commute or travel"],["relax","🧘","Stretching or meditation"]].map(([id,ic,label])=>({id,ic,label}));
@@ -31,6 +38,7 @@ function journalCard(){
     <div class="jr"><p class="jr-q">${jDay===t?"What's happening today?":"What happened yesterday?"} <span>${done?"Saved":"Tap all that apply"}</span></p>
       <div class="chips">${jTags().map(x=>`<button data-jt="${x.id}" class="${on.has(x.id)?"on":""}"><i>${x.ic}</i>${esc(x.label)}</button>`).join("")}
         <button data-jt="" class="none ${done&&!on.size?"on":""}">None of these</button></div>
+      <p class="jr-h">${jHintId&&J_HINT[jHintId]?`<b>${esc(jTags().find(x=>x.id===jHintId)?.label||"")}:</b> ${esc(J_HINT[jHintId])}`:"Tap a habit to see exactly when it counts."}</p>
       <div class="jr-f"><button id="jr-edit">Edit habits</button><button id="jr-imp">See what they do to you →</button></div></div></section>`;
 }
 function bindJournal(){
@@ -39,6 +47,7 @@ function bindJournal(){
   box.querySelectorAll("[data-jt]").forEach(b=>b.onclick=()=>{
     const e=jAll()[jDay],cur=new Set(e?.tags||[]),id=b.dataset.jt;
     if(!id) cur.clear(); else cur.has(id)?cur.delete(id):cur.add(id);
+    jHintId=id||null;
     jSave(jDay,[...cur]);buzz(5);redrawJournal();});
   $("jr-imp").onclick=openImpact; $("jr-edit").onclick=openJTags;
 }

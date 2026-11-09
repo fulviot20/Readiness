@@ -28,11 +28,19 @@ function monSpark(key,fmt){
 function openMonths(ym,keep){
   const ms=monList(); if(!ms.length) return;
   if(ym) monPick=ym; if(!monPick||!ms.some(m=>m.month===monPick)) monPick=ms[ms.length-1].month;
-  const m=ms.find(x=>x.month===monPick),v=m.vs_prev||{},T=DATA.monthly.trend;
-  const hrs=h=>h?hmh(h):"–",one=n=>(Math.round(n*10)/10).toString();
   const y0=$("sheet").scrollTop;
   openSheet(`<div class="sh-top"><h2>Monthly report</h2>${X}</div>
-    <div class="mon-chips" id="mon-chips">${ms.map(x=>`<button class="${x.month===monPick?"on":""}" data-mon="${x.month}">${esc(monName(x.month,{month:"short",year:x.month.slice(0,4)===todayISO().slice(0,4)?undefined:"2-digit"}))}</button>`).join("")}</div>
+${monthBody()}`);
+  if(keep) $("sheet").scrollTop=y0;
+  const c=$("mon-chips"),on=c.querySelector(".on"); if(on) c.scrollLeft=on.offsetLeft-c.clientWidth/2+on.clientWidth/2;
+  c.querySelectorAll("[data-mon]").forEach(b=>b.onclick=()=>{monPick=b.dataset.mon;buzz(5);openMonths(null,true);});
+}
+// the same report, shown as the Month page of Training
+function monthBody(){
+  const ms=monList();if(!monPick||!ms.some(m=>m.month===monPick)) monPick=ms[ms.length-1].month;
+  const m=ms.find(x=>x.month===monPick),v=m.vs_prev||{},T=DATA.monthly.trend;
+  const hrs=h=>h?hmh(h):"–",one=n=>(Math.round(n*10)/10).toString();
+  return `    <div class="mon-chips" id="mon-chips">${ms.map(x=>`<button class="${x.month===monPick?"on":""}" data-mon="${x.month}">${esc(monName(x.month,{month:"short",year:x.month.slice(0,4)===todayISO().slice(0,4)?undefined:"2-digit"}))}</button>`).join("")}</div>
     <h3 class="mon-t">${esc(monName(m.month))}${m.partial?` <span>so far, ${m.days} days</span>`:""}</h3>
     ${m.headline?`<p class="ch-lead">${esc(m.headline)}</p>`:""}
     <div class="wr-g mon-g">
@@ -51,8 +59,13 @@ function openMonths(ym,keep){
          ["sleep_h","Sleep per night",n=>hmh(n)],["hours_week","Training per week",n=>hmh(n)],["weight","Weight",n=>n.toFixed(1)+" kg"]]
         .map(([k,n,f])=>{const sp=monSpark(k,f);const last=monList().filter(m=>m[k]!=null).slice(-1)[0];return sp?`<div class="mon-row"><div><small>${n}</small><b>${f(last[k])}</b></div>${sp}</div>`:"";}).join("")}</div>`
       :`<p class="sh-note">Long trends appear after three complete months of data.</p>`}
-    <p class="sh-note">Each month is compared with the month before (the small numbers) and, in the text, with the average of the three months before it. Readiness and sleep scores exist only for the last four months.</p>`);
-  if(keep) $("sheet").scrollTop=y0;
-  const c=$("mon-chips"),on=c.querySelector(".on"); if(on) c.scrollLeft=on.offsetLeft-c.clientWidth/2+on.clientWidth/2;
-  c.querySelectorAll("[data-mon]").forEach(b=>b.onclick=()=>{monPick=b.dataset.mon;buzz(5);openMonths(null,true);});
+    <p class="sh-note">Each month is compared with the month before (the small numbers) and, in the text, with the average of the three months before it. Readiness and sleep scores exist only for the last four months.</p>`;
+}
+function monthPage(){
+  if(!monList().length) return `<p class="notice">Monthly reports appear after the first month of data.</p>`;
+  return `<section class="sec first" id="mon-page">${monthBody()}</section>`;
+}
+function bindMonthPage(){
+  const c=$("mon-chips");if(!c||!$("mon-page")) return;const on=c.querySelector(".on");if(on) c.scrollLeft=on.offsetLeft-c.clientWidth/2+on.clientWidth/2;
+  c.querySelectorAll("[data-mon]").forEach(b=>b.onclick=()=>{monPick=b.dataset.mon;buzz(5);$("mon-page").innerHTML=monthBody();bindMonthPage();});
 }

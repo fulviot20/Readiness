@@ -186,10 +186,7 @@ function athHero(){
 let ATH_SUB="profile";
 const foodOn=()=>LS.get("rd_food_off")!=="1";
 const athSwitch=()=>pageBar("athlete");
-const athSwitchOld=()=>foodOn()?`<div class="subtabs" role="tablist"><button data-sub="profile" class="${ATH_SUB!=="food"?"on":""}">Profile</button><button data-sub="food" class="${ATH_SUB==="food"?"on":""}">Food</button></div>`:"";
 function bindSwitch(){}
-function bindSwitchOld(){document.querySelectorAll(".subtabs button").forEach(b=>b.onclick=()=>{if(b.dataset.sub===ATH_SUB) return;
-  ATH_SUB=b.dataset.sub;if(ATH_SUB==="food") foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");});}
 function renderAthlete(){
   if(PG.athlete!=="profile"&&!foodOn()) PG.athlete="profile";
   ATH_SUB=PG.athlete==="profile"?"profile":"food";
