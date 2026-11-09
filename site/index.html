@@ -1744,6 +1744,7 @@ let foodSel=null,balN=30,balPick=null;
 // so the phone and the server can't overwrite each other's changes.
 function foodLocal(){return lsJSON("rd_food",{});}
 function foodSave(item){
+  if(item.n100&&item.name&&!item.del) nCacheSet(item.name,item.n100);
   const L=foodLocal(),lim=isoAdd(todayISO(),-21);
   (L[item.date]=L[item.date]||{})[item.id]=item;
   for(const d of Object.keys(L)) if(d<lim) delete L[d];
@@ -1781,24 +1782,57 @@ function nutrientSection(d){
       ${row("Fat",T.f,"g",tg?.f,"target")}${group("f")}
       <h4>Minerals</h4>${group("m").replace("Sodium</span>","Sodium"+salt+"</span>")}
       <h4>Vitamins</h4>${group("v")}
-      <p class="nut-f">${missing?`Detailed values known for ${N.known} of ${items.length} foods: the others count only for energy and macros.`:"Detailed values known for every food."} References: EU/EFSA daily values for an adult man; saturated fat under 10% of your energy target.</p>
-      ${missing&&aiKey()?`<button class="coach-bar" id="nut-ai">${SPARK}<span>Fill in the missing nutrients with AI (1 request)</span></button>`:""}
+      ${FILL.busy?`<p class="af-wait"><i class="spin"></i>Working out sugars, fibre, fats, minerals and vitamins…</p>`:""}
+      <p class="nut-f">${missing?`Detailed values known for ${N.known} of ${items.length} foods: the others count only for energy and macros${aiKey()?"":". Add your Gemini key in Settings and they're filled in by themselves"}.`:"Detailed values known for every food."} References: EU/EFSA daily values for an adult man; saturated fat under 10% of your energy target.</p>
+      ${FILL.err?`<p class="nut-f" style="color:#f2a65a">${esc(FILL.err)}</p>`:""}
+      ${missing&&aiKey()&&!FILL.busy?`<button class="coach-bar" id="nut-ai">${SPARK}<span>${FILL.err?"Try again":"Fill in now with AI"}</span></button>`:""}
     </div></section>`;
 }
-async function aiFill(d){
-  const items=foodDay(d).filter(x=>!x.n&&x.kcal);if(!items.length) return;
-  const b=$("nut-ai");if(b){b.disabled=true;b.querySelector("span").textContent="Estimating…";}
-  try{
-    const list=items.map((x,i)=>`${i}. ${x.name}${x.brand?` (${x.brand})`:""}, ${x.g?x.g+" g":"1 portion"}, ${x.kcal} kcal, P ${x.p} C ${x.c} F ${x.f}`).join("\n");
-    const {json}=await aiCall([{role:"user",parts:[{text:`Estimate the detailed nutrients of each food portion below (realistic values from the Italian CREA tables, USDA or typical labels).
-Reply with JSON only: {"items":[{"i":0,${NUT_JSON}}]}.\n${list}`}]}]);
-    const now=Date.now();let n=0;
-    for(const r of json.items||[]){const it=items[+r.i];const nn=scaleN(r.nutrients,1);if(!it||!nn) continue;
-      foodSave({...it,n:nn,n100:it.g?scaleN(nn,100/it.g):null,ts:now+n});n++;}
-    toast(n?`Nutrients added for ${n} food${n>1?"s":""}`:"The AI didn't return nutrients");
-  }catch(e){toast(e.message);}
-  render();
+// Nutrient names as the AI may write them
+const N_ALIAS={sugars:["sugars","sugar","zuccheri","of_which_sugars"],fiber:["fiber","fibre","fibers","fibres","fibra","dietary_fiber"],
+  satfat:["satfat","saturated","saturated_fat","sat_fat","saturatedfat","saturated_fats"],monofat:["monofat","monounsaturated","monounsaturated_fat","mufa","mono_fat"],
+  polyfat:["polyfat","polyunsaturated","polyunsaturated_fat","pufa","poly_fat"],chol:["chol","cholesterol"],sodium:["sodium","sodio"],potassium:["potassium","potassio"],
+  calcium:["calcium","calcio"],iron:["iron","ferro"],magnesium:["magnesium","magnesio"],zinc:["zinc","zinco"],vita:["vita","vitamin_a","vitamina","vit_a","vitamin a"],
+  vitc:["vitc","vitamin_c","vitaminc","vit_c","vitamin c"],vitd:["vitd","vitamin_d","vitamind","vit_d","vitamin d"],vite:["vite","vitamin_e","vitamine","vit_e","vitamin e"],
+  b12:["b12","vitamin_b12","vitaminb12","vit_b12","vitamin b12","cobalamin"],folate:["folate","folic_acid","b9","vitamin_b9","folates","folato"]};
+function normN(o){
+  if(!o||typeof o!=="object") return null;
+  const low={};for(const [k,v] of Object.entries(o)) low[k.toLowerCase().replace(/[\s-]+/g,"_")]=v;
+  const out={};
+  for(const [key,al] of Object.entries(N_ALIAS)) for(const a of al){let v=low[a.replace(/\s+/g,"_")];if(v&&typeof v==="object") v=v.value??v.amount;
+    if(v!=null&&v!==""&&isFinite(parseFloat(v))){out[key]=parseFloat(v);break;}}
+  return scaleN(out,1);
 }
+// What the AI has worked out for a food is remembered per 100 g, so the same food next time needs no request
+const nCacheAll=()=>lsJSON("rd_ncache",{});
+const nCache=name=>nCacheAll()[norm(name)]||null;
+function nCacheSet(name,n100){if(!n100) return;const c=nCacheAll();c[norm(name)]=n100;const ks=Object.keys(c);if(ks.length>400) delete c[ks[0]];LS.set("rd_ncache",JSON.stringify(c));}
+// Fill in the detailed nutrients of the day's foods by themselves: first from what's already known, then one AI request
+const FILL={busy:false,tried:{},err:""};
+async function autoFill(d,manual){
+  if(FILL.busy) return;
+  let items=foodDay(d).filter(x=>!x.n&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
+  if(!items.length) return;
+  const now=Date.now();let done=0;
+  for(const x of items){const c=x.g?nCache(x.name):null;if(c){foodSave({...x,n100:c,n:scaleN(c,x.g/100),ts:now+done});done++;}}
+  items=foodDay(d).filter(x=>!x.n&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
+  if(!items.length||!aiKey()){if(done) refreshNut(d);return;}
+  FILL.busy=true;FILL.err="";refreshNut(d);
+  items.forEach(x=>FILL.tried[x.id]=(FILL.tried[x.id]||0)+1);
+  try{
+    const list=items.map((x,i)=>`${i}. ${x.name}${x.brand?` (${x.brand})`:""}: ${x.g?x.g+" g":"1 portion"}, ${x.kcal} kcal, protein ${x.p} g, carbs ${x.c} g, fat ${x.f} g`).join("\n");
+    const {json}=await aiCall([{role:"user",parts:[{text:`For each food portion below give its detailed nutrients for that exact portion, with realistic values (Italian CREA tables, USDA, typical labels). Never leave a field out: estimate it.
+Reply with JSON only: {"items":[{"i":0,${NUT_JSON}}]}
+${list}`}]}]);
+    const arr=Array.isArray(json)?json:json.items||json.foods||[];let n=0;const t=Date.now();
+    arr.forEach((r,k)=>{const idx=r.i??r.index??r.id??k,it=items[+idx]||items.find(x=>norm(x.name)===norm(r.name||""));const nn=normN(r.nutrients||r);
+      if(!it||!nn) return;const n100=it.g?scaleN(nn,100/it.g):null;foodSave({...it,n:nn,n100,ts:t+n});if(n100) nCacheSet(it.name,n100);n++;});
+    if(!n) FILL.err="The AI answered without nutrients: tap to try again.";
+  }catch(e){FILL.err=e.message;}
+  FILL.busy=false;refreshNut(d);
+}
+function refreshNut(d){const el=$("nut");if(!el||TAB!=="athlete"||ATH_SUB!=="food"||foodSel!==d) return;el.outerHTML=nutrientSection(d);bindNut(d);}
+function bindNut(d){const na=$("nut-ai");if(na) na.onclick=()=>autoFill(d,true);}
 function recents(){
   const m=new Map(),lim=isoAdd(todayISO(),-90);
   for(const d of foodDates()) if(d>=lim) for(const it of foodDay(d)){
@@ -1912,7 +1946,7 @@ function renderFood(){
   document.querySelectorAll("[data-libm]").forEach(b=>b.onclick=()=>{const [id,m]=b.dataset.libm.split("|"),e=libAll().find(x=>x.id===id);if(e) logLibMeal(e,m,d);});
   document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
   $("lib-c").onclick=openLibrary; bindSwitch(); bindSwipeDelete();
-  const na=$("nut-ai"); if(na) na.onclick=()=>aiFill(d);
+  bindNut(d); setTimeout(()=>autoFill(d),500);
   const fc=$("f-coach"); if(fc) fc.onclick=()=>openAssistant("food");
   const gc=$("goal-c"); if(gc) gc.onclick=openGoal;
   bindBalance();
@@ -2204,7 +2238,8 @@ async function offBarcode(code){
 }
 const foodRow=(f,i)=>`<button class="fr-row" data-fr="${i}"><span class="fn">${esc(f.name)}<small>${f.quick?"Quick add":[f.brand,f.unit?`1 ${f.unit[0]} = ${f.unit[1]} g`:"",f.serving&&!f.unit?`serving ${fmtNum(f.serving)} g`:""].filter(Boolean).map(esc).join(" · ")||"per 100 g"}</small></span>
   <b>${f.quick?fmtK(Math.round(f.kcal)):fmtK(f.k)}<u>${f.quick?"kcal":"/100 g"}</u></b></button>`;
-const fromFood=(f,g,meal)=>({meal,name:f.name,brand:f.brand||"",g:Math.round(g),kcal:Math.round(f.k*g/100),p:r1(f.p*g/100),c:r1(f.c*g/100),f:r1(f.f*g/100),
+const withN=f=>f.n100||f.quick?f:{...f,n100:nCache(f.name)};
+const fromFood=(f0,g,meal,f=withN(f0))=>({meal,name:f.name,brand:f.brand||"",g:Math.round(g),kcal:Math.round(f.k*g/100),p:r1(f.p*g/100),c:r1(f.c*g/100),f:r1(f.f*g/100),
   k100:f.k,p100:f.p,c100:f.c,f100:f.f,n100:f.n100||null,n:scaleN(f.n100,g/100),unit:f.unit||null,serving:f.serving||null,src:f.src,code:f.code||null});
 
 /* ------------------------------------------------------------ food: add sheet with a tray */
@@ -2320,6 +2355,7 @@ function commitTray(){
   toast(`Saved ${ok.length} item${ok.length>1?"s":""} · ${fmtK(k)} kcal`);
 }
 function openPortion(f,o){
+  f=withN(f);
   const units=[["g","g",1]];
   if(f.unit) units.push(["u",f.unit[0],f.unit[1]]);
   if(f.serving&&(!f.unit||f.unit[1]!==f.serving)) units.push(["s","serving",f.serving]);
@@ -2595,7 +2631,7 @@ async function aiCall(contents){
   const quota=errs.every(e=>/ 429 /.test(e));
   throw new Error(quota?"Gemini's free limit is used up for now: try again in a while":"The AI didn't answer. "+(errs[errs.length-1]||""));
 }
-const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0,n=x.n||scaleN(x.nutrients,1);
+const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0,n=x.n||normN(x.nutrients);
   return {meal:["b","l","d","s"].includes(x.meal)?x.meal:def,name:String(x.name||"Food").slice(0,60),brand:"",g:g?Math.round(g):null,kcal:Math.round(k),
     p:r1(+x.protein||+x.p||0),c:r1(+x.carbs||+x.c||0),f:r1(+x.fat||+x.f||0),k100:g?Math.round(k/g*100):null,p100:g?r1((+x.protein||+x.p||0)/g*100):null,c100:g?r1((+x.carbs||+x.c||0)/g*100):null,f100:g?r1((+x.fat||+x.f||0)/g*100):null,
     n,n100:n&&g?scaleN(n,100/g):null,src:"ai"};};
