@@ -2,7 +2,7 @@
 /* ------------------------------------------------------------ assistant: ask or tell, by text or voice */
 // It reads a summary of your day, answers questions, and turns requests into actions
 // (log food, save a meal or recipe, set the goal, log weight, delete entries) that you confirm before they run.
-let AS={msgs:[],pending:null,busy:false};
+let AS={msgs:[],pending:null,busy:false,draft:(()=>{try{return sessionStorage.getItem("rd_as_draft")||"";}catch(e){return "";}})()};
 const SPARK=`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.5l2.1 6.4 6.4 2.1-6.4 2.1L12 19.5l-2.1-6.4L3.5 11l6.4-2.1z"/><path d="M19 15.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg>`;
 const ASK=`<button class="ask-p" id="ask" aria-label="Ask AI">${SPARK}<span>Ask AI</span></button>`;
 document.addEventListener("click",e=>{if(e.target.closest("#ask")) openAssistant();});
@@ -112,18 +112,20 @@ function openAssistant(section){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   openSheet(`<div class="sh-top"><h2>${AS.section==="food"?"Food coach":"Ask AI"}</h2>${X}</div>
     <div id="as-log" class="as-log">${asLog()}</div>
-    <div class="as-in"><textarea id="as-t" rows="1" placeholder="Ask or tell me…" enterkeyhint="send"></textarea>
+    <div class="as-in"><textarea id="as-t" rows="1" placeholder="Ask or tell me…" enterkeyhint="enter">${esc(AS.draft||"")}</textarea>
       ${SR?`<button class="as-b" id="as-mic" aria-label="Speak"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>`:""}
       <button class="as-b send" id="as-go" aria-label="Send"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
     ${AS.msgs.length?`<button class="as-new" id="as-new">New conversation</button>`:""}`);
   const ta=$("as-t"),mic=$("as-mic");
-  const grow=()=>{ta.style.height="auto";ta.style.height=Math.min(140,ta.scrollHeight)+"px";};
+  // the draft survives closing the sheet or leaving the app; the box grows as you talk or type
+  const grow=()=>{AS.draft=ta.value;try{sessionStorage.setItem("rd_as_draft",ta.value);}catch(e){}ta.style.height="auto";ta.style.height=Math.min(innerHeight*.45,ta.scrollHeight)+"px";};
   const redraw=()=>{$("as-log").innerHTML=asLog();bind();const sh=$("sheet");sh.scrollTop=sh.scrollHeight;};
+  grow();
   const D=dictation(ta,()=>grow(),on=>{if(mic) mic.classList.toggle("on",on);ta.placeholder=on?"Listening… tap the mic to stop":"Ask or tell me…";});
   const stop=()=>D&&D.stop();
   const send=async()=>{
     stop();const text=ta.value.trim();if(!text||AS.busy) return;
-    ta.value="";grow();AS.msgs.push({role:"user",text});AS.busy=true;redraw();
+    ta.value="";grow();AS.draft="";AS.msgs.push({role:"user",text});AS.busy=true;redraw();
     const t0=Date.now(),tick=setInterval(()=>{const el=$("as-el");if(!el) return;const s=Math.round((Date.now()-t0)/1000);
       el.textContent=s<8?"Thinking…":s<20?`Working on it… ${s} s`:`Still working… ${s} s (trying a faster model if needed)`;},1000);
     const contents=[{role:"user",parts:[{text:AS_RULES()}]},{role:"model",parts:[{text:'{"reply":"Ok.","actions":[]}'}]},
@@ -142,7 +144,8 @@ function openAssistant(section){
     $("as-log").querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>{AS.msgs[+b.dataset.no].state="cancelled";redraw();});
   };
   ta.oninput=grow;
-  ta.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
+  // on a phone Enter makes a new line (only the arrow sends); on a computer Enter sends, Shift+Enter is a new line
+  ta.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&!matchMedia("(pointer:coarse)").matches){e.preventDefault();send();}};
   $("as-go").onclick=send;
   const nw=$("as-new"); if(nw) nw.onclick=()=>{AS={msgs:[],pending:null,busy:false};openAssistant();};
   if(mic) mic.onclick=()=>D.toggle();

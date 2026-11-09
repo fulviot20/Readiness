@@ -1339,16 +1339,21 @@ function srText(e){
 }
 // Dictation: phones end recognition after a short pause, so it restarts by itself and keeps what you said
 // until you tap Stop or Send (or after 10 minutes)
+// The text is never cleared: each restart continues after what's already written (typed or dictated), and if the
+// phone refuses to restart a few times in a row it pauses, keeping everything, until you tap the mic again.
 function dictation(ta,onText,onState){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR) return null;
-  let rec=null,on=false,t0=0,base="";
-  const begin=()=>{rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;base=ta.value.trim()?ta.value.trim()+" ":"";
-    rec.onresult=e=>{ta.value=base+srText(e);onText&&onText();};
-    rec.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"){toast("Allow the microphone for Readiness");stop();}};
-    rec.onend=()=>{if(on&&Date.now()-t0<10*60000){try{begin();}catch(err){stop();}}else stop();};
+  let rec=null,on=false,t0=0,base="",fails=0,heard=false;
+  const begin=()=>{rec=new SR();rec.lang="it-IT";rec.continuous=true;rec.interimResults=true;base=ta.value.trim()?ta.value.trim()+" ":"";heard=false;
+    rec.onresult=e=>{const t=srText(e);if(t){heard=true;fails=0;}ta.value=base+t;onText&&onText();};
+    rec.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"){toast("Allow the microphone for Readiness");stop();}else if(e.error!=="no-speech"&&e.error!=="aborted") fails++;};
+    rec.onend=()=>{rec=null;if(!on) return;
+      if(Date.now()-t0>15*60000||fails>=4){stop();toast("Dictation paused — your text is kept. Tap the mic to go on.");return;}
+      if(!heard) fails++;
+      setTimeout(()=>{if(on) try{begin();}catch(err){fails++;stop();toast("Dictation paused — tap the mic to go on.");}},fails?400:120);};
     rec.start();};
   const stop=()=>{const was=on;on=false;if(rec){rec.onend=null;try{rec.stop();}catch(e){}rec=null;}if(was) onState&&onState(false);};
-  const start=()=>{if(on) return;on=true;t0=Date.now();try{begin();onState&&onState(true);buzz(10);}catch(e){stop();}};
+  const start=()=>{if(on) return;on=true;fails=0;t0=Date.now();try{begin();onState&&onState(true);buzz(10);}catch(e){stop();}};
   return {start,stop,toggle:()=>on?stop():start(),get on(){return on;}};
 }
 // Which Gemini models this key can use: asked once a day, newest Flash first (names change over time)

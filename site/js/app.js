@@ -185,7 +185,7 @@ function closeSheet(fromPop){
 addEventListener("popstate",()=>{ if(popSkip){popSkip=false;return;} if($("sheet").classList.contains("open")) closeSheet(true); });
 (()=>{ const sh=$("sheet"); let y0=null,dy=0,t0=0;
   sh.addEventListener("touchstart",e=>{ const r=sh.getBoundingClientRect(),ty=e.touches[0].clientY;
-    if(sh.scrollTop>0||ty-r.top>64||e.target.closest("input,video")) {y0=null;return;} y0=ty;dy=0;t0=Date.now(); },{passive:true});
+    if(sh.scrollTop>0||ty-r.top>64||e.target.closest("input,textarea,video")) {y0=null;return;} y0=ty;dy=0;t0=Date.now(); },{passive:true});
   sh.addEventListener("touchmove",e=>{ if(y0==null) return; dy=Math.max(0,e.touches[0].clientY-y0);
     if(dy>4){ sh.classList.add("drag"); sh.style.transform=`translateY(${dy}px)`; $("scrim").style.opacity=String(Math.max(0,1-dy/400)); } },{passive:true});
   sh.addEventListener("touchend",()=>{ if(y0==null) return; const fast=dy>40&&dy/(Date.now()-t0)>.6; y0=null;
