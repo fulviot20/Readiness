@@ -18,3 +18,7 @@ for d in (today, today - dt.timedelta(days=1)):
         print("  nested dailySleepDTO keys present")
     if isinstance(one, dict):
         print("  top keys:", sorted(one.keys())[:25])
+    if isinstance(one, dict):
+        lv = engine.sleep_levels(one)
+        print("  stage segments:", len(lv) if lv else 0,
+              "| keys with 'level':", [k for k in one if "level" in k.lower()])

@@ -24,6 +24,8 @@ CACHE = "cache/features.enc"
 DETAIL_DAYS = 3          # per-day endpoints refreshed every run
 BACKFILL_PER_RUN = 30    # older days filled progressively
 DETAIL_HISTORY = 180
+HYP_DAYS = 14            # nights kept with their stage-by-stage chart
+HYP_PER_RUN = 6
 
 
 def clip(x, lo, hi):
@@ -83,6 +85,76 @@ def sleep_features(s):
         "hr": _num(s.get("avgHeartRate")), "resp": _num(s.get("averageRespirationValue")),
         "stress": _num(s.get("avgSleepStress")), "garmin": _num(overall.get("value")),
     }
+
+
+_STAGE_CODE = {0: "deep", 1: "light", 2: "rem", 3: "awake"}      # Garmin activityLevel in sleepLevels
+_STAGE_NAME = {"deep": "deep", "light": "light", "rem": "rem", "awake": "awake", "wake": "awake"}
+
+
+def _ts_ms(x):
+    """Timestamp in ms (GMT) from epoch seconds, epoch ms or an ISO string without zone."""
+    if _num(x):
+        return x * 1000 if x < 1e11 else x
+    if isinstance(x, str) and len(x) >= 16:
+        try:
+            t = dt.datetime.fromisoformat(x.replace("Z", "")[:19]).replace(tzinfo=dt.timezone.utc)
+            return t.timestamp() * 1000
+        except ValueError:
+            return None
+    return None
+
+
+def _seg_bounds(seg):
+    a = next((_ts_ms(seg[k]) for k in ("startGMT", "startTimeGMT", "startTimeInSeconds", "startTime", "start")
+              if seg.get(k) is not None), None)
+    b = next((_ts_ms(seg[k]) for k in ("endGMT", "endTimeGMT", "endTimeInSeconds", "endTime", "end")
+              if seg.get(k) is not None), None)
+    return a, b
+
+
+def sleep_levels(obj, start_gmt=None):
+    """Stages along the night as [start_min, length_min, stage], minutes from sleep start.
+
+    Accepts the shapes Garmin uses: a `sleepLevels` list with activityLevel 0 deep / 1 light / 2 REM / 3 awake,
+    or a `sleepLevelsMap` of stage -> list of segments. Returns None when the record has no stages.
+    """
+    if not isinstance(obj, dict):
+        return None
+    segs = []
+    src = [obj] + [v for v in obj.values() if isinstance(v, dict)]
+    for o in src:
+        for s in o.get("sleepLevels") or []:
+            if not isinstance(s, dict):
+                continue
+            lvl = _num(s.get("activityLevel"))
+            stage = _STAGE_CODE.get(round(lvl)) if lvl is not None else _STAGE_NAME.get(str(s.get("stage", "")).lower())
+            a, b = _seg_bounds(s)
+            if stage and a and b and b > a:
+                segs.append((a, b, stage))
+        lmap = o.get("sleepLevelsMap")
+        if isinstance(lmap, dict):
+            for name, lst in lmap.items():
+                stage = _STAGE_NAME.get(str(name).lower())
+                for s in lst or [] if stage else []:
+                    a, b = _seg_bounds(s) if isinstance(s, dict) else (None, None)
+                    if a and b and b > a:
+                        segs.append((a, b, stage))
+        if segs:
+            break
+    if len(segs) < 3:
+        return None
+    segs.sort()
+    t0 = start_gmt if start_gmt and abs(start_gmt - segs[0][0]) < 3 * 3600e3 else segs[0][0]
+    out = []
+    for a, b, stage in segs:
+        s0, ln = round((a - t0) / 60000), round((b - a) / 60000)
+        if ln <= 0 or s0 < -60 or s0 > 16 * 60:
+            continue
+        if out and out[-1][2] == stage and out[-1][0] + out[-1][1] >= s0:
+            out[-1][1] = max(out[-1][1], s0 + ln - out[-1][0])      # merge touching segments of one stage
+        else:
+            out.append([s0, ln, stage])
+    return out if len(out) >= 3 else None
 
 
 def hrv_night(chart):
@@ -182,6 +254,19 @@ def refresh(cache, today, errors, hrmax_hint):
             rec["detail"] = True
         if d not in recent:
             rec["tries"] = rec.get("tries", 0) + 1
+    # stages along the night (hypnogram) for the sleep coach: last two weeks, a few nights per run
+    hyp_days = [(today - dt.timedelta(days=k)).isoformat() for k in range(HYP_DAYS)]
+    want = [d for d in hyp_days if (days.get(d) or {}).get("sleep")
+            and days[d].get("hyp_end") != days[d]["sleep"]["end"] and days[d].get("hyp_tries", 0) < 3][:HYP_PER_RUN]
+    for d in want:
+        rec = days[d]
+        one = garmin.safe(lambda: garmin.get("/sleep-service/sleep/dailySleep", {"date": d}), "sleep_day", errors)
+        lv = sleep_levels(one, rec["sleep"].get("start_gmt"))
+        if lv:
+            rec["hyp"], rec["hyp_end"] = lv, rec["sleep"]["end"]
+            rec.pop("hyp_tries", None)
+        else:
+            rec["hyp_tries"] = rec.get("hyp_tries", 0) + 1
     # TRIMP needs a stable HRmax: observed max over cached days or from activities
     hrmax = max([hrmax_hint or 0] + [(v.get("hr") or {}).get("max") or 0 for v in days.values()])
     hrmax = hrmax if hrmax >= 150 else 190
@@ -255,6 +340,7 @@ def sleep_score(dates, days, i):
             "debt": round(debt, 2), "eff": s["eff"], "deep": s["deep"], "rem": s["rem"], "light": s["light"],
             "awake_min": s["awake_min"], "midpoint_dev": round(dev) if dev is not None else None,
             "start": s["start"], "end": s["end"], "garmin": s.get("garmin"),
+            "hyp": (days.get(d) or {}).get("hyp"),
             "parts": {k: round(v[0]) for k, v in avail.items()}}
 
 

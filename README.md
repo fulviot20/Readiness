@@ -34,5 +34,8 @@ Senza token le risposte restano solo sul telefono.
 - **Sleep** (0–100): durata della notte vs il tuo fabbisogno (ultime 30 notti), 40% Garmin sleep score se disponibile, meno il debito delle ultime 3 notti (8 punti/ora, max 20)
 - **Strain** (0–100): carico del giorno vs la tua fitness (carico medio giornaliero): 100 × (1 − e^(−carico / 1,5·fitness))
 
+## Sleep coach
+Si apre dal riquadro "Tonight" o dalla scheda Sleep. Mostra le fasi della notte (ipnogramma dai dati grezzi Garmin, ultime 14 notti), il debito di sonno delle ultime 7 notti (ore sotto il fabbisogno meno le ore in più), la regolarità degli ultimi 14 giorni (scarto medio di addormentamento e risveglio: ±10 min = 100, ±90 min = 0; spostamento del weekend) e consigli scelti in base ai dati, senza orari imposti.
+
 ## Verifica dello score
 Dall'app ("Score doesn't feel right?") si salvano note cifrate in `notes/`. In *Settings → Score check*: correlazione di Spearman tra lo score del mattino e il feel delle sedute (da novembre 2026), feel medio per fascia e note.

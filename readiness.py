@@ -800,6 +800,7 @@ def main():
             "signals": ",".join(sorted(c)),
             "sleep_ok": bool(ss) and 3 <= ss.get("hours", 0) <= 13,
             "stages": ss.get("deep") is not None,
+            "hypnogram": bool(ss.get("hyp")),
             "strain_hr": sk.get("trimp") is not None,
             "plans_done": f"{sum(1 for p in d.get('plan', []) if p.get('done'))}/{len(d.get('plan', []))}",
             "workouts": len(d.get("workouts", [])),

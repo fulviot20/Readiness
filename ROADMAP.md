@@ -5,7 +5,7 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 
 ## Funzioni che mancano rispetto a Bevel, Whoop e Fitbit
 - [x] 1. Diario delle abitudini con correlazioni (alcol, caffè tardi, cena pesante, schermi a letto, stress…): dopo qualche settimana l'app mostra quanto ciascuna pesa su recupero e sonno
-- [ ] 2. Coach del sonno: debito di sonno nel tempo, regolarità degli orari, grafico delle fasi lungo la notte
+- [x] 2. Coach del sonno: debito di sonno nel tempo, regolarità degli orari, grafico delle fasi lungo la notte
 - [ ] 3. Grafici della giornata: frequenza cardiaca, stress e "riserva di energia" ora per ora
 - [ ] 4. Report mensili e trend lunghi, spiegati a parole
 - [x] 5. Riquadro Calories di Today che apre direttamente il diario alimentare
