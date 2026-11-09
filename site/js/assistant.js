@@ -97,7 +97,7 @@ function asLog(){
   return AS.msgs.map((m,i)=>m.role==="user"?`<div class="as-u">${esc(m.text)}</div>`:
     `<div class="as-a">${esc(m.text)}${m.acts&&m.acts.length?`<div class="as-acts">${m.acts.map(a=>`<div class="as-act">${actText(a)}</div>`).join("")}
       ${m.state==="pending"?`<div class="as-btns"><button class="btn quiet" data-no="${i}">Cancel</button><button class="btn" data-yes="${i}">Confirm</button></div>`:`<p class="as-st">${m.state==="done"?"✓ Done":"Cancelled"}</p>`}</div>`:""}</div>`).join("")+
-    (AS.busy?`<div class="as-a"><i class="spin"></i></div>`:"");
+    (AS.busy?`<div class="as-a as-wait"><i class="spin"></i><span id="as-el">Thinking…</span></div>`:"");
 }
 function openAssistant(section){
   AS.section=section||(TAB==="athlete"&&ATH_SUB==="food"?"food":TAB);
@@ -117,6 +117,8 @@ function openAssistant(section){
   const send=async()=>{
     stop();const text=ta.value.trim();if(!text||AS.busy) return;
     ta.value="";grow();AS.msgs.push({role:"user",text});AS.busy=true;redraw();
+    const t0=Date.now(),tick=setInterval(()=>{const el=$("as-el");if(!el) return;const s=Math.round((Date.now()-t0)/1000);
+      el.textContent=s<8?"Thinking…":s<20?`Working on it… ${s} s`:`Still working… ${s} s (trying a faster model if needed)`;},1000);
     const contents=[{role:"user",parts:[{text:AS_RULES()}]},{role:"model",parts:[{text:'{"reply":"Ok.","actions":[]}'}]},
       ...AS.msgs.filter(m=>!m.busy).slice(-10).map(m=>m.role==="user"?{role:"user",parts:[{text:m.text}]}:{role:"model",parts:[{text:m.raw||JSON.stringify({reply:m.text,actions:[]})}]})];
     try{
@@ -124,7 +126,7 @@ function openAssistant(section){
       const acts=(json.actions||[]).filter(validAct);
       AS.msgs.push({role:"model",text:json.reply||(acts.length?"Here's what I'll do:":"Ok."),acts,raw,state:acts.length?"pending":null});
     }catch(e){AS.msgs.push({role:"model",text:e.message});}
-    AS.busy=false;redraw();buzz(6);
+    clearInterval(tick);AS.busy=false;redraw();buzz(6);
   };
   const bind=()=>{
     $("as-log").querySelectorAll("[data-ex]").forEach(b=>b.onclick=()=>{ta.value=b.dataset.ex;grow();ta.focus();});

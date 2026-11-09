@@ -108,6 +108,10 @@ Sea bass|branzino spigola orata|97|18|0|2.5
 Shrimp|gamberi gamberetti|85|18|0|1
 Eggs|uova uovo|143|12.5|0.7|10|egg|55
 Egg whites|albume albumi|48|10.5|0.7|0.2
+Boiled eggs|uova sode uovo sodo uovo alla coque|155|13|1|11|egg|50
+Scrambled eggs|uova strapazzate|165|11|1.5|13|portion|120
+Taleggio|taleggio|315|19|0|26|portion|50
+Omelette with cheese|omelette al formaggio frittata al formaggio|210|14|1|17|portion|150
 Prosciutto crudo|prosciutto crudo parma|250|26|0|16|slice|15
 Prosciutto cotto|prosciutto cotto|140|20|1|6|slice|20
 Bresaola|bresaola|155|33|0|2|slice|10
@@ -923,8 +927,10 @@ function scoreFood(q,f){
   const toks=(norm(f.name)+" "+norm(f.alias||"")+" "+norm(f.brand||"")).split(/[^a-z0-9]+/).filter(Boolean);
   let hit=0; for(const w of ws){const s=stem(w); if(toks.some(t=>t.startsWith(s)||(t.length>3&&s.startsWith(stem(t))))) hit++;}
   if(hit<ws.length) return hit/ws.length*.5;
-  const n=norm(f.name);
-  return 1+(n.startsWith(ws[0])?.5:0)+(norm(f.alias||"").startsWith(ws[0])?.3:0)-n.length/200;
+  // the same word (singular/plural, uovo/uova) counts as exact; plainer, shorter names come first
+  const same=(t,w)=>t===w||t.replace(/s$/,"")===w.replace(/s$/,"")||(t.length>=4&&w.length>=4&&t.slice(0,-1)===w.slice(0,-1));
+  const n=norm(f.name),exact=ws.filter(w=>toks.some(t=>same(t,w))).length;
+  return 2+exact*.4+(n.startsWith(ws[0])?.5:0)+(same(norm(f.alias||"").split(/[^a-z0-9]+/)[0]||"",ws[0])?.6:0)-Math.min(.9,n.length/40);
 }
 function myFoods(){return libAll().filter(e=>e.kind==="recipe").map(recipeFood);}
 function localSearch(q,n=14){
@@ -1334,30 +1340,39 @@ async function aiModels(){
   LS.set("rd_gm",JSON.stringify({t:Date.now(),k:aiKey().slice(-6),m:m.slice(0,4)}));
   return m.slice(0,4);
 }
-// one call to Gemini that must answer with JSON
-async function aiCall(contents){
-  const body=JSON.stringify({contents,generationConfig:{responseMimeType:"application/json",temperature:0.2}});
+// one call to Gemini that must answer with JSON. Each try has a time limit, "thinking" is kept low
+// (it can make a Flash model take a minute or more), and a slow or failing model hands over to the next one.
+const thinkCfg=m=>/gemini-2\.5/.test(m)?{thinkingBudget:0}:/gemini-[3-9]|latest/.test(m)?{thinkingLevel:"low"}:null;
+async function aiCall(contents,limitMs=35000){
   const errs=[];
   for(const model of await aiModels()){
-    for(let attempt=0;attempt<2;attempt++){
-      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":aiKey()},body}).catch(()=>null);
+    let think=thinkCfg(model);
+    for(let attempt=0;attempt<3;attempt++){
+      const cfg={responseMimeType:"application/json",temperature:0.2};if(think) cfg.thinkingConfig=think;
+      const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),limitMs);
+      let r=null,timedOut=false;
+      try{r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:"POST",signal:ctl.signal,
+        headers:{"Content-Type":"application/json","x-goog-api-key":aiKey()},body:JSON.stringify({contents,generationConfig:cfg})});}
+      catch(e){timedOut=e.name==="AbortError";}
+      finally{clearTimeout(timer);}
+      if(timedOut){errs.push(`${model}: no answer within ${Math.round(limitMs/1000)} s`);break;}
       if(!r) throw new Error("No connection for the AI");
       if(r.ok){
-        const j=await r.json(),txt=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
+        const j=await r.json(),txt=(j.candidates?.[0]?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||"").join("");
         if(!txt){errs.push(`${model}: empty answer (${j.candidates?.[0]?.finishReason||j.promptFeedback?.blockReason||"?"})`);break;}
         try{return {json:JSON.parse(txt.replace(/^\s*```(?:json)?|```\s*$/g,"").trim()),raw:txt};}
         catch(e){errs.push(`${model}: answer not readable`);break;}
       }
       const t=await r.text();let msg=t;try{msg=JSON.parse(t).error?.message||t;}catch(e){}
       if(/API key|API_KEY_INVALID/i.test(msg)) throw new Error("The Gemini key isn't valid: check it in Settings");
+      if(r.status===400&&think&&/think/i.test(msg)){think=null;continue;}      // this model doesn't take that setting
       errs.push(`${model}: ${r.status} ${String(msg).slice(0,90)}`);
       if(r.status===404){LS.del("rd_gm");break;}
-      if(r.status===429&&/quota|exhaust|limit/i.test(msg)&&attempt===0){await new Promise(z=>setTimeout(z,1500));continue;}
-      if(r.status>=500&&attempt===0){await new Promise(z=>setTimeout(z,1200));continue;}
+      if((r.status===429||r.status>=500)&&attempt===0){await new Promise(z=>setTimeout(z,1500));continue;}
       break;
     }
   }
-  const quota=errs.every(e=>/ 429 /.test(e));
+  const quota=errs.length&&errs.every(e=>/ 429 /.test(e));
   throw new Error(quota?"Gemini's free limit is used up for now: try again in a while":"The AI didn't answer. "+(errs[errs.length-1]||""));
 }
 const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0,n=x.n||normN(x.nutrients);
