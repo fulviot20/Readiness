@@ -22,17 +22,24 @@ today = dt.datetime.now(ZoneInfo("Europe/Rome")).date()
 y = (today - dt.timedelta(days=1)).isoformat()
 t = today.isoformat()
 paths = [
-    ("/sleep-service/sleep/dailySleep", {"date": t}),
-    ("/sleep-service/sleep/dailySleepData", {"date": t}),
-    (f"/sleep-service/sleep/dailySleepData/{t}", None),
-    ("/wellness-service/wellness/dailySleepData", {"date": t}),
-    (f"/wellness-service/wellness/dailyStress/{y}", None),
-    ("/wellness-service/wellness/dailyStress", {"date": y}),
-    ("/wellness-service/wellness/bodyBattery/reports/daily", {"startDate": y, "endDate": y}),
-    (f"/wellness-service/wellness/bodyBattery/events/{y}", None),
-    (f"/usersummary-service/stats/stress/daily/{y}/{y}", None),
-    ("/wellness-service/wellness/dailyHeartRate", {"date": y}),
+    ("/sleep-service/sleep/dailySleepLevels", {"date": t}),
+    ("/sleep-service/sleep/levels", {"date": t}),
+    (f"/sleep-service/sleep/dailySleep/{t}", None),
+    ("/sleep-service/sleep/dailySleepDetail", {"date": t}),
+    ("/sleep-service/sleep/sleepLevels", {"date": t}),
+    ("/stress-service/stress/dailyStress", {"date": y}),
+    (f"/stress-service/stress/dailyStress/{y}", None),
+    ("/stress-service/stress/daily", {"date": y}),
+    ("/wellness-service/wellness/stressDetails", {"date": y}),
+    ("/wellness-service/wellness/dailyStressDetails", {"date": y}),
+    ("/wellness-service/wellness/epochs", {"date": y}),
+    ("/wellness-service/wellness/dailySummaryChart", {"date": y}),
+    (f"/wellness-service/wellness/daily/respiration/{y}", None),
+    ("/wellness-service/wellness/daily/respiration", {"date": y}),
+    ("/wellness-service/wellness/bodyBattery/reports/daily", {"startDate": t, "endDate": t}),
 ]
+r = garmin._req("GET", "/sleep-service/sleep/dailySleep", {"Authorization": f"Bearer {garmin.token()}"}, {"date": t})
+print("dailySleep top keys:", sorted(r.keys()) if isinstance(r, dict) else type(r).__name__)
 for p, params in paths:
     try:
         r = garmin._req("GET", p, {"Authorization": f"Bearer {garmin.token()}"}, params)
