@@ -698,7 +698,7 @@ function mealCard(m,n,its,d){
   const T=ftot(its),prev=its.length?[]:foodDay(isoAdd(d,-1)).filter(x=>x.meal===m);
   return `<div class="meal"><div class="ml-h"><i class="ml-i ml-${m}">${MEAL_ICON[m]}</i><b>${n}</b><span>${its.length?`${fmtK(Math.round(T.kcal))}<u>kcal</u>`:""}</span>
       <button class="ml-add" data-add="${m}" aria-label="Add to ${n}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
-    ${its.map(x=>`<div class="fi-w" data-fw="${x.id}"><div class="fi-bg">${TRASH}</div><button class="fi" data-fi="${x.id}"><span class="fn">${esc(x.name)}<small>${x.g?`${fmtNum(x.g)} g`:"Quick add"}${x.brand?` · ${esc(x.brand)}`:""}</small></span><b>${fmtK(Math.round(x.kcal))}</b></button></div>`).join("")}
+    ${its.map(x=>`<div class="fi-w" data-fw="${x.id}"><div class="fi-bg">${TRASH}</div><button class="fi" data-fi="${x.id}"><span class="fn">${esc(x.name)}<small>${x.g?`${fmtNum(x.g)} g`:"Quick add"}${x.note?` · ${esc(x.note)}`:""}${x.brand?` · ${esc(x.brand)}`:""}</small></span><b>${fmtK(Math.round(x.kcal))}</b></button></div>`).join("")}
     ${!its.length?libAll().filter(e=>e.kind==="meal"&&e.for===m).map(e=>`<button class="ml-copy mine" data-libm="${e.id}|${m}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join(""):""}
     ${!its.length&&prev.length?`<button class="ml-copy" data-copy="${m}">Same as yesterday · ${prev.length} item${prev.length>1?"s":""}, ${fmtK(Math.round(ftot(prev).kcal))} kcal</button>`:""}
     ${its.length?`<button class="ml-save" data-savem="${m}">Save as my meal</button>`:""}</div>`;
@@ -1066,7 +1066,7 @@ function trayView(){
     <p class="sh-desc">${diary?"Tap the meal tag to move an item; change grams if needed.":"These go into the recipe."}</p>
     <div id="tv">${A.tray.map((x,i)=>`<div class="tv-r${x.kcal==null?" miss":""}">
       ${diary?`<button class="tv-m" data-mm="${i}">${MEAL_TAG[x.meal||A.meal]}</button>`:""}
-      <span class="tv-n">${esc(x.name)}<small>${x.kcal==null?"Not found":x.guess?"Amount estimated":x.src==="ai"?"AI estimate":x.brand?esc(x.brand):""}</small></span>
+      <span class="tv-n">${esc(x.name)}<small>${x.kcal==null?"Not found":x.guess?"Amount estimated":x.src==="ai"?(x.note?"AI: "+esc(x.note):"AI estimate"):x.brand?esc(x.brand):""}</small></span>
       ${x.kcal==null?`<button class="btn quiet tv-f" data-find="${i}">Search</button>`:`<input class="tv-g" data-g="${i}" type="number" inputmode="numeric" value="${x.g??""}" placeholder="–" ${x.g?"":"disabled"}><em>g</em><b data-k="${i}">${fmtK(Math.round(x.kcal))}</b>`}
       <button class="tv-x" data-rm="${i}" aria-label="Remove">×</button></div>`).join("")}</div>
     <div class="kv" style="margin-top:14px"><span>Total</span><b id="tv-t">${fmtK(Math.round(trayTot().kcal))} kcal</b></div>
@@ -1378,13 +1378,20 @@ async function aiCall(contents,limitMs=35000){
 const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0,n=x.n||normN(x.nutrients);
   return {meal:["b","l","d","s"].includes(x.meal)?x.meal:def,name:String(x.name||"Food").slice(0,60),brand:"",g:g?Math.round(g):null,kcal:Math.round(k),
     p:r1(+x.protein||+x.p||0),c:r1(+x.carbs||+x.c||0),f:r1(+x.fat||+x.f||0),k100:g?Math.round(k/g*100):null,p100:g?r1((+x.protein||+x.p||0)/g*100):null,c100:g?r1((+x.carbs||+x.c||0)/g*100):null,f100:g?r1((+x.fat||+x.f||0)/g*100):null,
-    n,n100:n&&g?scaleN(n,100/g):null,src:"ai"};};
+    n,n100:n&&g?scaleN(n,100/g):null,note:x.note?String(x.note).slice(0,90):null,src:"ai"};};
+// How to estimate when the user can't weigh things (homemade food, "a full plate", "a small slice", unknown oil)
+const AI_ESTIMATE=`When quantities are vague, never refuse and never ask: estimate like an Italian dietitian and say what you assumed in "note" (max 12 words, user's language).
+Portions: "piatto pieno/fondo" of soup or minestra ≈ 350–400 g, of pasta ≈ 100 g dry (≈ 250 g cooked); a slice of bread ≈ 25–30 g ("piccola" ≈ 20 g); a slice of homemade pizza ≈ 80–100 g ("piccola" ≈ 60–70 g); a slice of cake or tart ≈ 70–80 g ("mini/piccola" ≈ 35–40 g); a small pear ≈ 120 g.
+Homemade dishes: unless told otherwise, count the cooking or dressing fat inside the dish: about 1 tablespoon (10 g) of olive oil per portion of soup, legumes, vegetables or sauce; a tart made with oil instead of butter has a similar fat content.
+Branded items: use the real product (e.g. one Baci Perugina ≈ 12.5 g, 67 kcal).
+If the user gives a weight, use it even if it seems unusual.`;
 async function aiItems(parts){
   const def=ADD?.meal||"b";
-  const rules=`You fill in a food diary. Reply with JSON only, no prose: {"items":[{"meal":"b","name":"","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,${NUT_JSON}}]}.
+  const rules=`You fill in a food diary. Reply with JSON only, no prose: {"items":[{"meal":"b","name":"","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":"",${NUT_JSON}}]}.
 meal: "b" breakfast/colazione, "l" lunch/pranzo, "d" dinner/cena, "s" snack/spuntino/merenda; when not stated use "${def}".
 One entry per distinct food or drink. grams = weight as eaten (cooked dishes cooked, drinks in ml). When the amount isn't given, assume a typical Italian portion.
-Use realistic nutrition values (Italian CREA tables, USDA, typical product labels). Keep names short, in the language the user used.`;
+Use realistic nutrition values (Italian CREA tables, USDA, typical product labels). Keep names short, in the language the user used.
+${AI_ESTIMATE}`;
   const {json}=await aiCall([{role:"user",parts:[{text:rules},...parts]}]);
   return (json.items||[]).filter(x=>x&&x.name&&x.kcal>=0).map(x=>aiFood(x,def));
 }

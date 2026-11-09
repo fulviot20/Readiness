@@ -41,14 +41,16 @@ The score is a companion, not a judge: the user decides whether to train and ada
 {"type":"delete_saved","id":"..."}   only ids listed in my_meals
 {"type":"set_goal","target_kg":71,"pace_kg_week":0.5}   pace 0.25, 0.5 or 0.75
 {"type":"log_weight","date":"YYYY-MM-DD","kg":72.4}
-ITEM = {"meal":"b|l|d|s","name":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,${NUT_JSON}}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
+ITEM = {"meal":"b|l|d|s","name":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":"",${NUT_JSON}}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
+${AI_ESTIMATE}
+When you estimate, the reply lists each food with its kcal and says the user can adjust the grams after saving.
 meal: b breakfast/colazione, l lunch/pranzo, d dinner/cena, s snack/spuntino/merenda; if not said, pick from the time of day.
 When the user wants to save something they always eat (e.g. "la mia colazione"), use save_meal with "for" set to that meal so it gets a one-tap button, even if they call it a recipe; use save_recipe for dishes made in several servings or when they talk about servings or the cooked weight.
 To log a saved meal, copy its foods into log_food only if you know them; otherwise tell the user to tap its button.
 Dates: "ieri" = the day before today; never in the future. Keep names short, in the user's language.
 Context (JSON): ${JSON.stringify(aiContext())}`;
 function actText(a){
-  const L=it=>`${esc(it.name)}${it.grams?` ${Math.round(it.grams)} g`:""} · ${Math.round(+it.kcal||0)} kcal`;
+  const L=it=>`${esc(it.name)}${it.grams?` ${Math.round(it.grams)} g`:""} · ${Math.round(+it.kcal||0)} kcal${it.note?`<i class="as-note">${esc(it.note)}</i>`:""}`;
   const sum=its=>Math.round((its||[]).reduce((s,x)=>s+(+x.kcal||0),0));
   const day=d=>d===todayISO()?"today":fmtDay(d,{weekday:"short",day:"numeric",month:"short"});
   if(a.type==="log_food") return `<b>Log ${(a.items||[]).length} food${(a.items||[]).length>1?"s":""} · ${day(a.date)} · ${fmtK(sum(a.items))} kcal</b>${(a.items||[]).map(it=>`<span>${MEAL_TAG[it.meal]||""} · ${L(it)}</span>`).join("")}`;
