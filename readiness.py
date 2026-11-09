@@ -29,6 +29,7 @@ import engine
 import fitness
 import garmin
 import mailbox
+import months
 import push
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -448,12 +449,23 @@ def spearman(xs, ys):
         return None
 
 
+VALIDATION_TARGET = 30       # rated sessions needed before the test period can give a verdict
+
+
 def validation(days, since="2026-11-01"):
-    """How well the morning score matches how sessions felt (Intervals feel: 1 strong ... 5 weak)."""
+    """Is the score telling the truth? Several independent checks over the test period.
+
+      feel        morning score vs how sessions felt (Intervals feel, 1 strong ... 5 weak): Spearman
+      morning     score before the check-in vs your own "how does the body feel" answer: Spearman
+                  (the base score is used, so the answer itself can't make the match look better)
+      illness     days you reported being ill vs early-warning alarms in the 2 days before
+      notes       "too high" vs "too low" notes: a lopsided count means the score is offset
+      stability   average day-to-day change: a good score moves with the body, not at random
+      spread      share of days in each band: most days should land in Normal
+    """
+    ds = [d for d in days if d["date"] >= since and d.get("score") is not None]
     pairs, by_band, notes = [], {}, []
-    for d in days:
-        if d["date"] < since or d.get("score") is None:
-            continue
+    for d in ds:
         feels = [w["feel"] for w in d.get("workouts", []) if isinstance(w.get("feel"), (int, float))]
         if feels:
             f = st.mean(feels)
@@ -461,10 +473,82 @@ def validation(days, since="2026-11-01"):
             by_band.setdefault(d["band"], []).append(f)
         if d.get("note"):
             notes.append({"date": d["date"], "score": d["score"], **{k: v for k, v in d["note"].items() if k != "date"}})
-    return {"since": since, "n": len(pairs),
-            "r": spearman([p[0] for p in pairs], [-p[1] for p in pairs]),
+    r_feel = spearman([p[0] for p in pairs], [-p[1] for p in pairs])
+    morn = [(d.get("base", d["score"]), d["answers"]["feel"]) for d in ds
+            if isinstance((d.get("answers") or {}).get("feel"), (int, float))]
+    r_morn = spearman([m[0] for m in morn], [m[1] for m in morn])
+    # illness: each reported sick day (first of a run) is caught if an alarm fired that day or the 2 before
+    idx = {d["date"]: i for i, d in enumerate(days)}
+    sick = [d["date"] for d in ds if (d.get("answers") or {}).get("sick")]
+    onsets = [x for x in sick if (dt.date.fromisoformat(x) - dt.timedelta(days=1)).isoformat() not in sick]
+    caught = sum(1 for x in onsets if any(days[j].get("alarm") for j in range(max(0, idx[x] - 2), idx[x] + 1)))
+    alarms = [d["date"] for d in ds if d.get("alarm")]
+    false = sum(1 for a in alarms if not any(
+        (dt.date.fromisoformat(a) + dt.timedelta(days=k)).isoformat() in sick for k in range(0, 4)))
+    kinds = {}
+    for n in notes:
+        kinds[n.get("kind")] = kinds.get(n.get("kind"), 0) + 1
+    seq = [d["score"] for d in ds]
+    jump = round(st.mean(abs(a - b) for a, b in zip(seq, seq[1:])), 1) if len(seq) >= 5 else None
+    bands = {}
+    for d in ds:
+        bands[d["band"]] = bands.get(d["band"], 0) + 1
+
+    checks = []
+    def add(key, name, status, text):
+        checks.append({"key": key, "name": name, "status": status, "text": text})
+    if r_feel is None:
+        add("feel", "Score vs session feel", "wait", f"{len(pairs)} rated sessions so far: the match needs at least 5.")
+    else:
+        add("feel", "Score vs session feel", "early" if len(pairs) < 10 else "ok" if r_feel >= .3 else "watch" if r_feel >= .1 else "bad",
+            f"Match {r_feel:+.2f} over {len(pairs)} sessions: " + ("higher-score days do feel better." if r_feel >= .3 else
+            "a weak link so far." if r_feel >= .1 else "no real link yet: if it stays like this the weights need retuning."))
+    if r_morn is None:
+        add("morning", "Score vs how you feel on waking", "wait", f"{len(morn)} check-ins so far: needs at least 5.")
+    else:
+        add("morning", "Score vs how you feel on waking", "early" if len(morn) < 10 else "ok" if r_morn >= .3 else "watch" if r_morn >= .1 else "bad",
+            f"Match {r_morn:+.2f} over {len(morn)} mornings, using the score before your answer is added.")
+    if onsets:
+        add("illness", "Early warning before illness", "ok" if caught == len(onsets) else "watch" if caught else "bad",
+            f"{caught} of {len(onsets)} times you reported being ill, an alarm had fired that day or in the 2 days before."
+            + (f" {false} alarm{'s' if false != 1 else ''} without illness." if alarms else ""))
+    else:
+        add("illness", "Early warning before illness", "wait" if not alarms else "watch" if false > 2 else "ok",
+            "No illness reported so far." + (f" {len(alarms)} alarm{'s' if len(alarms) != 1 else ''} fired: if you were fine, note it with “Score doesn't feel right?”." if alarms else ""))
+    hi, lo = kinds.get("too_high", 0), kinds.get("too_low", 0)
+    if hi + lo < 3:
+        add("notes", "Your notes", "wait", f"{hi + lo} note{'s' if hi + lo != 1 else ''} on the score so far.")
+    else:
+        lop = max(hi, lo) / (hi + lo)
+        add("notes", "Your notes", "bad" if lop >= .75 and hi + lo >= 5 else "watch" if lop >= .75 else "ok",
+            f"{hi} “too high” and {lo} “too low”" + (": clearly one-sided, the score may be offset." if lop >= .75 else ": no consistent bias."))
+    if jump is None:
+        add("stability", "Stability", "wait", "Needs at least 5 days.")
+    else:
+        add("stability", "Stability", "ok" if jump <= 10 else "watch" if jump <= 15 else "bad",
+            f"It moves {jump} points a day on average" + (": steady, it follows trends rather than noise." if jump <= 10 else
+            ": a bit jumpy." if jump <= 15 else ": too jumpy, single nights weigh too much."))
+    if len(ds) >= 10:
+        share = lambda b: bands.get(b, 0) / len(ds)
+        normal, verylow = share("Normal") + share("Super") * .5, share("Very low")
+        add("spread", "Spread across bands", "bad" if verylow > .3 else "watch" if verylow > .15 or normal < .35 else "ok",
+            ", ".join(f"{b} {round(share(b) * 100)}%" for b in ("Super", "Normal", "Low", "Very low") if bands.get(b)) + ".")
+    done = len(pairs) >= VALIDATION_TARGET and len(ds) >= 28
+    bad = [c for c in checks if c["status"] == "bad"]
+    if not done:
+        verdict = ("collecting", "Keep rating your sessions in Intervals (1 strong … 5 weak): each rating makes the check more reliable.")
+    elif bad:
+        verdict = ("retune", "Enough data: " + ", ".join(c["name"].lower() for c in bad) + " point to retuning the score.")
+    else:
+        verdict = ("valid", "Enough data, and the score holds up: it can be trusted as it is.")
+    allp = [(d["score"], st.mean([w["feel"] for w in d.get("workouts", []) if isinstance(w.get("feel"), (int, float))]))
+            for d in days if d.get("score") is not None and d["date"] < since
+            and any(isinstance(w.get("feel"), (int, float)) for w in d.get("workouts", []))]
+    history = {"n": len(allp), "r": spearman([p[0] for p in allp], [-p[1] for p in allp]),
+               "from": next((d["date"] for d in days if d.get("score") is not None), None)}
+    return {"since": since, "n": len(pairs), "days": len(ds), "target": VALIDATION_TARGET, "history": history, "r": r_feel, "r_morning": r_morn,
             "by_band": {k: {"n": len(v), "feel": round(st.mean(v), 2)} for k, v in by_band.items()},
-            "notes": notes}
+            "notes": notes, "checks": checks, "verdict": {"state": verdict[0], "text": verdict[1]}}
 
 
 BANDS = [(80, "Super", "Recovery is above your usual: a good day to go for it if you feel it."),
@@ -777,6 +861,11 @@ def main():
     prof = mail.get("profile") or {}             # height and sex sharpen the distance estimate
     data["energy"] = energy.build(gdays, data["days"], today, prof.get("height"), prof.get("sex"))
     data["nutrition"] = nutrition(mail, today)
+    try:
+        data["monthly"] = months.build(wellness, activities, gdays, data["days"], data["fitness"], today)
+    except Exception as e:
+        data["monthly"] = None
+        print("monthly skipped:", type(e).__name__)
     try:
         data["dayflow"] = dayflow.build(gdays, data["days"], today, cache.get("hrmax"))
     except Exception as e:

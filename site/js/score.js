@@ -18,18 +18,23 @@ function openOff(){
     try{ await sendMail("notes",note); st.textContent="Saved. Thanks, it's on record.";    }catch(e){ st.textContent=`Saved on this phone only (${e.message}).`; }
   };
 }
+const VSTAT={ok:["Holding up","#5fc795"],watch:["Watch","#e9a15a"],bad:["Off","#ff5d6c"],early:["Too early","#8c98ab"],wait:["Waiting","#5f6c80"]};
 function openValidation(){
-  const v=DATA.validation||{n:0,by_band:{},notes:[]};
+  const v=DATA.validation||{n:0,by_band:{},notes:[],checks:[]};
   const order=["Super","Normal","Low","Very low"],fl=f=>FEEL[Math.round(f)]||"–";
-  const rText=v.r==null?"Not enough sessions with a feel rating yet (needs at least 5).":
-    v.r>=.3?"Good: on higher-score days your sessions tend to feel better.":v.r>=.1?"Weak link so far: keep rating sessions, it's still early.":"No clear link yet: the weights may need retuning.";
+  const vd=v.verdict||{state:"collecting",text:""},pct=Math.min(100,Math.round((v.n||0)/(v.target||30)*100));
+  const vcol={collecting:"var(--b3)",valid:"#5fc795",retune:"#e9a15a"}[vd.state]||"var(--b3)";
+  const h=v.history;
   openSheet(`<div class="sh-top"><h2>Score check</h2>${X}</div>
-    <p class="sh-desc">Since ${fmtDay(v.since,{day:"numeric",month:"long"})}: the morning score compared with the feel you give each session in Intervals (1 strong … 5 weak).</p>
-    <div class="kv"><span>Days with a rated session</span><b>${v.n}</b>${v.r!=null?`<span>Match (−1 to +1)</span><b>${v.r>0?"+":""}${v.r}</b>`:""}</div>
-    <p class="sh-desc" style="margin-top:0">${rText}</p>
-    ${order.filter(b=>v.by_band[b]).map(b=>`<div class="vrow"><span>${b} days (${v.by_band[b].n})</span><b>avg feel ${v.by_band[b].feel} · ${fl(v.by_band[b].feel)}</b></div>`).join("")}
+    <div class="v-verdict" style="--vc:${vcol}"><b>${vd.state==="valid"?"Validated":vd.state==="retune"?"Needs retuning":"Test in progress"}</b>
+      <span>${esc(vd.text)}</span>${vd.state==="collecting"?`<div class="v-prog"><i style="width:${pct}%"></i></div><em>${v.n} / ${v.target} rated sessions · ${v.days||0} days since ${fmtDay(v.since,{day:"numeric",month:"short"})}</em>`:""}</div>
+    <div class="v-checks">${(v.checks||[]).map(c=>`<div class="v-c"><div class="v-ch"><b>${esc(c.name)}</b><em style="color:${VSTAT[c.status][1]}">${VSTAT[c.status][0]}</em></div><p>${esc(c.text)}</p></div>`).join("")}</div>
+    ${h&&h.r!=null?`<div class="note-card" style="margin-top:12px"><b>Back-test on earlier data.</b> Running today's algorithm on your sessions from ${fmtDay(h.from,{day:"numeric",month:"short"})} to the start of the test: match ${h.r>0?"+":""}${h.r} over ${h.n} sessions${h.r>=.3?", a good sign":h.r>=.1?", a weak link":", no clear link"}. Sessions you didn't rate back then don't count.</div>`:""}
+    ${order.some(b=>v.by_band[b])?`<div class="sec-h" style="margin-top:22px"><h2>Feel by band</h2><span>since ${fmtDay(v.since,{day:"numeric",month:"short"})}</span></div>
+    ${order.filter(b=>v.by_band[b]).map(b=>`<div class="vrow"><span>${b} days (${v.by_band[b].n})</span><b>avg feel ${v.by_band[b].feel} · ${fl(v.by_band[b].feel)}</b></div>`).join("")}`:""}
     <div class="sec-h" style="margin-top:22px"><h2>Your notes</h2><span>${v.notes.length}</span></div>
-    ${v.notes.length?v.notes.slice().reverse().map(n=>`<div class="vnote"><b>${OFF[n.kind]||"Note"}</b> <em>· ${fmtDay(n.date,{day:"numeric",month:"short"})}, score ${n.score}</em>${n.text?`<br>${esc(n.text)}`:""}</div>`).join(""):"<p class='sh-desc'>No notes yet.</p>"}`);
+    ${v.notes.length?v.notes.slice().reverse().map(n=>`<div class="vnote"><b>${OFF[n.kind]||"Note"}</b> <em>· ${fmtDay(n.date,{day:"numeric",month:"short"})}, score ${n.score}</em>${n.text?`<br>${esc(n.text)}`:""}</div>`).join(""):"<p class='sh-desc'>No notes yet. When the score doesn't match how you feel, tap “Score doesn't feel right?” under the score.</p>"}
+    <p class="sh-note">The verdict comes once there are ${v.target||30} sessions with a feel rating (1 strong … 5 weak in Intervals) and four weeks of scores. Each check is independent: session feel and your morning answer test whether the score tracks how you really are; alarms are checked against the days you reported being ill; notes, stability and spread catch an offset or a noisy score.</p>`);
 }
 
 /* ------------------------------------------------------------ score sheet */

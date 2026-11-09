@@ -272,6 +272,7 @@ function renderTraining(){
   <div class="top"><div class="ttl">Training</div>
     <span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
   ${weekReviewSection()}
+  ${monthSection()}
   ${streakCard()}
   ${weekSection()}
   ${volumeSection()}

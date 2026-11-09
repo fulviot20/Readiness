@@ -114,3 +114,43 @@ def test_encrypt_roundtrip(data):
 
 def test_output_is_json(data):
     json.dumps(data)
+
+
+# ---------------------------------------------------------------- monthly reports
+def test_monthly_reports(data):
+    m = data["monthly"]
+    assert m and len(m["months"]) >= 4
+    assert m["months"][-1]["month"] == TODAY.strftime("%Y-%m") and m["months"][-1]["partial"]
+    for x in m["months"]:
+        assert x["headline"] and all(isinstance(l, str) and l for l in x["lines"])
+    assert m["trend"] and m["trend"]["items"]
+
+
+def test_monthly_explains_hrv_drop_with_more_training():
+    import months
+    base = {"hours_week": 6, "hrv": 65, "rhr": 48, "sleep_h": 7.3}
+    cur = {"days": 30, "sessions": 22, "hours": 40, "hours_week": 9.3, "ctl": 70, "ctl_start": 62, "hrv": 57,
+           "rhr": 51, "sleep_h": 6.6, "weight": 63, "ftp": None, "vo2max": None}
+    head, lines = months.explain(cur, dict(base, weight=63), base)
+    assert "costing more than usual" in head
+    assert any("under 7 hours" in l for l in lines)
+
+
+# ---------------------------------------------------------------- score validation
+def test_validation_checks(data):
+    v = data["validation"]
+    assert v["verdict"]["state"] in ("collecting", "valid", "retune")
+    assert {c["key"] for c in v["checks"]} >= {"feel", "morning", "illness", "notes", "stability"}
+    assert all(c["status"] in ("ok", "watch", "bad", "early", "wait") for c in v["checks"])
+    assert v["history"]["n"] > 10
+
+
+def test_validation_catches_illness():
+    days = []
+    for k in range(20):
+        d = (TODAY - dt.timedelta(days=19 - k)).isoformat()
+        days.append({"date": d, "score": 70, "band": "Normal", "base": 70, "workouts": [],
+                     "alarm": k == 14, "answers": {"sick": True} if k in (15, 16) else None})
+    v = readiness.validation(days, since=days[0]["date"])
+    ill = next(c for c in v["checks"] if c["key"] == "illness")
+    assert ill["status"] == "ok" and "1 of 1" in ill["text"]

@@ -43,7 +43,17 @@ Riquadro in Today (anche per i giorni passati, ultimi 7): frequenza cardiaca ogn
 - **Stress** (stima nostra): l'API personale Garmin non dà la serie dello stress, quindi da svegli e fuori dall'allenamento è quanto la FC sta sopra quella a riposo (+5 bpm = calmo, 30% della riserva = massimo), media su 15 minuti. Lo sforzo fisico è mostrato come "Activity".
 
 ## Verifica dello score
-Dall'app ("Score doesn't feel right?") si salvano note cifrate in `notes/`. In *Settings → Score check*: correlazione di Spearman tra lo score del mattino e il feel delle sedute (da novembre 2026), feel medio per fascia e note.
+Dall'app ("Score doesn't feel right?") si salvano note cifrate in `notes/`. In *Settings → Score check*, dal 1° novembre 2026, sei controlli indipendenti:
+- **Feel delle sedute**: Spearman tra score del mattino e feel di Intervals (1 forte … 5 debole)
+- **Come ti senti al risveglio**: Spearman tra lo score *prima* del questionario e la risposta (così la risposta non falsa il confronto)
+- **Malattia**: giorni segnalati come malato vs allarmi nello stesso giorno o nei 2 precedenti, più gli allarmi senza malattia
+- **Note**: "troppo alto" vs "troppo basso"; se sono sbilanciate lo score è spostato
+- **Stabilità**: variazione media giorno su giorno (≤10 punti = stabile)
+- **Distribuzione**: quota di giorni per fascia
+Il verdetto arriva con 30 sedute valutate e 4 settimane di score; prima di allora c'è anche un back-test dell'algoritmo attuale sulle sedute precedenti.
+
+## Report mensili
+In *Training → This month*: per ognuno degli ultimi 12 mesi recupero, sonno, HRV e FC notturne, volume e carico, CTL, peso e marker, confrontati col mese prima e con la media dei 3 mesi prima, più alcune frasi che leggono i segnali insieme (es. più allenamento con HRV stabile = carico assorbito). I trend lunghi usano la pendenza sugli ultimi 6 mesi completi.
 
 ## Struttura del codice e test
 - `site/index.html` contiene solo la struttura della pagina; lo stile è in `site/app.css` e il codice dell'app in `site/js/`, un file per area (core, gauge, sleep, dayflow, coach, score, training, food, assistant, journal, athlete, months, app). I file sono script normali caricati in ordine; quando si cambia uno di essi si aggiorna il numero `?v=` in `index.html`, così i telefoni scaricano la versione nuova.

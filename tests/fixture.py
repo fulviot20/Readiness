@@ -16,6 +16,7 @@ sys.path.insert(0, ROOT)
 import dayflow  # noqa: E402
 import energy  # noqa: E402
 import engine  # noqa: E402
+import months  # noqa: E402
 import readiness  # noqa: E402
 
 TODAY = dt.date(2026, 11, 9)
@@ -95,8 +96,7 @@ def build_data(today=TODAY):
     data["journal"] = {"days": {}, "tags": None}
     data["garmin_key"] = {"expires": "2027-11-03", "error": False}
     data["dayflow"] = dayflow.build(gdays, data["days"], today, 186)
-    if hasattr(readiness, "monthly"):
-        data["months"] = readiness.monthly(data, gdays, today)
+    data["monthly"] = months.build(wellness, activities, gdays, data["days"], data["fitness"], today)
     return data
 
 
