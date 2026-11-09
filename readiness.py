@@ -23,6 +23,7 @@ import urllib.error
 import urllib.request
 from zoneinfo import ZoneInfo
 
+import dayflow
 import energy
 import engine
 import fitness
@@ -261,6 +262,7 @@ def summary(a, streams):
     first = lambda *ks: next((a[k] for k in ks if a.get(k) not in (None, 0)), None)
     out = {
         "id": a.get("id"), "type": a.get("type"), "name": a.get("name"), "feel": a.get("feel"),
+        "start": (a.get("start_date_local") or "")[11:16] or None,
         "rpe": a.get("icu_rpe"), "minutes": mins, "kcal": a.get("calories"),
         "load": first("icu_training_load"),
         "avg_w": first("icu_average_watts", "average_watts"),
@@ -775,6 +777,11 @@ def main():
     prof = mail.get("profile") or {}             # height and sex sharpen the distance estimate
     data["energy"] = energy.build(gdays, data["days"], today, prof.get("height"), prof.get("sex"))
     data["nutrition"] = nutrition(mail, today)
+    try:
+        data["dayflow"] = dayflow.build(gdays, data["days"], today, cache.get("hrmax"))
+    except Exception as e:
+        data["dayflow"] = None
+        print("dayflow skipped:", type(e).__name__)
     oldest = (today - dt.timedelta(days=400)).isoformat()
     data["journal"] = {"days": {d: o for d, o in (mail.get("journal") or {}).items() if d >= oldest},
                        "tags": mail.get("jtags")}
@@ -809,6 +816,7 @@ def main():
         flags.update({k: fs.get(k) is not None for k in ("vo2max", "ftp", "easy_pace")})
         if d["date"] == data["today"]:
             flags["energy"] = bool((data.get("energy") or {}).get("today"))
+        flags["dayflow"] = d["date"] in ((data.get("dayflow") or {}).get("days") or {})
         print("check", d["date"], flags)
     last = data["days"][-1] if data["days"] else {}
     # the repository is public: log only what is present, never the values

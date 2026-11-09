@@ -25,7 +25,8 @@ DETAIL_DAYS = 3          # per-day endpoints refreshed every run
 BACKFILL_PER_RUN = 30    # older days filled progressively
 DETAIL_HISTORY = 180
 HYP_DAYS = 14            # nights kept with their stage-by-stage chart
-HYP_PER_RUN = 6
+HYP_PER_RUN = 0          # Garmin personal API has no stage timeline yet (probe, Nov 2026)
+INTRADAY_DAYS = 10     # days kept with heart rate every 5 minutes (day charts, energy reserve)
 
 
 def clip(x, lo, hi):
@@ -183,7 +184,27 @@ def hr_features(day, sleep, rest_hint):
     rest = out.get("low30") or rest_hint
     out["rest_used"] = rest
     out["pts"] = pts                               # used in-run for TRIMP, not cached
+    off = _local_offset(day)
+    if off is not None and day.get("calendarDate"):
+        out["hr5"] = hr_slots(pts, off, day["calendarDate"])
     return out
+
+
+def _local_offset(day):
+    """Local minus GMT in ms, from the day's start timestamps."""
+    a, b = _ts_ms(day.get("startTimestampLocal")), _ts_ms(day.get("startTimestampGMT"))
+    return a - b if a is not None and b is not None and abs(a - b) <= 14 * 3600e3 else None
+
+
+def hr_slots(pts, offset, date):
+    """Mean heart rate in each 5-minute slot of the local day (288 slots, None where the watch saw nothing)."""
+    d0 = dt.datetime.fromisoformat(date).replace(tzinfo=dt.timezone.utc).timestamp() * 1000
+    acc = [[] for _ in range(288)]
+    for t, h in pts:
+        k = int((t + offset - d0) // 300000)
+        if 0 <= k < 288:
+            acc[k].append(h)
+    return [round(st.mean(v)) if v else None for v in acc]
 
 
 def trimp(pts, rest, hrmax):
@@ -234,7 +255,9 @@ def refresh(cache, today, errors, hrmax_hint):
     recent = [(today - dt.timedelta(days=k)).isoformat() for k in range(DETAIL_DAYS)]
     older = [(today - dt.timedelta(days=k)).isoformat() for k in range(DETAIL_DAYS, DETAIL_HISTORY)]
     need = lambda r: ("hr" not in r or "hrv_night" not in r) and r.get("tries", 0) < 3
-    todo = recent + [d for d in older if need(days.get(d, {}))][:BACKFILL_PER_RUN]
+    no5 = [d for d in older[:INTRADAY_DAYS] if "hr5" not in (days.get(d, {}).get("hr") or {})
+           and days.get(d, {}).get("tries5", 0) < 2]
+    todo = recent + no5 + [d for d in older if need(days.get(d, {})) and d not in no5][:BACKFILL_PER_RUN]
     trimps = {}
     for d in todo:
         rec = days.setdefault(d, {})
@@ -252,7 +275,9 @@ def refresh(cache, today, errors, hrmax_hint):
                 trimps[d] = pts
         if isinstance(chart, dict) and isinstance(hrd, dict):
             rec["detail"] = True
-        if d not in recent:
+        if d in no5:
+            rec["tries5"] = rec.get("tries5", 0) + 1
+        elif d not in recent:
             rec["tries"] = rec.get("tries", 0) + 1
     # stages along the night (hypnogram) for the sleep coach: last two weeks, a few nights per run
     hyp_days = [(today - dt.timedelta(days=k)).isoformat() for k in range(HYP_DAYS)]
@@ -274,6 +299,10 @@ def refresh(cache, today, errors, hrmax_hint):
         rest = days[d]["hr"].get("rest_used")
         days[d]["hr"]["trimp"] = trimp(pts, rest, hrmax)
     cache["hrmax"] = hrmax
+    keep = (today - dt.timedelta(days=INTRADAY_DAYS)).isoformat()
+    for d, r in days.items():
+        if d < keep and "hr5" in (r.get("hr") or {}):
+            r["hr"].pop("hr5")
     return cache
 
 

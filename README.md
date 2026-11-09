@@ -35,7 +35,12 @@ Senza token le risposte restano solo sul telefono.
 - **Strain** (0–100): carico del giorno vs la tua fitness (carico medio giornaliero): 100 × (1 − e^(−carico / 1,5·fitness))
 
 ## Sleep coach
-Si apre dal riquadro "Tonight" o dalla scheda Sleep. Mostra le fasi della notte (ipnogramma dai dati grezzi Garmin, ultime 14 notti), il debito di sonno delle ultime 7 notti (ore sotto il fabbisogno meno le ore in più), la regolarità degli ultimi 14 giorni (scarto medio di addormentamento e risveglio: ±10 min = 100, ±90 min = 0; spostamento del weekend) e consigli scelti in base ai dati, senza orari imposti.
+Si apre dal riquadro "Tonight" o dalla scheda Sleep. Mostra le fasi della notte (barra riassuntiva; la sequenza fase per fase non è disponibile dall'API personale Garmin, verificato a novembre 2026), il debito di sonno delle ultime 7 notti (ore sotto il fabbisogno meno le ore in più), la regolarità degli ultimi 14 giorni (scarto medio di addormentamento e risveglio: ±10 min = 100, ±90 min = 0; spostamento del weekend) e consigli scelti in base ai dati, senza orari imposti.
+
+## Hour by hour
+Riquadro in Today (anche per i giorni passati, ultimi 7): frequenza cardiaca ogni 5 minuti, stress e riserva di energia, con fasce del sonno e degli allenamenti; toccando il grafico si legge l'orario.
+- **Energy** (0–100, nostro modello): nel sonno si ricarica verso 100 (ogni ora riempie il 22% × Sleep score/100 dello spazio rimasto); da svegli scende di 2 punti/ora (non a riposo vero, FC entro l'8% della riserva); sopra il 30% della riserva cardiaca scende come il TRIMP di Banister (0,3 punti per unità).
+- **Stress** (stima nostra): l'API personale Garmin non dà la serie dello stress, quindi da svegli e fuori dall'allenamento è quanto la FC sta sopra quella a riposo (+5 bpm = calmo, 30% della riserva = massimo), media su 15 minuti. Lo sforzo fisico è mostrato come "Activity".
 
 ## Verifica dello score
 Dall'app ("Score doesn't feel right?") si salvano note cifrate in `notes/`. In *Settings → Score check*: correlazione di Spearman tra lo score del mattino e il feel delle sedute (da novembre 2026), feel medio per fascia e note.
