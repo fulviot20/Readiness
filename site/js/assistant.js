@@ -21,6 +21,7 @@ function aiContext(){
     target:tg?{kcal:tg.kcal,protein:tg.p,carbs:tg.c,fat:tg.f}:null,
     weight_kg:weightNow(),goal:gs?{target_kg:gs.g.target,pace_kg_week:gs.g.pace,eta:gs.eta}:null,
     my_meals:libAll().map(e=>({id:e.id,kind:e.kind,name:e.name,for:e.for||null})),
+    food_notes:fnAll().map(n=>({id:n.id,text:n.text})),has_meal_plan:!!planGet(),
     page:AS.section||"today",
     journal_last_14_days:Object.entries(jAll()).filter(([d])=>d>=isoAdd(t,-14)).map(([d,o])=>({date:d,habits:(o.tags||[]).map(id=>jTags().find(x=>x.id===id)?.label||id)})),
     habit_impact:habitImpact().filter(x=>!x.need).map(x=>({habit:x.tag.label,days:x.n,next_morning_recovery_diff:x.rec!=null?Math.round(x.rec):null,next_morning_sleep_diff:x.sl!=null?Math.round(x.sl):null})),
@@ -39,6 +40,7 @@ The score is a companion, not a judge: the user decides whether to train and ada
 {"type":"save_recipe","name":"...","servings":1,"cooked_weight_g":null,"items":[ITEM]}   a dish cooked in several servings
 {"type":"delete_food","date":"YYYY-MM-DD","ids":["..."]}   only ids listed in food_today
 {"type":"delete_saved","id":"..."}   only ids listed in my_meals
+{"type":"food_notes","add":["..."],"edit":[{"id":"...","text":"..."}],"remove":["id"],"rebuild_plan":true}   the user's food memory (food_notes): use it whenever they tell you how they eat, what they like/avoid, where they eat, or ask to remember/change something about their diet; one short fact per note, edit instead of duplicating; rebuild_plan true when has_meal_plan
 {"type":"set_goal","target_kg":71,"pace_kg_week":0.5}   pace 0.25, 0.5 or 0.75
 {"type":"log_weight","date":"YYYY-MM-DD","kg":72.4}
 ITEM = {"meal":"b|l|d|s","name":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":"",${NUT_JSON}}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
@@ -58,6 +60,7 @@ function actText(a){
   if(a.type==="save_recipe") return `<b>Save recipe “${esc(a.name)}” · ${a.servings||1} serving${(a.servings||1)>1?"s":""}</b>${(a.items||[]).map(it=>`<span>${L(it)}</span>`).join("")}`;
   if(a.type==="delete_food"){const its=foodDay(a.date).filter(x=>(a.ids||[]).includes(x.id));return `<b>Delete from ${day(a.date)}</b>${its.map(x=>`<span>${esc(x.name)} · ${fmtK(Math.round(x.kcal))} kcal</span>`).join("")}`;}
   if(a.type==="delete_saved"){const e=libAll().find(x=>x.id===a.id);return `<b>Delete “${esc(e?.name||"?")}”</b>`;}
+  if(a.type==="food_notes"){const N=fnAll();return `<b>Update what I know about how you eat${a.rebuild_plan&&planGet()?" and your plan":""}</b>${(a.add||[]).map(t=>`<span>+ ${esc(t)}</span>`).join("")}${(a.edit||[]).map(e=>`<span>✎ ${esc(e.text)}</span>`).join("")}${(a.remove||[]).map(id=>`<span>− ${esc(N.find(n=>n.id===id)?.text||"")}</span>`).join("")}`;}
   if(a.type==="set_goal") return `<b>Goal ${(+a.target_kg).toFixed(1)} kg · ${a.pace_kg_week} kg a week</b>`;
   if(a.type==="log_weight") return `<b>Weight ${(+a.kg).toFixed(1)} kg · ${day(a.date)}</b>`;
   return "";
@@ -70,6 +73,7 @@ function validAct(a){
   if(a.type==="save_recipe") return !!a.name&&(a.items||[]).length>0;
   if(a.type==="delete_food") return okD(a.date)&&(a.ids||[]).length>0;
   if(a.type==="delete_saved") return !!libAll().find(x=>x.id===a.id);
+  if(a.type==="food_notes") return !!((a.add||[]).length||(a.edit||[]).length||(a.remove||[]).length);
   if(a.type==="set_goal") {a.pace_kg_week=[.25,.5,.75].reduce((b,p)=>Math.abs(p-a.pace_kg_week)<Math.abs(b-a.pace_kg_week)?p:b,.5); return +a.target_kg>=35&&+a.target_kg<=200;}
   if(a.type==="log_weight") {a.date=okD(a.date)?a.date:t; return +a.kg>=30&&+a.kg<=200;}
   return false;
@@ -82,6 +86,7 @@ async function runActs(acts){
     else if(a.type==="save_recipe") libSave({id:uid(),kind:"recipe",name:String(a.name).slice(0,40),servings:Math.max(1,Math.round(+a.servings||1)),weight:+a.cooked_weight_g||null,items:a.items.map(x=>aiFood(x,"s"))});
     else if(a.type==="delete_food") foodDay(a.date).filter(x=>a.ids.includes(x.id)).forEach(x=>foodSave({id:x.id,date:x.date,del:true,ts:Date.now()}));
     else if(a.type==="delete_saved") libSave({id:a.id,del:true,name:"deleted"});
+    else if(a.type==="food_notes"){fnApply(a);if(a.rebuild_plan&&planGet()) setTimeout(()=>genPlan({quiet:true}),300);}
     else if(a.type==="set_goal"){const g=goalGet(),w=weightNow(),t=r1(+a.target_kg);
       const obj={target:t,pace:a.pace_kg_week,start:g&&g.target===t?g.start:w,since:g&&g.target===t?g.since:todayISO(),ts:Date.now()};LS.set("rd_goal",JSON.stringify(obj));sendQ("goal",obj);CAL=null;}
     else if(a.type==="log_weight") await logMetric("weight",a.date,r1(+a.kg));

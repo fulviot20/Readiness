@@ -56,6 +56,10 @@ def collect(cache, pw, decrypt):
             old = day.get(obj["id"])
             if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
                 day[obj["id"]] = obj
+        elif kind == "fnote" and obj.get("id"):        # what the app knows about how you eat (one note per message)
+            old = mail.setdefault("fnotes", {}).get(obj["id"])
+            if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
+                mail["fnotes"][obj["id"]] = obj
         elif kind == "lib" and obj.get("id"):          # saved meals and recipes; deletions stay as tombstones
             old = mail.setdefault("lib", {}).get(obj["id"])
             if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):

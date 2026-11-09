@@ -655,3 +655,12 @@ button:focus-visible{outline:2px solid var(--glacier);outline-offset:2px}
 .pl-pick b{white-space:nowrap;font-weight:600}
 .pl-tips{margin-top:12px;background:var(--surface);border-radius:16px;padding:12px 14px;font-size:14px;color:var(--muted)}.pl-tips summary{color:var(--text);font-weight:600;cursor:pointer}
 .pq{margin-top:16px}.pq label{display:block;font-size:14.5px;font-weight:600;margin-bottom:8px}
+
+.pl-q{display:block;width:100%;background:none;border:0;color:var(--glacier);font:inherit;font-size:14px;font-weight:600;text-align:left;padding:10px 0 0;cursor:pointer}
+.pl-tell{display:flex;gap:8px;align-items:center;margin-top:12px}
+.pl-tell input{flex:1;min-width:0;background:var(--surface);border:1px solid rgba(167,139,250,.35);border-radius:14px;color:var(--text);font:inherit;font-size:14.5px;padding:11px 13px}
+.pl-tell .as-b{width:40px;height:40px}
+.fn-r{display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.fn-r span{flex:1;min-width:0}.fn-r button{background:none;border:0;color:var(--faint);font:inherit;font-size:13px;cursor:pointer;padding:4px 6px}
+.fn-r.ed{display:block}
+.nut-more summary{cursor:pointer;color:var(--glacier);font-weight:600;font-size:14px;padding:12px 0 2px}

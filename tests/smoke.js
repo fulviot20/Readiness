@@ -48,7 +48,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     ["training", () => setTab("training")],
     ["training-pages", () => { for (const k of ["month", "volume", "fitness", "week"]) setPage("training", k); }],
     ["athlete", () => setTab("athlete")],
-    ["food-pages", () => { for (const k of ["diary", "plan", "balance", "nutrients", "profile"]) setPage("athlete", k); }],
+    ["food-pages", () => { for (const k of ["diary", "plan", "balance", "profile"]) setPage("athlete", k); }],
     ["months", () => { if (typeof openMonths === "function") openMonths(); }],
     ["today", () => setTab("today")],
   ]) await step(n, fn);

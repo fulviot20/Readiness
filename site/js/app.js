@@ -61,7 +61,7 @@ function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
 const PAGES={today:[["overview","Overview"],["signals","Signals"],["day","Your day"],["checkin","Check-in"]],
   training:[["week","Week"],["month","Month"],["volume","Hours"],["fitness","Fitness"]],
-  athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"],["balance","Balance"],["nutrients","Nutrients"]]};
+  athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"],["balance","Balance"]]};
 function pageBar(tab){
   const list=PAGES[tab].filter(p=>tab!=="athlete"||p[0]==="profile"||foodOn());
   if(list.length<2) return "";

@@ -497,6 +497,8 @@ function ntot(items){const sum={},have={};let known=0;
   return {sum,have,known};}
 
 /* ------------------------------------------------------------ food: the day's nutrients */
+let NUT_OPEN=false;
+document.addEventListener("toggle",e=>{if(e.target.classList?.contains("nut-more")) NUT_OPEN=e.target.open;},true);
 function nutrientSection(d){
   const items=foodDay(d);if(!items.length) return "";
   const T=ftot(items),N=ntot(items),tg=targetOf(d),missing=items.filter(x=>!x.n&&x.kcal).length;
@@ -513,8 +515,9 @@ function nutrientSection(d){
       ${row("Protein",T.p,"g",tg?.p,"target")}
       ${row("Carbohydrates",T.c,"g",tg?.c,"target")}${group("c")}
       ${row("Fat",T.f,"g",tg?.f,"target")}${group("f")}
+      <details class="nut-more"${NUT_OPEN?" open":""}><summary>Minerals and vitamins</summary>
       <h4>Minerals</h4>${group("m").replace("Sodium</span>","Sodium"+salt+"</span>")}
-      <h4>Vitamins</h4>${group("v")}
+      <h4>Vitamins</h4>${group("v")}</details>
       ${FILL.busy?`<p class="af-wait"><i class="spin"></i>Working out sugars, fibre, fats, minerals and vitamins…</p>`:""}
       <p class="nut-f">${missing?`Detailed values known for ${N.known} of ${items.length} foods: the others count only for energy and macros${aiKey()?"":". Add your Gemini key in Settings and they're filled in by themselves"}.`:"Detailed values known for every food."} References: EU/EFSA daily values for an adult man; saturated fat under 10% of your energy target.</p>
       ${FILL.err?`<p class="nut-f" style="color:#f2a65a">${esc(FILL.err)}</p>`:""}
@@ -666,10 +669,11 @@ function renderFood(){
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
     ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}
     <button class="lib-c" id="lib-c"><span><b>My meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save your usual breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
+  ${nutrientSection(d)}
   <p class="foot">Swipe sideways to change day.</p>`;
   else if(pg==="plan") body=planView();
   else if(pg==="balance") body=`${weekCard(false)}${goalCard()}${balanceSection()}<p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.</p>`;
-  else body=`${dayPick}${nutrientSection(d)||`<p class="notice">Nothing logged on this day.</p>`}<p class="foot">Swipe sideways to change day.</p>`;
+  else {PG.athlete="diary";return renderFood();}
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
   ${pageBar("athlete")}${body}`;
@@ -683,7 +687,7 @@ function renderFood(){
   document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
   on("lib-c",openLibrary); bindSwipeDelete();
   if($("nut")) bindNut(d);
-  if(pg==="diary"||pg==="nutrients") setTimeout(()=>autoFill(d),500);
+  if(pg==="diary") setTimeout(()=>autoFill(d),500);
   on("f-coach",()=>openAssistant("food"));
   on("goal-c",openGoal); on("wk-c",()=>setPage("athlete","balance"));
   if($("bal-r")) bindBalance();

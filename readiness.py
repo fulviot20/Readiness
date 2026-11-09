@@ -138,6 +138,7 @@ def nutrition(mail, today, keep=120):
         food.pop(d)
     first = (today - dt.timedelta(days=keep)).isoformat()
     return {"goal": mail.get("goal"), "lib": list((mail.get("lib") or {}).values()),
+            "notes": list((mail.get("fnotes") or {}).values()),
             "food": {d: list(items.values()) for d, items in sorted(food.items()) if d >= first}}
 
 
