@@ -1,0 +1,31 @@
+name: Tests
+
+# Runs on every change to the code (not on the hourly data commits): unit tests on synthetic data,
+# then the app is opened in headless Chrome with the synthetic fixture and every tab and main sheet is checked.
+on:
+  push:
+    paths: ["**.py", "site/**", "!site/data.enc", "tests/**", ".github/workflows/tests.yml"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: |
+          pip install --quiet cryptography pytest
+          python -m pytest -q tests
+      - name: App smoke test
+        run: |
+          python tests/fixture.py
+          npm install --silent --no-save playwright-core@1.47.2 >/dev/null 2>&1
+          node tests/smoke.js

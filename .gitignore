@@ -1,2 +1,4 @@
 site/data.enc
 __pycache__/
+tests/out/
+node_modules

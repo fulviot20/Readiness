@@ -44,3 +44,9 @@ Riquadro in Today (anche per i giorni passati, ultimi 7): frequenza cardiaca ogn
 
 ## Verifica dello score
 Dall'app ("Score doesn't feel right?") si salvano note cifrate in `notes/`. In *Settings → Score check*: correlazione di Spearman tra lo score del mattino e il feel delle sedute (da novembre 2026), feel medio per fascia e note.
+
+## Struttura del codice e test
+- `site/index.html` contiene solo la struttura della pagina; lo stile è in `site/app.css` e il codice dell'app in `site/js/`, un file per area (core, gauge, sleep, dayflow, coach, score, training, food, assistant, journal, athlete, months, app). I file sono script normali caricati in ordine; quando si cambia uno di essi si aggiorna il numero `?v=` in `index.html`, così i telefoni scaricano la versione nuova.
+- `tests/fixture.py` costruisce dati finti (nessun dato personale) con la stessa pipeline del calcolo vero.
+- `tests/test_engine.py` (pytest) controlla motore, score, allarmi, energia e cifratura; `tests/smoke.js` apre l'app in Chrome headless con i dati finti, passa da tutte le schede e i fogli principali e fallisce a qualsiasi errore.
+- Il workflow *Tests* li esegue a ogni modifica del codice (non sui commit orari dei dati).

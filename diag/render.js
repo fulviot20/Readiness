@@ -5,11 +5,12 @@ const {chromium}=require('playwright-core');
   const p=await b.newPage({viewport:{width:390,height:900}});
   const errs=[];p.on('pageerror',e=>errs.push(String(e.message).slice(0,200)));
   const fs=require('fs');
-  const html=fs.readFileSync('site/index.html','utf8'),enc=fs.readFileSync('site/data.enc','utf8');
-  await p.route('**/*',r=>{const u=r.request().url();
-    if(u.startsWith('https://app.test/data.enc'))return r.fulfill({body:enc,contentType:'application/json'});
-    if(u.startsWith('https://app.test/'))return r.fulfill({body:html,contentType:'text/html'});
-    return r.continue();});
+  const path=require('path'),T={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.enc':'application/json','.png':'image/png'};
+  await p.route('**/*',r=>{const u=new URL(r.request().url());
+    if(u.host!=='app.test')return r.continue();
+    const f=path.join('site',u.pathname==='/'?'index.html':u.pathname.slice(1));
+    if(!fs.existsSync(f))return r.fulfill({status:404,body:''});
+    return r.fulfill({body:fs.readFileSync(f),contentType:T[path.extname(f)]||'application/octet-stream'});});
   await p.addInitScript(pw=>{localStorage.setItem('rd_pass',pw)},process.env.READINESS_PASSPHRASE);
   await p.goto('https://app.test/');await p.waitForTimeout(4000);
   const info=await p.evaluate(()=>({hasData:!!window.DATA||typeof DATA!=='undefined'&&!!DATA,
