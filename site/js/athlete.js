@@ -185,11 +185,15 @@ function athHero(){
 // Food lives inside Athlete, as an optional second page (it can be hidden in Settings)
 let ATH_SUB="profile";
 const foodOn=()=>LS.get("rd_food_off")!=="1";
-const athSwitch=()=>foodOn()?`<div class="subtabs" role="tablist"><button data-sub="profile" class="${ATH_SUB!=="food"?"on":""}">Profile</button><button data-sub="food" class="${ATH_SUB==="food"?"on":""}">Food</button></div>`:"";
-function bindSwitch(){document.querySelectorAll(".subtabs button").forEach(b=>b.onclick=()=>{if(b.dataset.sub===ATH_SUB) return;
+const athSwitch=()=>pageBar("athlete");
+const athSwitchOld=()=>foodOn()?`<div class="subtabs" role="tablist"><button data-sub="profile" class="${ATH_SUB!=="food"?"on":""}">Profile</button><button data-sub="food" class="${ATH_SUB==="food"?"on":""}">Food</button></div>`:"";
+function bindSwitch(){}
+function bindSwitchOld(){document.querySelectorAll(".subtabs button").forEach(b=>b.onclick=()=>{if(b.dataset.sub===ATH_SUB) return;
   ATH_SUB=b.dataset.sub;if(ATH_SUB==="food") foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");});}
 function renderAthlete(){
-  if(ATH_SUB==="food"&&foodOn()) return renderFood();
+  if(PG.athlete!=="profile"&&!foodOn()) PG.athlete="profile";
+  ATH_SUB=PG.athlete==="profile"?"profile":"food";
+  if(ATH_SUB==="food") return renderFood();
   ATH_CACHE=null;
   const ftp=athLast("ftp"),wk=athLast("wkg"),L=athLast("lthr"),src=DATA.athlete?.lthr_src;
   const lsub=athEntries("lthr")&&Object.keys(athEntries("lthr")).length?"Set by you":src==="intervals"?"From Intervals":src==="estimate"?"Estimated · tap to set":"";

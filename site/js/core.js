@@ -60,7 +60,9 @@ let DATA=null,sel=0,draft={},prevScore=0;
 // closing and reopening the app starts from Today
 const RELOAD=(()=>{try{return performance.getEntriesByType("navigation")[0]?.type==="reload";}catch(e){return false;}})();
 let NAV0=null;if(RELOAD){try{NAV0=JSON.parse(sessionStorage.getItem("rd_nav")||"null");}catch(e){}}
-function saveNav(){try{sessionStorage.setItem("rd_nav",JSON.stringify({t:TAB,s:ATH_SUB,f:foodSel,d:DATA?.days?.[sel]?.date,y:scrollY}));}catch(e){}}
+// which page of each tab is open (the pill menu under the title)
+let PG={today:"overview",training:"week",athlete:"profile"};
+function saveNav(){try{sessionStorage.setItem("rd_nav",JSON.stringify({t:TAB,s:ATH_SUB,p:PG,f:foodSel,d:DATA?.days?.[sel]?.date,y:scrollY}));}catch(e){}}
 addEventListener("pagehide",saveNav);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden") saveNav();});
 const todayISO=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Rome"});
 const fmtDay=(iso,o)=>new Date(iso+"T12:00").toLocaleDateString("en-GB",o);
@@ -148,7 +150,7 @@ let hiddenAt=0;
 document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="hidden"){hiddenAt=Date.now();return;}
   if(DATA&&hiddenAt&&Date.now()-hiddenAt>10*60000&&!$("sheet").classList.contains("open")){
-    TAB="today";ATH_SUB="profile";foodSel=todayISO();const i=DATA.days.findIndex(d=>d.date===todayISO());if(i>=0){sel=i;draft={...(DATA.days[i].answers||{})};}render();scrollTo(0,0);}
+    TAB="today";ATH_SUB="profile";PG={today:"overview",training:"week",athlete:"profile"};foodSel=todayISO();const i=DATA.days.findIndex(d=>d.date===todayISO());if(i>=0){sel=i;draft={...(DATA.days[i].answers||{})};}render();scrollTo(0,0);}
 });
 document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible"&&DATA&&!$("sheet").classList.contains("open")){ autoTries=0; if(Date.now()-loadedAt>60000) load(true); else autoRefresh(); }

@@ -54,10 +54,25 @@ function pendingNote(){
     :`<button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p>`}</div>`;
 }
 let TAB=(()=>new URLSearchParams(location.search).get("tab")||"today")();   // every launch opens on Today…
-if(NAV0){TAB=NAV0.t||TAB;ATH_SUB=NAV0.s||"profile";if(NAV0.f) foodSel=NAV0.f;}  // …but a refresh stays on the page you were on
+if(NAV0){TAB=NAV0.t||TAB;ATH_SUB=NAV0.s||"profile";if(NAV0.p) PG={...PG,...NAV0.p};if(NAV0.f) foodSel=NAV0.f;}  // …but a refresh stays on the page you were on
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
-function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; if(t==="athlete"){ATH_SUB="profile";foodSel=todayISO();} buzz(5); render(); scrollTo(0,0); animIn("enter"); }
+function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; if(t==="athlete"){ATH_SUB="profile";PG.athlete="profile";foodSel=todayISO();} buzz(5); render(); scrollTo(0,0); animIn("enter"); }
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
+// Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
+const PAGES={today:[["overview","Overview"],["signals","Signals"],["day","Your day"],["checkin","Check-in"]],
+  training:[["week","Week"],["month","Month"],["volume","Hours"],["fitness","Fitness"]],
+  athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"],["balance","Balance"],["nutrients","Nutrients"]]};
+function pageBar(tab){
+  const list=PAGES[tab].filter(p=>tab!=="athlete"||p[0]==="profile"||foodOn());
+  if(list.length<2) return "";
+  return `<nav class="pbar" role="tablist">${list.map(([k,n])=>`<button role="tab" data-pg="${k}" class="${PG[tab]===k?"on":""}" aria-selected="${PG[tab]===k}">${n}</button>`).join("")}</nav>`;
+}
+function setPage(tab,k){
+  if(PG[tab]===k) return scrollTo({top:0,behavior:"smooth"});
+  PG[tab]=k; if(tab==="athlete"){ATH_SUB=k==="profile"?"profile":"food";if(k!=="profile"&&!foodSel) foodSel=todayISO();}
+  buzz(5); render(); scrollTo(0,0); animIn("enter");
+}
+document.addEventListener("click",e=>{const b=e.target.closest(".pbar [data-pg]");if(b) setPage(TAB,b.dataset.pg);});
 function tabbar(){
   const ic={today:`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4.5 16.5a8 8 0 1 1 15 0"/><path d="M12 13.5l3.6-3.6"/></svg>`,
     training:`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 19V11M10 19V6M15 19v-5M20 19V9"/></svg>`,
@@ -92,6 +107,8 @@ function renderToday(){
     </div>
     <span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span>
   </div>
+  ${pageBar("today")}
+  ${PG.today==="overview"?`
   <div class="g-wrap"><button class="gauge" id="gauge" aria-label="Score details">${gaugeSVG(has?day.score:null,band,color)}</button>${legendHTML(has?band:"")}</div>
   <p class="adj">${has?esc(deltaTxt(day)):""}</p>
   ${has?`<button class="verdict-b" id="guide"><span class="verdict">${esc(day.advice)}</span><span class="why">${esc(day.why)}</span><span class="more">What this means for today</span></button>`:""}
@@ -100,21 +117,17 @@ function renderToday(){
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
   ${isToday?feelNudge():""}
-  ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
-
-  <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
-    <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
-    ${isToday?tonightCard():""}</section>
-
-  ${isToday?yourDay():""}
-  ${dayFlowSection(raw)}
-
-  ${isToday?checkin(raw):""}
-  ${isToday?journalCard():""}
   ${sessions(raw)}
+  ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}`:""}
+  ${PG.today==="signals"?`
+  <section class="sec first"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
+    <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
+    ${isToday?tonightCard():""}</section>`:""}
+  ${PG.today==="day"?`${isToday?yourDay():""}${dayFlowSection(raw)||(isToday?"":`<p class="notice">No hour-by-hour data for this day.</p>`)}`:""}
+  ${PG.today==="checkin"?(isToday?checkin(raw)+journalCard():`<p class="notice">The check-in and the journal are for today and yesterday: go back to today to fill them in.</p>`):""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 
-  if(has){animateGauge(prevScore,day.score); prevScore=day.score;}
+  if(has&&$("gauge")){animateGauge(prevScore,day.score); prevScore=day.score;}
   const u=$("upd"); if(u) u.onclick=()=>requestUpdate(u);
   const sy=$("sync"); if(sy) sy.onclick=()=>{syncAt=Date.now(); LS.del("rd_ping");};
   bind(raw);
@@ -122,13 +135,14 @@ function renderToday(){
 
 function bind(raw){
   $("prev").onclick=()=>go(sel-1); $("next").onclick=()=>go(sel+1);
-  $("gear").onclick=openSettings; $("gauge").onclick=()=>openScore();
-  const g=$("guide"); if(g) g.onclick=()=>openGuide();
-  $("m-sleep").onclick=()=>openSleepScore(); $("m-strain").onclick=()=>openStrain();
+  const on=(id,f)=>{const e=$(id);if(e) e.onclick=f;};
+  $("gear").onclick=openSettings; on("gauge",()=>openScore());
+  on("guide",()=>openGuide());
+  on("m-sleep",()=>openSleepScore()); on("m-strain",()=>openStrain());
   const of=$("off"); if(of) of.onclick=openOff;
   // Calories opens the food diary (when it's on); the other tiles open their history
   document.querySelectorAll(".day4 [data-en]").forEach(b=>b.onclick=()=>{
-    if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
+    if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";PG.athlete="diary";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
     enKey=b.dataset.en;openEnergy();});
   bindJournal(); bindDayFlow(raw);
   const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].sleep_score) openSleepCoach(); else if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
@@ -305,7 +319,7 @@ function openSettings(){
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
   const keepAI=()=>{const k=$("s-ai").value.trim(); if(k) LS.set("rd_gemini",k); else LS.del("rd_gemini");};
   $("s-save").onclick=()=>{keepAI(); const p=$("s-pw").value.trim(); if(p) LS.set("rd_pass",p); closeSheet(); load();};
-  $("s-food").onclick=()=>{const on=foodOn(); if(on) LS.set("rd_food_off","1"); else LS.del("rd_food_off"); if(on) ATH_SUB="profile";
+  $("s-food").onclick=()=>{const on=foodOn(); if(on) LS.set("rd_food_off","1"); else LS.del("rd_food_off"); if(on){ATH_SUB="profile";PG.athlete="profile";}
     $("s-food").textContent=on?"Show":"Hide"; $("s-food").classList.toggle("quiet",!on); render();};
   $("s-ai-t").onclick=async()=>{keepAI(); const st=$("s-ai-st"); if(!aiKey()){st.textContent="Paste a key first.";return;} st.textContent="Testing…";
     try{const it=await aiItems([{text:"1 banana"}]); st.textContent=it.length?`Works: 1 banana ≈ ${it[0].kcal} kcal.`:"The key works.";}catch(e){st.textContent=e.message;}};

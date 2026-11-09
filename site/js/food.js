@@ -639,20 +639,18 @@ function foodRing(eaten,target){
 }
 function renderFood(){
   const today=todayISO(); if(!foodSel||foodSel>today) foodSel=today;
-  const d=foodSel,items=foodDay(d),T=ftot(items),tg=targetOf(d),isToday=d===today,minD=isoAdd(today,-120);
+  const pg=PG.athlete,d=foodSel,items=foodDay(d),T=ftot(items),tg=targetOf(d),isToday=d===today,minD=isoAdd(today,-120);
   const label=isToday?"Today":d===isoAdd(today,-1)?"Yesterday":fmtDay(d,{weekday:"short",day:"numeric",month:"short"});
   const chev=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${p}"/></svg>`;
   const mac=k=>{const v=T[k],t=tg?.[k],pc=t?Math.min(100,v/t*100):0;
     return `<div class="mc"><small>${MAC[k][0].toUpperCase()}</small><b>${Math.round(v)}<u>${t?` / ${t} g`:" g"}</u></b><div class="en-bar"><i style="width:${pc}%;background:${MAC[k][1]}"></i></div></div>`;};
   const nLib=libAll().length;
-  $("app").innerHTML=`
-  <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
-  ${athSwitch()}
-  <div class="daypick f-day">
+  const dayPick=`<div class="daypick f-day">
     <button class="chev" id="fprev" aria-label="Previous day" ${d<=minD?"disabled":""}>${chev("M15 18l-6-6 6-6")}</button>
     <span class="d">${esc(label)}</span>
-    <button class="chev" id="fnext" aria-label="Next day" ${isToday?"disabled":""}>${chev("M9 18l6-6-6-6")}</button>
-  </div>
+    <button class="chev" id="fnext" aria-label="Next day" ${isToday?"disabled":""}>${chev("M9 18l6-6-6-6")}</button></div>`;
+  let body="";
+  if(pg==="diary") body=`${dayPick}
   <button class="f-hero" id="f-hero" aria-label="How the target works">
     ${foodRing(T.kcal,tg?.kcal)}
     <div class="f-stats">
@@ -663,26 +661,53 @@ function renderFood(){
     <p class="f-sub">${tg?esc(targetLine(tg,isToday)):"Waiting for today's burn from Garmin."}</p>
   </button>
   <div class="macros">${["p","c","f"].map(mac).join("")}</div>
+  ${isToday?weekCard(true):""}
   <button class="coach-bar" id="f-coach">${SPARK}<span>Tell me what you ate, or ask your food coach…</span></button>
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
     ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}
     <button class="lib-c" id="lib-c"><span><b>My meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save your usual breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
-  ${goalCard()}
-  ${balanceSection()}
-  ${nutrientSection(d)}
-  <p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.<br>Swipe sideways to change day. You can hide Food in Settings.</p>`;
-  $("gear").onclick=openSettings; $("f-hero").onclick=()=>openTarget(d);
-  $("fprev").onclick=()=>foodGo(-1); $("fnext").onclick=()=>foodGo(1);
+  <p class="foot">Swipe sideways to change day.</p>`;
+  else if(pg==="plan") body=planView();
+  else if(pg==="balance") body=`${weekCard(false)}${goalCard()}${balanceSection()}<p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.</p>`;
+  else body=`${dayPick}${nutrientSection(d)||`<p class="notice">Nothing logged on this day.</p>`}<p class="foot">Swipe sideways to change day.</p>`;
+  $("app").innerHTML=`
+  <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
+  ${pageBar("athlete")}${body}`;
+  const on=(id,f)=>{const e=$(id);if(e) e.onclick=f;};
+  $("gear").onclick=openSettings; on("f-hero",()=>openTarget(d));
+  on("fprev",()=>foodGo(-1)); on("fnext",()=>foodGo(1));
   document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openAddFood(b.dataset.add,d));
   document.querySelectorAll("[data-fi]").forEach(b=>b.onclick=()=>{const it=items.find(x=>x.id===b.dataset.fi); if(it) openPortion(itemFood(it),{meal:it.meal,date:d,item:it});});
   document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copyMeal(b.dataset.copy,d));
   document.querySelectorAll("[data-libm]").forEach(b=>b.onclick=()=>{const [id,m]=b.dataset.libm.split("|"),e=libAll().find(x=>x.id===id);if(e) logLibMeal(e,m,d);});
   document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
-  $("lib-c").onclick=openLibrary; bindSwitch(); bindSwipeDelete();
-  bindNut(d); setTimeout(()=>autoFill(d),500);
-  const fc=$("f-coach"); if(fc) fc.onclick=()=>openAssistant("food");
-  const gc=$("goal-c"); if(gc) gc.onclick=openGoal;
-  bindBalance();
+  on("lib-c",openLibrary); bindSwipeDelete();
+  if($("nut")) bindNut(d);
+  if(pg==="diary"||pg==="nutrients") setTimeout(()=>autoFill(d),500);
+  on("f-coach",()=>openAssistant("food"));
+  on("goal-c",openGoal); on("wk-c",()=>setPage("athlete","balance"));
+  if($("bal-r")) bindBalance();
+  if(pg==="plan") bindPlan();
+}
+// The week as a budget: one big day is balanced by the others, so a single "over" day isn't a failure
+function weekStats(){
+  const t=todayISO(),dow=(new Date(t+"T12:00").getDay()+6)%7,mon=isoAdd(t,-dow),gs=goalState(),adj=gs?gs.adj:0;
+  let done=0,logged=0;
+  for(let k=0;k<dow;k++){const d=isoAdd(mon,k),its=foodDay(d),b=burnOf(d);if(its.length&&b){done+=ftot(its).kcal-b.v;logged++;}}
+  const left=7-dow,delta=Math.round(done-adj*logged);         // > 0: less deficit than planned so far
+  const spread=logged?clip(Math.round(-delta/left/10)*10,-300,300):0;
+  return {mon,dow,adj,done:Math.round(done),logged,left,delta,spread,weekTarget:adj*7};
+}
+function weekCard(compact){
+  const W=weekStats();if(!W.logged&&compact) return "";
+  const msg=!W.logged?"Log full days and the week's balance appears here.":
+    !W.adj?(W.done<0?`So far ${fmtK(Math.abs(W.done))} kcal under what you burned this week.`:`So far ${fmtK(W.done)} kcal over what you burned this week.`):
+    Math.abs(W.delta)<150?"On track for the week: carry on like this.":
+    W.delta>0?`${fmtK(W.delta)} kcal behind plan. About ${fmtK(Math.abs(W.spread))} kcal less a day for the rest of the week evens it out — or just let it go: one big day changes little.`:
+    `${fmtK(-W.delta)} kcal ahead of plan: you can eat up to ${fmtK(Math.abs(W.spread))} kcal more a day this week.`;
+  const pc=W.weekTarget<0?clip(W.done/W.weekTarget*100,0,100):0;
+  return `<button class="wk-c${compact?" compact":""}" id="wk-c"><div class="wk-h"><small>THIS WEEK</small><b style="color:${W.logged?balCol(W.done):"var(--muted)"}">${W.logged?balTxt(W.done):"–"}<u>kcal</u></b>${W.adj<0?`<em>of ${balTxt(W.weekTarget)} planned</em>`:""}</div>
+    ${W.adj<0?`<div class="en-bar"><i style="width:${pc}%;background:#5fc795"></i></div>`:""}<span>${esc(msg)}</span>${compact?"":`<span class="wk-n">${W.logged} of ${W.dow} past days logged · today not counted until it's over</span>`}</button>`;
 }
 function foodGo(k){
   const t=todayISO(),n=isoAdd(foodSel,k); if(n>t||n<isoAdd(t,-120)) return;

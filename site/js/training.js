@@ -271,13 +271,11 @@ function renderTraining(){
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Training</div>
     <span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
-  ${weekReviewSection()}
-  ${monthSection()}
-  ${streakCard()}
-  ${weekSection()}
-  ${volumeSection()}
-  ${markersSection()}
-  ${fitnessSection()}
+  ${pageBar("training")}
+  ${PG.training==="week"?weekReviewSection()+streakCard()+weekSection():""}
+  ${PG.training==="month"?monthSection():""}
+  ${PG.training==="volume"?volumeSection():""}
+  ${PG.training==="fitness"?markersSection()+fitnessSection():""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}</p>`;
   $("gear").onclick=openSettings; bindVolume(); bindFitness();
   document.querySelectorAll(".mk[data-mk]").forEach(b=>b.onclick=()=>openMarker(b.dataset.mk));

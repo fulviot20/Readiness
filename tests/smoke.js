@@ -40,14 +40,20 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     ["score", () => openScore()], ["sleep", () => openSleepScore()], ["coach", () => openSleepCoach()],
     ["strain", () => openStrain()], ["hrv", () => openSignal("hrv")], ["rhr", () => openSignal("rhr")],
     ["energy", () => openEnergy()], ["settings", () => openSettings()], ["validation", () => openValidation()],
+    ["page-day", () => setPage("today", "day")],
     ["dayflow-tabs", () => { for (const t of ["hr", "stress", "energy"]) document.querySelector(`[data-df="${t}"]`).click(); }],
+    ["page-signals", () => setPage("today", "signals")], ["page-checkin", () => setPage("today", "checkin")],
+    ["page-overview", () => setPage("today", "overview")],
     ["prev-day", () => document.getElementById("prev").click()],
-    ["training", () => setTab("training")], ["athlete", () => setTab("athlete")],
+    ["training", () => setTab("training")],
+    ["training-pages", () => { for (const k of ["month", "volume", "fitness", "week"]) setPage("training", k); }],
+    ["athlete", () => setTab("athlete")],
+    ["food-pages", () => { for (const k of ["diary", "plan", "balance", "nutrients", "profile"]) setPage("athlete", k); }],
     ["months", () => { if (typeof openMonths === "function") openMonths(); }],
     ["today", () => setTab("today")],
   ]) await step(n, fn);
-  const info = await p.evaluate(() => ({days: DATA.days.length, gauge: !!document.querySelector(".gauge"),
-    dayflow: !!document.getElementById("df-sec")}));
+  const info = await p.evaluate(() => { PG.today = "day"; render(); const dayflow = !!document.getElementById("df-sec");
+    PG.today = "overview"; render(); return {days: DATA.days.length, gauge: !!document.querySelector(".gauge"), dayflow}; });
   await b.close();
   for (const [n, ok] of checks) console.log(ok ? "ok  " : "FAIL", n);
   console.log("info", JSON.stringify(info));
