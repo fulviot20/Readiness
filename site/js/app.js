@@ -59,7 +59,7 @@ const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wi
 function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; if(t==="athlete"){ATH_SUB="profile";PG.athlete="profile";foodSel=todayISO();} buzz(5); render(); scrollTo(0,0); animIn("enter"); }
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
-const PAGES={today:[["overview","Overview"],["signals","Signals"],["day","Your day"],["checkin","Check-in"]],
+const PAGES={today:[["overview","Overview"],["day","Your day"],["journal","Journal"]],
   training:[["week","Week"],["month","Month"],["volume","Hours"],["fitness","Fitness"]],
   athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"],["balance","Balance"]]};
 function pageBar(tab){
@@ -84,6 +84,7 @@ function tabbar(){
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
 function render(){
+  for(const t in PAGES) if(!PAGES[t].some(p=>p[0]===PG[t])) PG[t]=PAGES[t][0][0];   // a page that no longer exists → the first one
   tabbar(); setTimeout(saveNav,0);
   if(TAB==="training") return renderTraining();
   if(TAB==="athlete") return renderAthlete();
@@ -117,14 +118,14 @@ function renderToday(){
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
   ${isToday?feelNudge():""}
-  ${sessions(raw)}
-  ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}`:""}
-  ${PG.today==="signals"?`
-  <section class="sec first"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
+  ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
+  <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
     <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
-    ${isToday?tonightCard():""}</section>`:""}
+    ${isToday?tonightCard():""}</section>
+  ${isToday?checkin(raw):""}
+  ${sessions(raw)}`:""}
   ${PG.today==="day"?`${isToday?yourDay():""}${dayFlowSection(raw)||(isToday?"":`<p class="notice">No hour-by-hour data for this day.</p>`)}`:""}
-  ${PG.today==="checkin"?(isToday?checkin(raw)+journalCard():`<p class="notice">The check-in and the journal are for today and yesterday: go back to today to fill them in.</p>`):""}
+  ${PG.today==="journal"?(isToday?journalCard():`<p class="notice">The journal is for today and yesterday: go back to today to fill it in.</p>`):""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 
   if(has&&$("gauge")){animateGauge(prevScore,day.score); prevScore=day.score;}

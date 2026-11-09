@@ -42,7 +42,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     ["energy", () => openEnergy()], ["settings", () => openSettings()], ["validation", () => openValidation()],
     ["page-day", () => setPage("today", "day")],
     ["dayflow-tabs", () => { for (const t of ["hr", "stress", "energy"]) document.querySelector(`[data-df="${t}"]`).click(); }],
-    ["page-signals", () => setPage("today", "signals")], ["page-checkin", () => setPage("today", "checkin")],
+    ["page-journal", () => setPage("today", "journal")],
     ["page-overview", () => setPage("today", "overview")],
     ["prev-day", () => document.getElementById("prev").click()],
     ["training", () => setTab("training")],
