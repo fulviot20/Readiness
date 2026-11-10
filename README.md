@@ -79,6 +79,9 @@ Diario, journal, note sul cibo, profilo e obiettivo viaggiano già una voce alla
 - Il service worker serve subito dalla copia sul telefono i file con versione (`?v=`) e i font; la pagina viene chiesta alla rete per al massimo 2 secondi, poi si apre quella salvata.
 - L'elenco del cibo di ogni giorno è calcolato una volta e riusato (le pagine Balance e Diary leggevano la memoria del telefono per ogni giorno).
 
+## Widget Android
+`android/` è una piccola app nativa (Java, solo framework Android, nessuna libreria) che mette sulla Home lo score di oggi con sonno e strain. Legge `site/widget.enc`, un file piccolo cifrato come gli altri dati: al primo avvio si inserisce la passphrase una volta, da cui viene ricavata la chiave (la passphrase non viene salvata). Si aggiorna circa ogni 15 minuti e toccandolo apre Readiness. Il workflow *Android* la costruisce a ogni modifica di `android/` e pubblica il file su `releases/latest/download/readiness-widget.apk`; la chiave di firma sta nel repository cifrata con la passphrase (`android/keystore.enc`), così ogni versione si installa sopra la precedente. L'app vera resta quella web: si aggiorna da sola e non passa da qui.
+
 ## Struttura del codice e test
 - `site/index.html` contiene solo la struttura della pagina; lo stile è in `site/app.css` e il codice dell'app in `site/js/`, un file per area (core, gauge, sleep, dayflow, coach, score, training, food, plan, assistant, journal, athlete, months, sync, insight, app). In basso ci sono tre schede (Today, Training, Athlete; Food sta dentro Athlete) e la lente accanto ad "Ask AI" apre *Find*, l'elenco cercabile di tutte le pagine. I file sono script normali caricati in ordine; quando si cambia uno di essi si aggiorna **sempre** il numero `?v=` in `index.html`: i telefoni tengono in memoria i file per versione e senza numero nuovo non scaricano la modifica.
 - `tests/fixture.py` costruisce dati finti (nessun dato personale) con la stessa pipeline del calcolo vero.

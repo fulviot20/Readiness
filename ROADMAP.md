@@ -14,7 +14,7 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 ## Verso un prodotto condivisibile
 - [x] 7. Codice più ordinato: dividere il file unico dell'app in moduli, test automatici
 - [ ] 8. Server vero e account (multiutente), senza dipendere da GitHub Actions / ntfy
-- [ ] 9. App nativa Android e widget per la schermata Home
+- [ ] 9. App nativa Android e widget per la schermata Home — widget fatto (app "Readiness Widget", cartella android/, costruita dal workflow Android e scaricabile dalla release "widget"); resta da decidere se portare tutta l'app dentro un contenitore nativo (serve un file di verifica sul dominio fulviot20.github.io)
 
 ## Miglioramenti proposti (novembre 2026)
 - [x] 10. Insight del mattino: una o due frasi AI su Today che collegano score, segnali, journal di ieri e seduta di oggi (una richiesta al giorno con la tua chiave, condivisa tra i dispositivi)
