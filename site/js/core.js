@@ -164,7 +164,7 @@ async function load(quiet=false){
   }catch(e){
     if(e.name==="OperationError") return lock("That passphrase doesn't match. Try again.");
     if(shown){ if(!quiet) toast("Offline · showing your last data"); return; }
-    $("app").innerHTML=`<p class="loading">${esc(e.message)}</p>`; return;
+    bootDone(); $("app").innerHTML=`<p class="loading">${esc(e.message)}</p>`; return;
   }
   flushOutbox(); syncPush();
   keepSubscription();
@@ -216,6 +216,12 @@ async function requestUpdate(btn){
   autoTries=0; polling=false; LS.del("rd_ping"); autoRefresh();
 }
 
+// the opening screen (logo and name, in index.html) stays for at least 0.8 s from launch, then fades into the page
+function bootDone(){
+  const b=$("boot"); if(!b||b.dataset.out) return; b.dataset.out="1";
+  setTimeout(()=>{b.classList.add("out");setTimeout(()=>b.remove(),340);},Math.max(0,800-performance.now()));
+}
+setTimeout(bootDone,6000);
 const LOGO_C=[[255,93,108],[247,201,72],[52,211,153],[74,163,255]];
 function logoSVG(sz){
   const P=a=>[50+38*Math.sin(a*Math.PI/180),50-38*Math.cos(a*Math.PI/180)];
@@ -229,7 +235,7 @@ function logoSVG(sz){
 }
 function splash(){return `<div class="splash">${logoSVG(96)}<div class="sp-w">Readiness</div></div>`;}
 function lock(msg){
-  const tb=$("tabbar"); if(tb) tb.remove();
+  bootDone(); const tb=$("tabbar"); if(tb) tb.remove();
   $("app").innerHTML=`<div class="lock">${logoSVG(64)}<h1>Readiness</h1><p>Enter the passphrase you saved on GitHub. It stays on this device.</p>
     <div class="field"><label for="pw">Passphrase</label><input id="pw" type="password" autocomplete="current-password"></div>
     <button class="btn" id="go">Unlock</button><div class="err">${esc(msg||"")}</div></div>`;

@@ -104,7 +104,7 @@ function tabbar(){
 }
 function render(){
   for(const t in PAGES) if(!PAGES[t].some(p=>p[0]===PG[t])) PG[t]=PAGES[t][0][0];   // a page that no longer exists → the first one
-  tabbar(); setTimeout(saveNav,0);
+  bootDone(); tabbar(); setTimeout(saveNav,0);
   if(TAB==="training") return renderTraining();
   if(TAB==="athlete") return renderAthlete();
   renderToday();
