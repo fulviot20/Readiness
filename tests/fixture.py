@@ -60,7 +60,11 @@ def make_inputs(today=TODAY, days=150, seed=7):
                 "average_heartrate": 138 if ride else 148, "max_heartrate": 172, "calories": mins * 11,
                 "distance": mins * (500 if ride else 180), "icu_average_watts": 205 if ride else None,
                 "icu_weighted_avg_watts": 220 if ride else None, "icu_ftp": 290, "feel": rnd.randint(1, 5),
-                "icu_joules": mins * 60 * 205 if ride else None, "total_elevation_gain": mins * 4})
+                "icu_joules": mins * 60 * 205 if ride else None, "total_elevation_gain": mins * 4,
+                "icu_power_zones": [55, 75, 90, 105, 120, 150, 999] if ride else None,
+                "icu_zone_times": [{"id": f"Z{z}", "secs": round(mins * 60 * sh)} for z, sh in
+                                   enumerate([.22, .48, .16, .09, .04, .01, 0], start=1)] if ride else None,
+                "carbs_ingested": 60 if ride and k % 5 == 0 else None})
         ctl += (load - ctl) / 42
         atl += (load - atl) / 7
         wellness.append({"id": iso, "hrv": round(hrv), "restingHR": rhr, "sleepSecs": round(hours * 3600),
@@ -89,7 +93,14 @@ def make_inputs(today=TODAY, days=150, seed=7):
 def build_data(today=TODAY):
     wellness, activities, gdays = make_inputs(today)
     answers = {(today - dt.timedelta(days=k)).isoformat(): {"feel": 3 + (k % 3) - 1, "sleep": 3} for k in range(1, 20)}
-    data = readiness.build(wellness, activities, [], answers, today, {}, {}, gdays)
+    # planned rides around today: intervals on the last three days and today, a long endurance ride tomorrow
+    hard = "- 15m 55%\n\n4x\n- 8m 100%\n- 4m 50%\n\n- 17m 60%"
+    events = [{"id": 900 + k, "category": "WORKOUT", "type": "Ride", "name": "4x8 threshold", "description": hard,
+               "start_date_local": f"{(today - dt.timedelta(days=k)).isoformat()}T17:00:00", "icu_training_load": 85}
+              for k in range(0, 4)]
+    events.append({"id": 990, "category": "WORKOUT", "type": "Ride", "name": "Long endurance", "description": "- 3h30m 65%",
+                   "start_date_local": f"{(today + dt.timedelta(days=1)).isoformat()}T09:00:00", "icu_training_load": 150})
+    data = readiness.build(wellness, activities, events, answers, today, {}, {}, gdays)
     data["athlete"] = readiness.athlete(wellness, {}, data["fitness"], None)
     data["energy"] = energy.build(gdays, data["days"], today, 174, "m")
     data["nutrition"] = readiness.nutrition({}, today)

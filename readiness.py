@@ -28,6 +28,7 @@ import dayflow
 import energy
 import engine
 import fitness
+import fuel
 import garmin
 import mailbox
 import months
@@ -682,9 +683,33 @@ def match_plans(plans, done):
                         break
             if hit is not None:
                 used.add(hit)
-            res.append({**p, "done": hit is not None})
+            res.append({**p, "done": hit is not None, "done_id": ws[hit].get("id") if hit is not None else None})
         out[d] = res
     return out
+
+
+def add_fuel(activities, done, plans, rest, hrmax):
+    """Attach the fuelling model's inputs (energy and carbohydrate share, see fuel.py) to every finished session
+    and to every planned one, so the app can say what a session burned and what to eat during and after it."""
+    raw = {a.get("id"): a for a in activities}
+    rides = sorted((a for a in activities if "Ride" in (a.get("type") or "") and a.get("icu_ftp")),
+                   key=lambda a: a.get("start_date_local") or "")
+    ftp = rides[-1]["icu_ftp"] if rides else None
+    per_min = {}                                        # typical energy per minute of the other sports
+    for a in sorted(activities, key=lambda a: a.get("start_date_local") or "")[-200:]:
+        if a.get("type") and "Ride" not in a["type"] and a.get("calories") and (a.get("moving_time") or 0) >= 900:
+            per_min.setdefault(sport_name(a["type"]), []).append(a["calories"] / (a["moving_time"] / 60))
+    per_min = {k: st.median(v[-10:]) for k, v in per_min.items()}
+    for ws in done.values():
+        for w in ws:
+            f = fuel.session(raw.get(w.get("id")) or {}, rest, hrmax, ftp)
+            if f:
+                w["fuel"] = f
+    for ps in plans.values():
+        for p in ps:
+            f = fuel.planned(p, ftp, per_min.get(sport_name(p["type"])) if p.get("type") else None)
+            if f:
+                p["fuel"] = f
 
 
 def week_review(days, fit, start, end):
@@ -826,6 +851,7 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
                 [a.get("max_heartrate") or 0 for a in activities] + [0])
     year = [(today - dt.timedelta(days=k)).isoformat() for k in range(FITNESS_DAYS - 1, -1, -1)]
     fit = fitness.series(activities, st.median(rests) if rests else None, hrmax if hrmax >= 150 else None, year)
+    add_fuel(activities, done, plans, fit.get("rest"), fit.get("hrmax"))
     data_days = days
     monday = today - dt.timedelta(days=today.weekday())
     reviews = [week_review(data_days, fit, monday, today), week_review(data_days, fit, monday - dt.timedelta(days=7),
