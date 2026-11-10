@@ -20,5 +20,18 @@ const {chromium}=require('playwright-core');
     loadingText:(document.querySelector('.loading')||{}).textContent?.slice(0,120)||null,
     todaySel:typeof sel!=='undefined'?(DATA.days[sel]||{}).date:null,
     todayHasScore:typeof sel!=='undefined'&&DATA?DATA.days[sel].score!=null:null}));
+  // the pages and sheets added with ride fuel, reminders and sync, on the real data: only counts and flags, never values
+  const more=await p.evaluate(()=>{const out={},t=k=>{try{return k();}catch(e){return 'ERR '+String(e.message).slice(0,80);}};
+    out.stamp=!!ENV_IV; out.sync=Object.keys(DATA.sync||{}).length;
+    out.rides30=DATA.days.slice(-30).reduce((a,d)=>a+(d.workouts||[]).filter(isRide).length,0);
+    out.carbsOnIntervals=DATA.days.reduce((a,d)=>a+(d.workouts||[]).filter(w=>w.carbs_in>0).length,0);
+    out.fuelLines=t(()=>{const c=fuelCfg();LS.set('rd_fuel',JSON.stringify({...c,since:'2000-01-01'}));foodReset();
+      const n=DATA.days.slice(-30).reduce((a,d)=>a+fuelItems(d.date).length,0);LS.del('rd_fuel');foodReset();return n;});
+    for(const pg of ['diary','plan','balance']) out[pg]=t(()=>{TAB='athlete';ATH_SUB='food';PG.athlete=pg;foodSel=todayISO();render();return document.querySelectorAll('#app section,#app .f-hero').length>0;});
+    out.fuelCard=!!document.querySelector('.fuel-c');
+    out.settings=t(()=>{openSettings();const ok=!!document.querySelector('#s-fuel');closeSheet();return ok;});
+    out.nudge=t(()=>{TAB='today';PG.today='overview';render();return document.querySelectorAll('.nudge').length;});
+    return out;});
+  console.log('new', JSON.stringify(more));
   console.log('render', JSON.stringify(info));console.log('errors', JSON.stringify(errs));
   await b.close();})();
