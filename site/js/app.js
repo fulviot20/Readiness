@@ -57,14 +57,31 @@ let TAB=QS.get("tab")||"today";   // every launch opens on Today…
 if(location.search){try{history.replaceState(null,"",location.pathname);}catch(e){}}   // a later refresh shouldn't replay the link
 if(NAV0){TAB=NAV0.t||TAB;ATH_SUB=NAV0.s||"profile";if(NAV0.p) PG={...PG,...NAV0.p};if(NAV0.f) foodSel=NAV0.f;}  // …but a refresh stays on the page you were on
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
-function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; if(t==="athlete"){ATH_SUB="profile";PG.athlete="profile";foodSel=todayISO();} buzz(5); render(); scrollTo(0,0); animIn("enter"); }
+// Four tabs at the bottom. Food is its own tab (it used to sit inside Athlete, two taps away); inside the app it is
+// still the "food" half of the athlete section, so everything that already jumps there keeps working.
+let FOOD_PG="diary";
+const curTab=()=>TAB==="athlete"&&ATH_SUB==="food"&&foodOn()?"food":TAB;
+function setTab(t){
+  if(t===curTab()){scrollTo({top:0,behavior:"smooth"});return;}
+  if(t==="food"){TAB="athlete";ATH_SUB="food";PG.athlete=FOOD_PG;foodSel=todayISO();}
+  else{TAB=t; if(t==="athlete"){ATH_SUB="profile";PG.athlete="profile";}}
+  buzz(5); render(); scrollTo(0,0); animIn("enter");
+}
+// go straight to a page of a tab (used by the search sheet and by links inside the app)
+function goPage(tab,pg){
+  closeSheet();
+  if(tab==="food"){TAB="athlete";ATH_SUB="food";PG.athlete=pg||"diary";foodSel=todayISO();}
+  else{TAB=tab;if(tab==="athlete"){ATH_SUB="profile";PG.athlete="profile";}else if(pg) PG[tab]=pg;}
+  if(tab==="today"){const i=DATA.days.findIndex(d=>d.date===todayISO());if(i>=0&&sel!==i){sel=i;draft={...(DATA.days[i].answers||{})};}}
+  render(); scrollTo(0,0); animIn("enter");
+}
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
 const PAGES={today:[["overview","Overview"],["day","Your day"],["journal","Journal"]],
   training:[["week","Week"],["month","Month"],["volume","Hours"],["fitness","Fitness"]],
   athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"],["balance","Balance"]]};
 function pageBar(tab){
-  const list=PAGES[tab].filter(p=>tab!=="athlete"||p[0]==="profile"||foodOn());
+  const list=PAGES[tab].filter(p=>tab!=="athlete"||(ATH_SUB==="food"&&foodOn()&&p[0]!=="profile"));
   if(list.length<2) return "";
   return `<nav class="pbar" role="tablist">${list.map(([k,n])=>`<button role="tab" data-pg="${k}" class="${PG[tab]===k?"on":""}" aria-selected="${PG[tab]===k}">${n}</button>`).join("")}</nav>`;
 }
@@ -81,7 +98,8 @@ function tabbar(){
     athlete:`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/></svg>`};
   let bar=$("tabbar");
   if(!bar){bar=document.createElement("nav");bar.id="tabbar";bar.className="tabbar";document.body.appendChild(bar);}
-  bar.innerHTML=["today","training","athlete"].map(t=>`<button data-tab="${t}" class="${TAB===t?"on":""}" aria-current="${TAB===t?"page":"false"}">${ic[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></button>`).join("");
+  const cur=curTab(); if(cur==="food") FOOD_PG=PG.athlete==="profile"?"diary":PG.athlete;
+  bar.innerHTML=["today","training",...(foodOn()?["food"]:[]),"athlete"].map(t=>`<button data-tab="${t}" class="${cur===t?"on":""}" aria-current="${cur===t?"page":"false"}">${ic[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></button>`).join("");
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
 function render(){
@@ -118,6 +136,7 @@ function renderToday(){
   ${isToday?keyNotice():""}
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
+  ${isToday&&foodOn()?fuelCard(raw.date,foodDay(raw.date)):""}
   ${isToday?feelNudge()+remindNudge():""}
   ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
@@ -142,7 +161,7 @@ function bind(raw){
   on("guide",()=>openGuide());
   on("m-sleep",()=>openSleepScore()); on("m-strain",()=>openStrain());
   const of=$("off"); if(of) of.onclick=openOff;
-  on("nd-w",()=>openAth("weight")); on("nd-j",()=>{jDay=todayISO();setPage("today","journal");});
+  on("fuel-c",openFuelSettings); on("nd-w",()=>openAth("weight")); on("nd-j",()=>{jDay=todayISO();setPage("today","journal");});
   // Calories opens the food diary (when it's on); the other tiles open their history
   document.querySelectorAll(".day4 [data-en]").forEach(b=>b.onclick=()=>{
     if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";PG.athlete="diary";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
@@ -315,7 +334,7 @@ function openSettings(){
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.`:""}</p>
     ${remindRow()}
-    <div class="tog"><div><label>Food diary</label><p>Food in Athlete: log meals, daily target and energy balance.</p></div>
+    <div class="tog"><div><label>Food</label><p>The Food tab: diary, meal plan, daily target and energy balance.</p></div>
       <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>
     ${foodOn()?`<div class="tog"><div><label>Fuelling</label><p>${fuelCfg().on?"What each session burns, what to take while riding and what to eat after.":"Off: rides don't add anything to the diary."}</p></div>
       <button class="btn quiet" id="s-fuel">Open</button></div>`:""}
@@ -352,5 +371,59 @@ async function saveAnswers(raw){
   const ok=await sendQ("answers",{date:raw.date,...draft});
   done(ok?"Saved. The score updates within 10 minutes.":"Saved on this phone: it goes out as soon as you're back online.");
 }
+
+/* ------------------------------------------------------------ find: everything in the app, one tap away */
+// The magnifier next to "Ask AI" opens a list of every page and sheet, filtered as you type (English or Italian).
+const FIND_IC=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>`;
+const sheetOn=(tab,pg,fn)=>()=>{goPage(tab,pg);setTimeout(()=>{try{fn();}catch(e){toast("Not available yet for today");}},60);};
+const FIND=[
+  ["Today","Score details","score recovery punteggio recupero dettagli storico",sheetOn("today","overview",()=>openScore())],
+  ["Today","What the score means for today","guide advice consiglio significato",sheetOn("today","overview",()=>openGuide())],
+  ["Today","Morning check-in","questionario mattino come ti senti malattia",()=>{goPage("today","overview");GO_PENDING="checkin";applyGo();}],
+  ["Today","Sleep score","sonno dormito notte",sheetOn("today","overview",()=>openSleepScore())],
+  ["Today","Sleep coach: debt, regularity, stages","sonno debito regolarita fasi stanotte tonight",sheetOn("today","overview",()=>openSleepCoach())],
+  ["Today","Strain","carico sforzo giornata",sheetOn("today","overview",()=>openStrain())],
+  ["Today","HRV history","hrv variabilita",sheetOn("today","overview",()=>openSignal("hrv"))],
+  ["Today","Resting heart rate history","fc riposo battiti frequenza cardiaca rhr",sheetOn("today","overview",()=>openSignal("rhr"))],
+  ["Today","Your day: calories, steps, distance, stress","calorie passi km stress giornata energia",()=>goPage("today","day")],
+  ["Today","Hour by hour: heart rate, stress, energy","grafici ora per ora frequenza energia",()=>goPage("today","day")],
+  ["Today","Journal: today's habits","diario abitudini alcol caffe cena stress",()=>{jDay=todayISO();goPage("today","journal");}],
+  ["Today","What your habits do to you","abitudini correlazioni impatto",sheetOn("today","journal",()=>openImpact())],
+  ["Today","Score doesn't feel right?","nota score sbagliato troppo alto basso",sheetOn("today","overview",()=>openOff())],
+  ["Training","This week","settimana allenamenti sedute",()=>goPage("training","week")],
+  ["Training","Monthly report and long trends","mese report trend mensile",()=>goPage("training","month")],
+  ["Training","Hours by sport","ore volume sport anno",()=>goPage("training","volume")],
+  ["Training","Fitness: VO₂max, FTP, easy pace","vo2max ftp passo forma fitness",()=>goPage("training","fitness")],
+  ["Food","Diary: log what you ate","diario cibo mangiato pasto colazione pranzo cena aggiungi",()=>goPage("food","diary")],
+  ["Food","Fuelling: on the bike and after","fuel carboidrati borraccia bici recupero rifornimento integrare",sheetOn("food","diary",()=>openFuelSettings())],
+  ["Food","Meal plan","piano alimentare menu dieta",()=>goPage("food","plan")],
+  ["Food","What I know about how you eat","note cibo memoria abitudini alimentari",sheetOn("food","plan",()=>openNotes())],
+  ["Food","Balance: eaten minus burned","bilancio deficit surplus calorie",()=>goPage("food","balance")],
+  ["Food","Weight goal","obiettivo peso dimagrire target",sheetOn("food","balance",()=>openGoal())],
+  ["Food","My meals and recipes","pasti salvati ricette colazione classica",sheetOn("food","diary",()=>openLibrary())],
+  ["Athlete","Profile: age, height, fitness age","profilo eta altezza",()=>goPage("athlete")],
+  ["Athlete","Weight: log and history","peso pesata bilancia",sheetOn("athlete",null,()=>openAth("weight"))],
+  ["Athlete","FTP and power to weight","ftp watt w/kg potenza",sheetOn("athlete",null,()=>openAth("ftp"))],
+  ["Athlete","Running: LTHR and threshold pace","corsa soglia lthr passo",sheetOn("athlete",null,()=>openAth("lthr"))],
+  ["Settings","Settings","impostazioni passphrase chiave ai gemini",()=>openSettings()],
+  ["Settings","Notifications and reminders","notifiche promemoria avvisi",()=>openSettings()],
+  ["Settings","Score check: is the score right for you?","validazione verifica score check",()=>openValidation()],
+  ["Settings","Ask AI","assistente ai domanda chiedi",()=>openAssistant()],
+];
+function openFind(){
+  const row=(e,i)=>`<button class="fd-r" data-fd="${i}"><small>${e[0]}</small><b>${esc(e[1])}</b></button>`;
+  openSheet(`<div class="sh-top"><h2>Find</h2>${X}</div>
+    <div class="field" style="margin-top:0"><input id="fd-q" type="search" placeholder="Search the app… e.g. sleep, peso, fuel" autocomplete="off" enterkeyhint="search"></div>
+    <div id="fd-l"></div>`);
+  const q=$("fd-q"),draw=()=>{
+    const t=norm(q.value).trim().split(/\s+/).filter(Boolean);
+    const hits=FIND.map((e,i)=>[e,i]).filter(([e])=>e[0]!=="Food"||foodOn()).filter(([e])=>{const h=norm(e.join(" "));return t.every(w=>h.includes(w));});
+    $("fd-l").innerHTML=hits.length?hits.map(([e,i])=>row(e,i)).join(""):`<p class="notice">Nothing matches. Try another word, or ask the AI.</p>`;
+    $("fd-l").querySelectorAll("[data-fd]").forEach(b=>b.onclick=()=>{buzz(5);try{FIND[+b.dataset.fd][3]();}catch(e){toast("Not available yet for today");}});
+  };
+  q.oninput=draw; q.onkeydown=e=>{if(e.key==="Enter"){const f=$("fd-l").querySelector("[data-fd]");if(f) f.click();}};
+  draw();
+}
+document.addEventListener("click",e=>{if(e.target.closest("#find")) openFind();});
 
 load();

@@ -62,7 +62,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     // the model: a session that ran longer than planned leaves more to refill than the plan foresaw
     ["fuel-model", () => { const f = {kcal: 2000, frac: .5, min: 180, how: "power zones"};
       if (!(fuelUsed(f, 180) > fuelUsed(f, 0))) throw new Error("intake should raise carbohydrate use");
-      if (fuelRate({...f, min: 50}, 90) !== 0 || fuelRate(f, 90) < 50 || fuelRate(f, 60) > 60) throw new Error("intake rate out of range");
+      if (fuelRate({...f, min: 30}, 90) !== 0 || fuelRate(f, 90) < 60 || fuelRate(f, 60) > 60 || fuelRate({...f, min: 70}, 90, false) !== 0) throw new Error("intake rate out of range");
       const a = fuelRecovery(300, 150, 65, true), b = fuelRecovery(300, 150, 65, false), c = fuelRecovery(100, 95, 65, true);
       if (!(a.carbs > b.carbs) || c.carbs !== 0 || a.deficit !== 150) throw new Error("recovery rule wrong");
       const d = DATA.days.find(x => (x.workouts || []).some(w => w.fuel && planOf(x.date, w)));
@@ -77,6 +77,16 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (fuelCfg().max !== 90) throw new Error("older server value overwrote the local one"); }],
     ["reminders", () => { localStorage.setItem("rd_push", "1"); remindRow(); remindNudge(); GO_PENDING = "journal"; applyGo();
       if (PG.today !== "journal") throw new Error("notification link did not open the journal"); PG.today = "overview"; }],
+    // four tabs, and the search sheet reaches every destination without an error
+    ["food-tab", () => { setTab("food"); if (curTab() !== "food" || !document.querySelector('.tabbar [data-tab="food"].on')) throw new Error("Food tab not active");
+      if (document.querySelector('.pbar [data-pg="profile"]')) throw new Error("Profile pill still inside Food");
+      setTab("athlete"); if (curTab() !== "athlete" || document.querySelector(".pbar")) throw new Error("Athlete should be the profile alone"); }],
+    ["find", () => { openFind(); const q = document.getElementById("fd-q"); q.value = "peso"; q.oninput();
+      if (!document.querySelectorAll("#fd-l [data-fd]").length) throw new Error("search in Italian found nothing");
+      q.value = ""; q.oninput(); if (document.querySelectorAll("#fd-l [data-fd]").length !== FIND.length) throw new Error("not every destination is listed");
+      const t = window.toast; let bad = 0; window.toast = m => { if (/Not available/.test(m)) bad++; };
+      for (const e of FIND) { if (e[1] === "Ask AI") continue; e[3](); closeSheet(); }
+      window.toast = t; }],
     ["today", () => setTab("today")],
   ]) await step(n, fn);
   const info = await p.evaluate(() => { PG.today = "day"; render(); const dayflow = !!document.getElementById("df-sec");

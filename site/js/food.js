@@ -522,12 +522,16 @@ const startMs=(date,hhmm)=>new Date(`${date}T${hhmm||"12:00"}`).getTime();
 const r5=v=>Math.round(v/5)*5;
 const FUEL_INTAKE=0.0005/0.30;
 function fuelUsed(f,intake=0){const rate=f.min?intake/(f.min/60):0;return f.kcal*clip(f.frac+FUEL_INTAKE*rate,.15,1)/4;}
-function fuelRate(f,max){
-  const m=f.min; if(m<60) return 0;
-  const burn=fuelUsed(f)/(m/60);
-  if(m<75) return burn>=100?Math.min(30,max):0;
-  const [lo,hi]=m<150?[30,60]:[50,max<=90?90:max];
-  return r5(Math.min(max,hi,Math.max(lo,.55*burn)));
+// On the bike: 70% of what the session burns per hour (before the fall that comes with duration), 10% more for every
+// hour beyond the second, never under 40 g/h, never over your ceiling. Other sports: the classic duration tiers.
+function fuelRate(f,max,ride=true){
+  const m=f.min;
+  if(ride){ if(m<40) return 0;
+    const burn=f.kcal*(f.frac0??f.frac)/4/(m/60);
+    return r5(Math.min(max,Math.max(40,.7*burn*(1+.1*Math.max(0,m/60-2))))); }
+  if(m<75) return 0;
+  const [lo,hi]=m<150?[30,60]:[50,90];
+  return r5(Math.min(max,hi,Math.max(lo,.55*fuelUsed(f)/(m/60))));
 }
 function fuelRecovery(used,intake,kg,soon,extra=0){
   const deficit=Math.max(0,used-intake),fast=soon||extra>=.3*kg,cap=(fast?1.2:.8)*kg;
@@ -539,7 +543,7 @@ function fuelRecovery(used,intake,kg,soon,extra=0){
 const fuelExtra=(used,intake,plan)=>plan?Math.max(0,used-intake)-plan.deficit:0;
 const planOf=(date,w)=>(dayOf(date)?.plan||[]).find(p=>p.done_id&&p.done_id===w.id&&p.fuel)||null;
 function fuelPlanned(p){            // what a planned session asks for
-  const rate=fuelRate(p.fuel,fuelCfg().max),intake=rate*p.fuel.min/60,used=fuelUsed(p.fuel,intake);
+  const rate=fuelRate(p.fuel,fuelCfg().max,isRide(p)),intake=rate*p.fuel.min/60,used=fuelUsed(p.fuel,intake);
   return {rate,intake:r5(intake),used,deficit:Math.max(0,used-intake)};
 }
 // what you took during a finished session, and how we know
@@ -617,7 +621,7 @@ function openFuelSettings(){
     <p class="sh-desc">For every session the app estimates the carbohydrate you burn, tells you how much to take while riding and how much to eat afterwards.</p>
     <ul class="guide">
       <li><b>Burned.</b> Work from your power meter, at 22% efficiency, gives the energy. The share from carbohydrate comes from the time in each power zone: about 45% in easy endurance, 60–70% at tempo, nearly all of it at threshold and above. It drops about 8 points an hour as the ride goes on and rises a little with what you take.</li>
-      <li><b>While riding.</b> Under an hour, nothing. From 1 to 2½ hours, 30–60 g an hour; longer, 50–90. Inside the range the amount follows how much the session burns.</li>
+      <li><b>While riding: the priority.</b> Sized on your engine: 70% of what the session burns each hour, a little more on long rides, never under 40 g an hour and never over your ceiling. It feeds the session, starts the refill for the next one and keeps your gut trained. A hard hour burns 150 g or more, so it lands on your ceiling.</li>
       <li><b>After.</b> Burned minus taken is what your glycogen is missing. With another demanding session within a day: up to 1.2 g per kg in the first hour. Otherwise up to 0.8 g per kg in the next meal. Always 0.3 g of protein per kg.</li>
       <li><b>If the session changes.</b> Longer or harder than planned means more burned than what you carried: the difference is added to recovery and refilled straight away, in two doses when it is large.</li>
     </ul>
@@ -633,10 +637,10 @@ function openFuelSettings(){
 function fuelCard(d,items){
   const day=dayOf(d); if(d!==todayISO()||!day) return "";
   const rows=[];
-  for(const p of (day.plan||[]).filter(p=>!p.done&&p.fuel&&p.fuel.min>=45)){
+  for(const p of (day.plan||[]).filter(p=>!p.done&&p.fuel&&p.fuel.min>=30)){
     const q=fuelPlanned(p),tot=q.intake;
-    rows.push(`<p><b>Before · ${esc(p.name||"Session")}, ${durTxt(p.fuel.min)}</b>You'll burn about ${r5(q.used)} g of carbs. ${q.rate&&isRide(p)?`Take ${q.rate} g an hour, ${tot} g in all${q.rate>60?" (glucose + fructose mix)":""}: about ${r5(q.deficit)} g will be left to refill afterwards.`
-      :q.rate?`If you can, take about ${tot} g during it.`:"Under an hour water is enough: eat normally afterwards."}</p>`);
+    rows.push(`<p><b>On the bike · ${esc(p.name||"Session")}, ${durTxt(p.fuel.min)}</b>${q.rate&&isRide(p)?`<em>${tot} g of carbs</em> in the bottle${p.fuel.min>=90?"s":""} (${q.rate} g/h${q.rate>60?", glucose + fructose":""}). You'll burn about ${r5(q.used)} g: about ${r5(q.deficit)} g left to refill after.`
+      :q.rate?`You'll burn about ${r5(q.used)} g of carbs. If you can, take about ${tot} g during it.`:`You'll burn about ${r5(q.used)} g of carbs: too short to need anything on the way, eat well afterwards.`}</p>`);
   }
   const done=(day.workouts||[]).filter(w=>w.type&&w.start&&w.fuel&&(w.minutes||0)>=30).sort((a,b)=>a.start<b.start?-1:1),last=done[done.length-1];
   const end=last?startMs(d,last.start)+last.minutes*60000:0;
@@ -837,7 +841,7 @@ function renderFood(){
   else if(pg==="balance") body=`${weekCard(false)}${goalCard()}${balanceSection()}<p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.</p>`;
   else {PG.athlete="diary";return renderFood();}
   $("app").innerHTML=`
-  <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
+  <div class="top"><div class="ttl">Food</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
   ${pageBar("athlete")}${body}`;
   const on=(id,f)=>{const e=$(id);if(e) e.onclick=f;};
   $("gear").onclick=openSettings; on("f-hero",()=>openTarget(d));

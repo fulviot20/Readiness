@@ -301,11 +301,13 @@ def plans_by_day(events):
     out = {}
     for e in events:
         d = (e.get("start_date_local") or "")[:10]
-        if not d or (e.get("category") and e["category"] != "WORKOUT"):
+        cat = e.get("category") or "WORKOUT"
+        if not d or not (cat == "WORKOUT" or cat.startswith("RACE")):
             continue
         steps = parse_workout(e.get("description") or "")
         out.setdefault(d, []).append({
-            "id": e.get("id"), "name": e.get("name") or "Workout", "type": e.get("type"),
+            "id": e.get("id"), "name": e.get("name") or ("Race" if cat != "WORKOUT" else "Workout"), "type": e.get("type"),
+            "race": cat != "WORKOUT" or None,
             "minutes": round(sum(x["min"] for x in steps)) or round((e.get("moving_time") or 0) / 60) or None,
             "load": e.get("icu_training_load"), "steps": steps})
     return out

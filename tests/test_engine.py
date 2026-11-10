@@ -241,9 +241,19 @@ def test_fuel_plan_intake_and_recovery():
     p = fuel.planned({"type": "Ride", "minutes": 80, "steps": steps, "load": 85}, 280)
     long = fuel.planned({"type": "Ride", "minutes": 240, "steps": [{"min": 240, "lo": 65, "hi": 65}]}, 280)
     assert p["how"] == "planned power" and p["frac"] > long["frac"]
-    assert fuel.intake_rate({**p, "min": 50}) == 0                  # under an hour: nothing
-    assert 30 <= fuel.intake_rate(p) <= 60 and 50 <= fuel.intake_rate(long) <= 90
-    assert fuel.intake_rate(long, ceiling=40) == 40                 # never above what you tolerate
+    # on the bike the amount follows the engine: a hard hour lands on the ceiling, an easy spin on the floor
+    assert fuel.intake_rate({**p, "min": 30}) == 0 and fuel.intake_rate(p) == 90 and fuel.intake_rate(p, ceiling=80) == 80
+    spin = fuel.planned({"type": "Ride", "minutes": 60, "steps": [{"min": 60, "lo": 45, "hi": 45}]}, 280)
+    z2 = fuel.planned({"type": "Ride", "minutes": 60, "steps": [{"min": 60, "lo": 68, "hi": 68}]}, 280)
+    assert fuel.intake_rate(spin) == 40 and 65 <= fuel.intake_rate(z2) <= 80
+    assert fuel.intake_rate(z2) < fuel.intake_rate(long) <= 90      # the same pace asks for more on a long ride
+    small = fuel.planned({"type": "Ride", "minutes": 60, "steps": [{"min": 60, "lo": 68, "hi": 68}]}, 180)
+    assert fuel.intake_rate(small) < fuel.intake_rate(z2)           # a smaller engine burns, and needs, less
+    race = fuel.planned({"type": "Ride", "minutes": 60, "race": True}, 280)
+    assert race["frac0"] > 0.75 and fuel.intake_rate(race) == 90
+    # other sports keep the duration tiers
+    run = {"kcal": 900, "frac": 0.6, "min": 70}
+    assert fuel.intake_rate(run, ride=False) == 0 and 30 <= fuel.intake_rate({**run, "min": 100, "kcal": 1300}, ride=False) <= 60
     kg, intake = 65, fuel.intake_rate(long) * 4
     used = fuel.used(long, intake)
     soon, later = fuel.recovery(used, intake, kg, True), fuel.recovery(used, intake, kg, False)

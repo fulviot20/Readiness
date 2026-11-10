@@ -4,7 +4,7 @@
 // (log food, save a meal or recipe, set the goal, log weight, delete entries) that you confirm before they run.
 let AS={msgs:[],pending:null,busy:false,draft:(()=>{try{return sessionStorage.getItem("rd_as_draft")||"";}catch(e){return "";}})()};
 const SPARK=`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.5l2.1 6.4 6.4 2.1-6.4 2.1L12 19.5l-2.1-6.4L3.5 11l6.4-2.1z"/><path d="M19 15.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg>`;
-const ASK=`<button class="ask-p" id="ask" aria-label="Ask AI">${SPARK}<span>Ask AI</span></button>`;
+const ASK=`<button class="ask-p" id="ask" aria-label="Ask AI">${SPARK}<span>Ask AI</span></button><button class="gear" id="find" aria-label="Find in the app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>`;
 document.addEventListener("click",e=>{if(e.target.closest("#ask")) openAssistant();});
 function aiContext(){
   const t=todayISO(),raw=(DATA.days||[]).find(x=>x.date===t)||{},d=raw.score!=null?applyAnswers(raw,raw.answers):raw,c=d.comp||{},E=DATA.energy?.today;

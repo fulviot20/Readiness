@@ -26,6 +26,8 @@ const {chromium}=require('playwright-core');
     out.rides30=DATA.days.slice(-30).reduce((a,d)=>a+(d.workouts||[]).filter(isRide).length,0);
     out.withModel=DATA.days.reduce((a,d)=>a+(d.workouts||[]).filter(w=>w.fuel).length,0);out.plansWithModel=Object.values(DATA.upcoming||{}).flat().filter(p=>p.fuel).length;
     out.matched=DATA.days.reduce((a,d)=>a+(d.workouts||[]).filter(w=>w.fuel&&planOf(d.date,w)).length,0);
+    out.todayPlan=t(()=>(DATA.days.find(d=>d.date===todayISO())?.plan||[]).map(p=>({ride:isRide(p),race:!!p.race,done:!!p.done,min:!!p.minutes,steps:(p.steps||[]).length>0,fuel:!!p.fuel,rate:p.fuel?fuelPlanned(p).rate:null})));
+    out.tabs=document.querySelectorAll('.tabbar button').length;
     out.carbsOnIntervals=DATA.days.reduce((a,d)=>a+(d.workouts||[]).filter(w=>w.carbs_in>0).length,0);
     out.fuelLines=t(()=>{const c=fuelCfg();LS.set('rd_fuel',JSON.stringify({...c,since:'2000-01-01'}));foodReset();
       const n=DATA.days.slice(-30).reduce((a,d)=>a+fuelItems(d.date).length,0);LS.del('rd_fuel');foodReset();return n;});

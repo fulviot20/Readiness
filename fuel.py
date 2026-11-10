@@ -15,10 +15,10 @@ Everything is an estimate built from published physiology and the session's own 
      * carbs taken while riding push it back up: about +0.0005 RER per g/h (their models give 0.0003-0.0007).
    One RER unit spans 0.30 between pure fat (0.70) and pure carbohydrate (1.00).
 
-3. HOW MUCH TO TAKE WHILE RIDING. Duration tiers from Jeukendrup (Sports Med 2014) and the ACSM/AND/DC position
-   stand (Thomas, Erdman & Burke 2016), "fuel for the work required" (Impey et al. 2018) inside each tier, and the
-   higher ceilings of Podlogar & Wallis (Sports Med 2022): under an hour nothing, 1-2.5 h 30-60 g/h,
-   beyond 2.5 h 50-90 g/h (more only if the gut is trained to it; glucose + fructose above 60 g/h).
+3. HOW MUCH TO TAKE WHILE RIDING. This is the priority: sized on what the engine burns, not on a duration table
+   (see intake_rate). The classic tables (Jeukendrup 2014; Thomas, Erdman & Burke 2016) describe the least that
+   helps performance in that one session; here the aim is wider: that session, the refill for the next one, and
+   a gut kept used to high intakes (Cox 2010; Costa 2017; Podlogar & Wallis 2022). Glucose + fructose above 60 g/h.
 
 4. AFTER. What was burned minus what was taken is the hole left in glycogen. Muscle refills fastest with
    1.0-1.2 g/kg/h in the first hours (Burke, van Loon & Hawley 2017); that speed only matters when the next hard
@@ -129,8 +129,8 @@ def session(a, rest=None, hrmax=None, ftp_default=None):
         if not kcal or not hr or not rest or not hrmax or hrmax <= rest + 40:
             return None
         frac, how = frac_hr((hr - rest) / (hrmax - rest)), "heart rate"
-    frac = min(FRAC_MAX, max(FRAC_MIN, frac - _drift(mins)))
-    return {"kcal": round(kcal), "frac": round(frac, 3), "min": round(mins), "how": how}
+    frac0, frac = frac, min(FRAC_MAX, max(FRAC_MIN, frac - _drift(mins)))
+    return {"kcal": round(kcal), "frac": round(frac, 3), "frac0": round(frac0, 3), "min": round(mins), "how": how}
 
 
 def planned(p, ftp, kcal_per_min=None):
@@ -149,7 +149,7 @@ def planned(p, ftp, kcal_per_min=None):
             if covered < mins * 0.98:                   # time not described by steps: easy riding
                 parts.append((rel_load or 0.6, mins - covered))
         else:
-            parts = [(rel_load or 0.65, mins)]
+            parts = [(rel_load or (0.92 if p.get("race") else 0.65), mins)]
         kj = sum(rel * ftp * m * 60 for rel, m in parts) / 1000
         frac = sum(frac_power(rel) * rel * m for rel, m in parts) / sum(rel * m for rel, m in parts)
         kcal, how = kj / GE / 4.184, "planned power"
@@ -158,8 +158,8 @@ def planned(p, ftp, kcal_per_min=None):
         kcal, frac, how = kcal_per_min * mins * rel / 0.7, frac_power(rel), "planned load"
     else:
         return None
-    frac = min(FRAC_MAX, max(FRAC_MIN, frac - _drift(mins)))
-    return {"kcal": round(kcal), "frac": round(frac, 3), "min": round(mins), "how": how}
+    frac0, frac = frac, min(FRAC_MAX, max(FRAC_MIN, frac - _drift(mins)))
+    return {"kcal": round(kcal), "frac": round(frac, 3), "frac0": round(frac0, 3), "min": round(mins), "how": how}
 
 
 def used(f, intake_g=0):
@@ -169,17 +169,32 @@ def used(f, intake_g=0):
     return f["kcal"] * frac / KCAL_PER_G
 
 
-def intake_rate(f, ceiling=90):
-    """Grams per hour to take during a session (mirrored in site/js/food.js)."""
+REPLACE = 0.70               # share of what the engine burns that is put back in while riding
+RIDE_FLOOR = 40              # g/h on any ride worth fuelling: keeps the gut used to it
+RIDE_MIN = 40                # minutes below which a ride isn't fuelled
+
+
+def intake_rate(f, ceiling=90, ride=True):
+    """Grams per hour to take during a session (mirrored in site/js/food.js).
+
+    On the bike fuelling comes first: it feeds the session, it starts the refill for the next one before this one
+    is over, and it keeps the gut trained. So the amount is sized on the engine: 70% of what the session burns per
+    hour (energy from the power, carb share from the intensity, before the fall that comes with duration), 10% more
+    for every hour beyond the second, never under 40 g/h and never over what the gut tolerates. A hard hour by a
+    strong rider burns 150-200 g: the ceiling is what limits it, not a guideline table.
+    Other sports keep the classic duration tiers (Jeukendrup 2014; Thomas, Erdman & Burke 2016)."""
     mins = f["min"]
-    if mins < 60:
+    if ride:
+        if mins < RIDE_MIN:
+            return 0
+        burn = f["kcal"] * f.get("frac0", f["frac"]) / KCAL_PER_G / (mins / 60)
+        want = REPLACE * burn * (1 + 0.10 * max(0, mins / 60 - 2))
+        return int(round(min(ceiling, max(RIDE_FLOOR, want)) / 5) * 5)
+    if mins < 75:
         return 0
-    burn = used(f) / (mins / 60)                      # g/h burned with nothing taken
-    if mins < 75:                                     # about an hour: only worth it when it's a hard one
-        return min(30, ceiling) if burn >= 100 else 0
-    lo, hi = (30, 60) if mins < 150 else (50, 90 if ceiling <= 90 else ceiling)
-    want = 0.55 * burn                                # cover a bit more than half: the rest is what stores are for
-    return int(round(min(ceiling, hi, max(lo, want)) / 5) * 5)
+    burn = used(f) / (mins / 60)
+    lo, hi = (30, 60) if mins < 150 else (50, 90)
+    return int(round(min(ceiling, hi, max(lo, 0.55 * burn)) / 5) * 5)
 
 
 def recovery(used_g, intake_g, kg, soon, extra=0):
