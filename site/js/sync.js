@@ -4,7 +4,7 @@
 // settings used to stay on the device where you made them. Each of those is one value with the time it was last changed:
 // a change goes out through the same encrypted mailbox, comes back inside the published data, and the newest copy wins.
 // The plan is too big for one message, so it is compressed and sent in pieces that the server puts back together.
-const SYNC_KEYS=["rd_plan","rd_plan_sel","rd_fuel","rd_remind"];
+const SYNC_KEYS=["rd_plan","rd_plan_sel","rd_fuel","rd_remind","rd_insight"];
 const SYNC_CHUNK=2200;
 const syncTs=()=>lsJSON("rd_sync_ts",{});
 let syncTimer=null;

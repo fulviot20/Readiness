@@ -17,8 +17,8 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [ ] 9. App nativa Android e widget per la schermata Home
 
 ## Miglioramenti proposti (novembre 2026)
-- [ ] 10. Insight del mattino proattivo: una frase AI su Today che collega score, sonno, journal e allenamento del giorno (una richiesta al giorno)
-- [ ] 11. Allenamento del giorno adattato allo score, come proposta (mai obbligo): versione "piena" e "corta" della seduta, con link a Intervals
+- [x] 10. Insight del mattino: una o due frasi AI su Today che collegano score, segnali, journal di ieri e seduta di oggi (una richiesta al giorno con la tua chiave, condivisa tra i dispositivi)
+- [x] 11. Seduta del giorno in due versioni, come proposta (mai obbligo): "Full" com'è pianificata e "Short" ricavata dalla sua struttura (una ripetuta in meno, o un quarto di tempo in meno; fondo facile nei giorni molto bassi), con quale delle due si adatta allo score
 - [x] 12. Fueling in bici e post-allenamento collegati al diario: modello fisiologico (fuel.py) che stima i carboidrati consumati dalle zone di potenza, dice quanto prendere in sella e quanto reintegrare dopo; se la seduta esce diversa dal piano, la differenza va nel recupero
 - [x] 13. Promemoria intelligenti: notifica serale se il journal è vuoto, peso settimanale, check-in del mattino (ognuno solo se manca davvero, una volta sola, disattivabile in Settings)
 - [x] 14. Sincronizzare anche piano alimentare e note tra telefono e computer: piano, alternative scelte e impostazioni (fuel, promemoria) seguono tutti i dispositivi

@@ -11,7 +11,7 @@ import json
 import urllib.request
 
 BASE = "https://ntfy.sh"
-SYNC_KEYS = ("rd_plan", "rd_plan_sel", "rd_fuel", "rd_remind")    # same list as site/js/sync.js
+SYNC_KEYS = ("rd_plan", "rd_plan_sel", "rd_fuel", "rd_remind", "rd_insight")    # same list as site/js/sync.js
 
 
 def keep_value(mail, obj):

@@ -86,6 +86,19 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       const t = window.toast; let bad = 0; window.toast = m => { if (/Not available/.test(m)) bad++; };
       for (const e of FIND) { if (e[1] === "Ask AI") continue; e[3](); closeSheet(); }
       window.toast = t; }],
+    // the planned session in two ways: intervals lose a repetition, a very low day turns it into easy endurance
+    ["adapt", () => { const p = {name: "4x8", type: "Ride", minutes: 80, steps: [{min: 15, lo: 55, hi: 55}, ...[0, 1, 2, 3].flatMap(() => [{min: 8, lo: 100, hi: 100}, {min: 4, lo: 50, hi: 50}]), {min: 17, lo: 60, hi: 60}]};
+      const n = adaptPlan(p, "Normal"), l = adaptPlan(p, "Low"), v = adaptPlan(p, "Very low"), e = adaptPlan({type: "Ride", minutes: 120, steps: [{min: 120, lo: 65, hi: 65}]}, "Low");
+      if (n.pick !== "full" || l.pick !== null || v.pick !== "short") throw new Error("wrong suggestion for the band");
+      if (!/^3×8 min/.test(l.short.txt) || l.short.min !== 68 || v.short.min > 60 || e.short.min !== 90) throw new Error("short version wrong: " + l.short.txt + " " + l.short.min);
+      if (adaptPlan({...p, race: true}, "Low") !== null) throw new Error("a race has no short version");
+      const d = DATA.days.find(x => x.date === todayISO()); d.workouts = []; (d.plan || []).forEach(q => { q.done = false; });
+      setTab("today"); render(); if (!document.querySelector(".adapt")) throw new Error("the two versions are not on Today");
+      if (insightCard() !== "") throw new Error("no AI key: the insight card should stay hidden");
+      localStorage.setItem("rd_gemini", "x"); syncSet("rd_insight", {date: todayISO(), text: "Test insight."}); render();
+      if (document.getElementById("ins-t")?.textContent !== "Test insight.") throw new Error("saved insight not shown");
+      if (!insightFacts().today_plan.length) throw new Error("insight facts miss today's plan");
+      localStorage.removeItem("rd_gemini"); }],
     ["today", () => setTab("today")],
   ]) await step(n, fn);
   const info = await p.evaluate(() => { PG.today = "day"; render(); const dayflow = !!document.getElementById("df-sec");

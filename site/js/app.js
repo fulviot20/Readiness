@@ -133,6 +133,7 @@ function renderToday(){
   <div class="g-wrap"><button class="gauge" id="gauge" aria-label="Score details">${gaugeSVG(has?day.score:null,band,color)}</button>${legendHTML(has?band:"")}</div>
   <p class="adj">${has?esc(deltaTxt(day)):""}</p>
   ${has?`<button class="verdict-b" id="guide"><span class="verdict">${esc(day.advice)}</span><span class="why">${esc(day.why)}</span><span class="more">What this means for today</span></button>`:""}
+  ${isToday&&has?insightCard():""}
   ${isToday&&!has?pendingNote():""}
   ${isToday?keyNotice():""}
   ${has&&day.alarm?alertCard(day):""}
@@ -150,6 +151,7 @@ function renderToday(){
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 
   if(has&&$("gauge")){animateGauge(prevScore,day.score); prevScore=day.score;}
+  if(isToday&&has&&PG.today==="overview") insightRun();
   const u=$("upd"); if(u) u.onclick=()=>requestUpdate(u);
   const sy=$("sync"); if(sy) sy.onclick=()=>{syncAt=Date.now(); LS.del("rd_ping");};
   bind(raw);

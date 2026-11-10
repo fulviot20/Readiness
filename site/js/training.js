@@ -57,7 +57,9 @@ function sessions(day){
   const done=(day.workouts||[]).filter(w=>w.type);
   const doneEvents=new Set(done.map(w=>w.event).filter(Boolean));
   const plans=day.date<todayISO()?[]:(day.plan||[]).filter(p=>!p.done&&!doneEvents.has(p.id));
-  const cards=done.map(doneCard).concat(plans.map(planCard));
+  // today, with a score: each planned session comes with its full and short version
+  const sc=isT&&day.score!=null?applyAnswers(day,Object.keys(draft).length?draft:day.answers):null;
+  const cards=done.map(doneCard).concat(plans.map(p=>planCard(p)+(sc?adaptCard(p,sc.band,sc.alarm):"")));
   const title=isT?"Today's training":"Training";
   const empty=`<div class="wcard rest"><div class="w-name">Nothing planned</div><div class="w-meta">Rest day, or nothing on the calendar yet.</div></div>`;
   return `<section class="sec"><div class="sec-h"><h2>${title}</h2><span>Synced with Garmin & Intervals</span></div>
