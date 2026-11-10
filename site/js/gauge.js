@@ -36,10 +36,16 @@ function legendHTML(band){
 function animateGauge(from,to){
   const num=$("g-num"),arcs=[...document.querySelectorAll(".gauge .r-arc")],head=$("r-head");
   if(!num) return;
-  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce?0:1200,t0=performance.now();
+  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches,T=reduce||from===to?0:1200,t0=performance.now();
+  // the soft glow is a blur filter: redrawing it on every frame is what makes the ring stutter on a phone,
+  // so only the sharp arc is animated and the glow fades in once, at the end
+  const glow=arcs.find(a=>a.hasAttribute("filter")),live=arcs.filter(a=>a!==glow);
+  if(glow&&T){glow.style.transition="none";glow.style.opacity="0";}
   const step=now=>{const k=T?clip((now-t0)/T,0,1):1,e=1-Math.pow(1-k,3),v=from+(to-from)*e,d=ringDash(v),[hx,hy]=ringHead(v);
-    arcs.forEach(a=>a.setAttribute("stroke-dasharray",d)); head.setAttribute("cx",hx.toFixed(2)); head.setAttribute("cy",hy.toFixed(2));
-    num.textContent=Math.round(v); if(k<1) requestAnimationFrame(step);};
-  requestAnimationFrame(step);
+    live.forEach(a=>a.setAttribute("stroke-dasharray",d)); head.setAttribute("cx",hx.toFixed(2)); head.setAttribute("cy",hy.toFixed(2));
+    num.textContent=Math.round(v);
+    if(k<1) return requestAnimationFrame(step);
+    if(glow){glow.setAttribute("stroke-dasharray",d);if(T){glow.style.transition="opacity .35s";glow.style.opacity=".5";}}};
+  if(T) requestAnimationFrame(step); else step(t0);
 }
 

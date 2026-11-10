@@ -8,8 +8,9 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 var(--ui)}
-body{padding:env(safe-area-inset-top) 18px calc(96px + env(safe-area-inset-bottom));
-  background:radial-gradient(120% 60% at 50% -10%,#1d2a3d 0%,var(--bg) 60%) fixed}
+body{background:none;padding:env(safe-area-inset-top) 18px calc(96px + env(safe-area-inset-bottom))}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(120% 60% at 50% -10%,#1d2a3d 0%,var(--bg) 60%)}
 main{max-width:520px;margin:0 auto}
 button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--glacier);outline-offset:2px;border-radius:8px}
@@ -621,7 +622,7 @@ button:focus-visible{outline:2px solid var(--glacier);outline-offset:2px}
 
 /* page menu: a row of pills under the title that stays in view */
 .pbar{position:sticky;top:0;z-index:5;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin:0 -18px 8px;padding:8px 18px;
-  background:linear-gradient(180deg,rgba(18,26,38,.96) 70%,rgba(18,26,38,0));backdrop-filter:blur(8px)}
+  background:linear-gradient(180deg,rgba(18,26,38,.96) 70%,rgba(18,26,38,0))}
 .pbar::-webkit-scrollbar{display:none}
 .pbar button{flex:none;background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:99px;padding:7px 12px;color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .2s,color .2s}
 .pbar button.on{background:var(--text);color:var(--bg);border-color:transparent}
@@ -666,3 +667,14 @@ button:focus-visible{outline:2px solid var(--glacier);outline-offset:2px}
 .nut-more summary{cursor:pointer;color:var(--glacier);font-weight:600;font-size:14px;padding:12px 0 2px}
 
 .jr-h{font-size:12.5px;color:var(--faint);margin:10px 0 0;line-height:1.45}.jr-h b{color:var(--muted);font-weight:600}
+
+/* reminders, ride fuel */
+button.nudge{font:inherit;text-align:left;cursor:pointer}
+.rem{margin-top:18px}.rem label{font-size:15px}.rem>p{font-size:13px;color:var(--faint);margin:4px 0 10px}
+.rem .chips button{font-size:13.5px;padding:8px 13px;color:var(--muted)}.rem .chips button.on{background:rgba(111,211,230,.14);border-color:rgba(111,211,230,.45);color:var(--text)}
+.rem-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;font-size:13.5px;color:var(--muted)}
+.rem-h.off{opacity:.35;pointer-events:none}.rem-h .range{margin:0;flex:none}
+.fuel-c{display:flex;gap:12px;background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:16px;padding:12px 14px;margin-top:12px}
+.fuel-c>i{flex:none;width:30px;height:30px;border-radius:10px;background:rgba(111,211,230,.13);color:var(--glacier);display:grid;place-items:center}
+.fuel-c p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.45}.fuel-c p+p{margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+.fuel-c b{display:block;color:var(--text);font-size:14.5px;font-weight:600;margin-bottom:1px}

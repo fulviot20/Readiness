@@ -12,6 +12,7 @@ Environment:
 """
 import base64
 import datetime as dt
+import functools
 import glob
 import hashlib
 import json
@@ -143,13 +144,20 @@ def nutrition(mail, today, keep=120):
 
 
 # ---------------------------------------------------------------- encryption
+@functools.lru_cache(maxsize=64)
 def _key(passphrase, salt):
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=KDF_ITER)
     return kdf.derive(passphrase.encode())
 
 
-def encrypt(obj, passphrase):
-    salt, iv = os.urandom(16), os.urandom(12)
+def data_salt(passphrase):
+    """The published data always uses the same salt, so the app derives its key once and keeps it:
+    it then opens without redoing 200,000 rounds at every launch. The IV is still random every time."""
+    return hashlib.sha256(("readiness-data-salt:" + passphrase).encode()).digest()[:16]
+
+
+def encrypt(obj, passphrase, salt=None):
+    salt, iv = salt or os.urandom(16), os.urandom(12)
     ct = AESGCM(_key(passphrase, salt)).encrypt(iv, json.dumps(obj, separators=(",", ":")).encode(), None)
     b = lambda x: base64.b64encode(x).decode()
     return {"v": 1, "salt": b(salt), "iv": b(iv), "ct": b(ct)}
@@ -277,6 +285,8 @@ def summary(a, streams):
         "elev": round(a["total_elevation_gain"]) if a.get("total_elevation_gain") else None,
         "ftp": first("icu_ftp"),
         "event": a.get("paired_event_id"),
+        # carbs taken during the session, when they are recorded on Intervals (used for the "Ride fuel" diary line)
+        "carbs_in": a.get("carbs_ingested") or None,
     }
     if out["if"] and out["if"] > 3:      # Intervals sometimes reports IF as a percentage
         out["if"] = round(out["if"] / 100, 2)
@@ -875,6 +885,7 @@ def main():
     oldest = (today - dt.timedelta(days=400)).isoformat()
     data["journal"] = {"days": {d: o for d, o in (mail.get("journal") or {}).items() if d >= oldest},
                        "tags": mail.get("jtags")}
+    data["sync"] = mail.get("kv") or {}          # meal plan and settings shared between devices
     # personal Garmin key created on 3 Nov 2026 for one year
     data["garmin_key"] = {"expires": "2027-11-03", "error": bool(cache.get("garmin_auth_error"))}
     try:
@@ -883,8 +894,11 @@ def main():
         print("push skipped:", type(e).__name__, str(e)[:120])
     engine.save_cache(cache, pw, encrypt)
     os.makedirs("site", exist_ok=True)
+    env = encrypt(data, pw, data_salt(pw))
     with open("site/data.enc", "w") as f:
-        json.dump(encrypt(data, pw), f)
+        json.dump(env, f)
+    with open("site/stamp.json", "w") as f:      # tiny file the app checks to know whether the data changed
+        json.dump({"iv": env["iv"]}, f)
     stable = {k: v for k, v in data.items() if k != "generated_at"}
     with open("data.hash", "w") as f:
         f.write(hashlib.sha256(json.dumps(stable, sort_keys=True).encode()).hexdigest() + "\n")

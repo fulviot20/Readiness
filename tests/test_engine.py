@@ -154,3 +154,62 @@ def test_validation_catches_illness():
     v = readiness.validation(days, since=days[0]["date"])
     ill = next(c for c in v["checks"] if c["key"] == "illness")
     assert ill["status"] == "ok" and "1 of 1" in ill["text"]
+
+
+# ---------------------------------------------------------------- synced values, reminders, stable key
+def test_synced_value_in_pieces():
+    import base64, gzip, mailbox
+    plan = {"meals": [{"meal": "b", "title": "Colazione", "n": k} for k in range(300)]}
+    body = base64.b64encode(gzip.compress(json.dumps(plan).encode())).decode()
+    parts = [body[i:i + 500] for i in range(0, len(body), 500)]
+    assert len(parts) > 2
+    mail = {}
+    msgs = [{"key": "rd_plan", "ts": 2000, "i": i, "n": len(parts), "z": 1, "s": s} for i, s in enumerate(parts)]
+    for m in reversed(msgs[1:]):                       # pieces can arrive in any order
+        assert not mailbox.keep_value(mail, m)
+    assert "rd_plan" not in mail.get("kv", {})
+    assert mailbox.keep_value(mail, msgs[0]) and mail["kv"]["rd_plan"] == {"ts": 2000, "v": plan}
+    # an older change never replaces a newer one; a newer small one does; unknown keys are ignored
+    assert not mailbox.keep_value(mail, {"key": "rd_plan", "ts": 1000, "i": 0, "n": 1, "z": 0, "s": "{}"})
+    assert mailbox.keep_value(mail, {"key": "rd_fuel", "ts": 3000, "i": 0, "n": 1, "z": 0, "s": '{"rate":80}'})
+    assert mail["kv"]["rd_fuel"]["v"] == {"rate": 80} and mail["kv"]["rd_plan"]["ts"] == 2000
+    assert not mailbox.keep_value(mail, {"key": "rd_pass", "ts": 9000, "i": 0, "n": 1, "z": 0, "s": '"x"'})
+
+
+def _remind_data(**over):
+    t = TODAY.isoformat()
+    data = {"days": [{"date": t, "score": 72, "band": "Normal", "answers": None}], "journal": {"days": {}},
+            "athlete": {"weights": [{"date": (TODAY - dt.timedelta(days=9)).isoformat(), "kg": 70}], "metrics": {}}, "sync": {}}
+    data.update(over)
+    return data, t
+
+
+def test_reminders_only_when_missing():
+    import push
+    data, t = _remind_data()
+    at = lambda h, m=0: dt.datetime(TODAY.year, TODAY.month, TODAY.day, h, m, tzinfo=readiness.TZ)
+    keys = lambda now, sent=(), times=None, d=data: [k for k, _ in push.reminders(d, set(sent), now, times or {})]
+    scored = {f"score:{t}": at(7).timestamp()}
+    assert keys(at(7, 10), times=scored) == [f"weight:{t}"]                       # check-in waits 25 minutes
+    assert keys(at(7, 30), times=scored) == [f"checkin:{t}", f"weight:{t}"]
+    assert keys(at(7, 30), sent=[f"checkin:{t}", f"weight:{t}"], times=scored) == []   # each one once
+    assert keys(at(7, 30), times={**scored, "weight": at(7).timestamp() - 3 * 86400}) == [f"checkin:{t}"]   # weigh-in: weekly
+    assert keys(at(20, 59)) == [] and keys(at(21)) == [f"journal:{t}"]
+    done, _ = _remind_data(days=[{"date": t, "score": 72, "answers": {"feel": 4}}], journal={"days": {t: {"tags": []}}},
+                           athlete={"weights": [{"date": t, "kg": 70}], "metrics": {}})
+    assert keys(at(7, 30), times=scored, d=done) == [] and keys(at(22), d=done) == []          # nothing missing, nothing sent
+    off, _ = _remind_data(sync={"rd_remind": {"ts": 1, "v": {"checkin": False, "journal": True, "weight": False, "jhour": 22}}})
+    assert keys(at(7, 30), times=scored, d=off) == [] and keys(at(21, 30), d=off) == [] and keys(at(22), d=off) == [f"journal:{t}"]
+
+
+def test_data_key_is_stable_and_iv_is_not():
+    a = readiness.encrypt({"x": 1}, PASS, readiness.data_salt(PASS))
+    b = readiness.encrypt({"x": 1}, PASS, readiness.data_salt(PASS))
+    assert a["salt"] == b["salt"] and a["iv"] != b["iv"] and a["ct"] != b["ct"]
+    assert readiness.decrypt(a, PASS) == {"x": 1}
+    assert readiness.encrypt({"x": 1}, PASS)["salt"] != a["salt"]                 # everything else keeps a random salt
+
+
+def test_ride_carbs_reach_the_app():
+    out = readiness.summary({"id": "i1", "type": "Ride", "moving_time": 7200, "carbs_ingested": 150}, {})
+    assert out["carbs_in"] == 150 and readiness.summary({"id": "i2", "type": "Ride", "moving_time": 600}, {})["carbs_in"] is None

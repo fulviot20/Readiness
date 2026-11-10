@@ -142,7 +142,7 @@ function bindPlan(){
     on("pl-send",send); inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();send();}};
   }
   document.querySelectorAll("#pl-dt [data-dt]").forEach(b=>b.onclick=()=>{PLAN_DT=b.dataset.dt;buzz(5);renderFood();});
-  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{const s=lsJSON("rd_plan_sel",{});s[b.dataset.pk]=+b.dataset.oi;LS.set("rd_plan_sel",JSON.stringify(s));buzz(4);const y=scrollY;renderFood();scrollTo(0,y);});
+  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{const s=lsJSON("rd_plan_sel",{});s[b.dataset.pk]=+b.dataset.oi;syncSet("rd_plan_sel",s);buzz(4);const y=scrollY;renderFood();scrollTo(0,y);});
   document.querySelectorAll("[data-log]").forEach(b=>b.onclick=()=>logPlanMeal(b.dataset.log));
   document.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>{const P=planGet(),p=P.canteen.picks[+b.dataset.cp],now=Date.now();
     foodSave({...aiFood({name:p.name,grams:p.grams,kcal:p.kcal,protein:p.protein,carbs:p.carbs,fat:p.fat,note:"canteen, estimated"},P.canteen.meal),id:uid(),date:todayISO(),meal:P.canteen.meal,at:now,ts:now});
@@ -199,7 +199,7 @@ JSON: {"summary":"2 sentences","day_types":{"rest":{"label":"Rest or easy day","
     if(!Array.isArray(json.meals)||!json.meals.length) throw new Error("The AI returned an empty plan, try again");
     json.made=todayISO();json.kcal_ref=T.train;
     for(const k of ["rest","train","long"]) if(json.day_types?.[k]&&!json.day_types[k].kcal) json.day_types[k].kcal=T[k];
-    LS.set("rd_plan",JSON.stringify(json));if(!prev) LS.del("rd_plan_sel");PLAN_BUSY=false;
+    syncSet("rd_plan",json);if(!prev) syncSet("rd_plan_sel",{});PLAN_BUSY=false;
     if(!quiet){closeSheet();PLAN_DT=null;TAB="athlete";ATH_SUB="food";PG.athlete="plan";scrollTo(0,0);}
     if(TAB==="athlete"&&PG.athlete==="plan"){const y=scrollY;render();scrollTo(0,quiet?y:0);}
     toast(prev?"Plan updated":"Your plan is ready");

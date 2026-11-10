@@ -101,9 +101,13 @@ def build_data(today=TODAY):
 
 
 if __name__ == "__main__":
+    # the app always opens on the real "today", so the fixture for the smoke test is built around it
     out = os.path.join(ROOT, "tests", "out")
     os.makedirs(out, exist_ok=True)
-    data = build_data()
+    data = build_data(dt.datetime.now(readiness.TZ).date())
+    env = readiness.encrypt(data, PASS, readiness.data_salt(PASS))
     with open(os.path.join(out, "data.enc"), "w") as f:
-        json.dump(readiness.encrypt(data, PASS), f)
+        json.dump(env, f)
+    with open(os.path.join(out, "stamp.json"), "w") as f:
+        json.dump({"iv": env["iv"]}, f)
     print("fixture:", len(data["days"]), "days,", sum(1 for d in data["days"] if d.get("score") is not None), "scored")

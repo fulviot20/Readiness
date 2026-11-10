@@ -475,21 +475,103 @@ let foodSel=null,balN=30,balPick=null;
 /* ------------------------------------------------------------ food: diary storage */
 // Each entry travels on its own (add, edit, delete as a tombstone) and the newest copy wins,
 // so the phone and the server can't overwrite each other's changes.
-function foodLocal(){return lsJSON("rd_food",{});}
+// The merged list of each day is worked out once and reused until something changes: the balance and the
+// calibration read up to 120 days at a time, and re-reading the phone's storage for each one made those pages slow.
+let FOOD_L=null,FOOD_D=new Map(),DAY_MAP=null;
+function foodReset(){FOOD_L=null;FOOD_D.clear();DAY_MAP=null;}
+function foodLocal(){return FOOD_L||(FOOD_L=lsJSON("rd_food",{}));}
 function foodSave(item){
   if(item.n100&&item.name&&!item.del) nCacheSet(item.name,item.n100);
-  const L=foodLocal(),lim=isoAdd(todayISO(),-21);
+  const L=lsJSON("rd_food",{}),lim=isoAdd(todayISO(),-21);
   (L[item.date]=L[item.date]||{})[item.id]=item;
   for(const d of Object.keys(L)) if(d<lim) delete L[d];
   LS.set("rd_food",JSON.stringify(L));
+  foodReset();
   sendQ("food",item);
 }
 function foodDay(date){
+  const hit=FOOD_D.get(date); if(hit) return hit;
   const m={};
   for(const it of (DATA.nutrition?.food||{})[date]||[]) m[it.id]=it;
   for(const it of Object.values(foodLocal()[date]||{})) if(!m[it.id]||(it.ts||0)>=(m[it.id].ts||0)) m[it.id]=it;
-  return Object.values(m).filter(x=>!x.del).sort((a,b)=>(a.at||a.ts)-(b.at||b.ts));
+  for(const it of fuelItems(date)) if(!m[it.id]) m[it.id]=it;       // automatic ride fuel, unless you edited or removed it
+  const out=Object.values(m).filter(x=>!x.del).sort((a,b)=>(a.at||a.ts)-(b.at||b.ts));
+  FOOD_D.set(date,out); return out;
 }
+const dayOf=date=>(DAY_MAP||(DAY_MAP=new Map((DATA.days||[]).map(d=>[d.date,d])))).get(date);
+
+/* ------------------------------------------------------------ food: fuel on the bike and recovery */
+// The carbs you take while riding (bottle, gels, bars) rarely get logged, and on long days they are a big part of
+// what you eat: without them those days look like a huge deficit. So every ride long enough gets one diary line by
+// itself: the grams recorded on Intervals when there are any, otherwise your usual grams per hour × the ride's
+// moving time. It behaves like any other line: tap to correct it, swipe to remove it.
+const FUEL_DEF={on:true,rate:70,min:60,since:"2026-11-10"};
+const fuelCfg=()=>({...FUEL_DEF,...(lsJSON("rd_fuel",null)||{})});
+const isRide=w=>/Ride/.test(w?.type||"");
+const durTxt=m=>m<60?`${Math.round(m)} min`:`${Math.floor(m/60)}h${String(Math.round(m%60)).padStart(2,"0")}`;
+const startMs=(date,hhmm)=>new Date(`${date}T${hhmm||"12:00"}`).getTime();
+function fuelItems(date){
+  const cfg=fuelCfg(); if(!cfg.on||date<cfg.since||!foodOn()) return [];
+  const out=[];
+  for(const w of dayOf(date)?.workouts||[]){
+    if(!w.id||!isRide(w)) continue;
+    const rec=w.carbs_in>0?Math.round(w.carbs_in):null,mins=w.minutes||0;
+    if(rec==null&&mins<cfg.min) continue;
+    const c=rec??Math.round(cfg.rate*mins/60/5)*5; if(!(c>0)) continue;
+    out.push({id:"fuel-"+w.id,date,meal:"s",name:"Ride fuel",fuel:1,auto:1,wid:w.id,ride:w.name||"Ride",mins,
+      note:rec!=null?"recorded on Intervals":`${cfg.rate} g/h × ${durTxt(mins)}`,kcal:c*4,p:0,c,f:0,at:startMs(date,w.start)+1,ts:0});
+  }
+  return out;
+}
+function openFuel(it){
+  const cfg=fuelCfg();
+  openSheet(`<div class="sh-top"><h2>Ride fuel</h2>${X}</div>
+    <p class="sh-desc">The carbs you took on the bike during <b>${esc(it.ride||"your ride")}</b>${it.mins?` (${durTxt(it.mins)})`:""}. ${it.auto?`Added by itself from ${esc(it.note)}.`:"You set this amount."} Correct it if this ride was different.</p>
+    <div class="field"><label for="fu-c">Carbs taken (g)</label><input id="fu-c" type="number" inputmode="numeric" min="0" max="900" step="5" value="${Math.round(it.c)}"><p id="fu-k"></p></div>
+    <div class="savebar" style="margin-top:18px"><button class="btn quiet" id="fu-del">Remove</button><button class="btn" id="fu-save">Save</button></div>
+    <button class="pl-q" id="fu-set" style="margin-top:14px">My usual: ${cfg.rate} g/h on rides of ${cfg.min} min or more →</button>`);
+  const inp=$("fu-c"),upd=()=>{const c=+inp.value||0;$("fu-k").textContent=`${fmtK(c*4)} kcal${it.mins?` · ${Math.round(c/(it.mins/60))} g/h`:""}`;};
+  inp.oninput=upd; upd();
+  $("fu-save").onclick=()=>{const c=clip(Math.round(+inp.value||0),0,900),o={...it,c,kcal:c*4,note:"set by you",ts:Date.now()};delete o.auto;
+    foodSave(o);buzz();closeSheet();render();toast("Ride fuel updated");};
+  $("fu-del").onclick=()=>foodDelete(it);
+  $("fu-set").onclick=openFuelSettings;
+}
+function openFuelSettings(){
+  const cfg=fuelCfg();let on=cfg.on;
+  openSheet(`<div class="sh-top"><h2>Fuel on the bike</h2>${X}</div>
+    <p class="sh-desc">What you drink and eat while riding counts as food. Tell me your usual amount and every ride adds its own line to the diary; if you record the carbs of a ride on Intervals, that number is used instead.</p>
+    <div class="field"><label>Add ride fuel to the diary</label><div class="seg two" id="fs-on"><button data-v="1" class="${on?"on":""}">On</button><button data-v="0" class="${on?"":"on"}">Off</button></div></div>
+    <div class="field"><label for="fs-r">Carbs per hour (g)</label><input id="fs-r" type="number" inputmode="numeric" min="10" max="150" step="5" value="${cfg.rate}"><p>60–90 g/h is the usual range for long or hard rides.</p></div>
+    <div class="field"><label for="fs-m">Only on rides of at least (minutes)</label><input id="fs-m" type="number" inputmode="numeric" min="0" max="300" step="15" value="${cfg.min}"></div>
+    <div class="savebar" style="margin-top:22px"><span class="st"></span><button class="btn" id="fs-save">Save</button></div>`);
+  $("fs-on").querySelectorAll("button").forEach(b=>b.onclick=()=>{on=b.dataset.v==="1";$("fs-on").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
+  $("fs-save").onclick=()=>{syncSet("rd_fuel",{on,rate:clip(Math.round(+$("fs-r").value||70),10,150),min:clip(Math.round(+$("fs-m").value||0),0,300),since:cfg.since});
+    foodReset();CAL=null;buzz();closeSheet();render();toast("Saved");};
+}
+// Today's fuelling at a glance: what to take on a ride still to do, and what to eat after a session that is done
+function fuelCard(d,items){
+  const cfg=fuelCfg(),day=dayOf(d); if(d!==todayISO()||!day) return "";
+  const rows=[];
+  if(cfg.on){
+    const todo=(day.plan||[]).filter(p=>!p.done&&isRide(p)&&(p.minutes||0)>=Math.max(cfg.min,1));
+    const mins=todo.reduce((a,p)=>a+p.minutes,0);
+    if(mins) rows.push(`<p><b>On the bike · ${durTxt(mins)} planned</b>Take about ${Math.round(cfg.rate*mins/60/5)*5} g of carbs (${cfg.rate} g/h). The diary line appears by itself once the ride is uploaded.</p>`);
+  }
+  const done=(day.workouts||[]).filter(w=>w.type&&w.start&&(w.minutes||0)>=45).sort((a,b)=>a.start<b.start?-1:1),last=done[done.length-1];
+  const end=last?startMs(d,last.start)+last.minutes*60000:0;
+  if(last&&end<=Date.now()){
+    const kg=weightNow()||70,big=(last.load||0)>=100||last.minutes>=120;
+    const hard=big||((DATA.upcoming||{})[isoAdd(d,1)]||[]).some(p=>(p.load||0)>=100);
+    const cT=Math.round((hard?1:.6)*kg/5)*5,pT=Math.round(.3*kg);
+    const after=items.filter(x=>!x.fuel&&(x.at||x.ts)>=end),got=ftot(after),ok=got.c>=cT*.9&&got.p>=pT*.9;
+    const what=isRide(last)?"ride":/Run/.test(last.type)?"run":"session";
+    rows.push(`<p><b>After your ${what}${ok?" · covered":""}</b>${ok?`You've logged ${Math.round(got.c)} g of carbs and ${Math.round(got.p)} g of protein since it ended: recovery is taken care of.`
+      :`Aim for about ${cT} g of carbs and ${pT} g of protein ${hard?"within the hour":"in your next meal"}${big?": it was a big session":hard?": tomorrow is a big day":""}.${after.length?` Logged since it ended: ${Math.round(got.c)} g carbs, ${Math.round(got.p)} g protein.`:""}`}</p>`);
+  }
+  return rows.length?`<div class="fuel-c"><i>${FUEL_IC}</i><div>${rows.join("")}</div></div>`:"";
+}
+const FUEL_IC=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v3l1.5 2.5V20a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2V7.5L9 5z"/><path d="M7.5 12h9"/></svg>`;
 function foodDates(){return [...new Set([...Object.keys(DATA.nutrition?.food||{}),...Object.keys(foodLocal())])].sort();}
 const ftot=items=>items.reduce((a,x)=>({kcal:a.kcal+(x.kcal||0),p:a.p+(x.p||0),c:a.c+(x.c||0),f:a.f+(x.f||0)}),{kcal:0,p:0,c:0,f:0});
 function ntot(items){const sum={},have={};let known=0;
@@ -547,11 +629,11 @@ function nCacheSet(name,n100){if(!n100) return;const c=nCacheAll();c[norm(name)]
 const FILL={busy:false,tried:{},err:""};
 async function autoFill(d,manual){
   if(FILL.busy) return;
-  let items=foodDay(d).filter(x=>!x.n&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
+  let items=foodDay(d).filter(x=>!x.n&&!x.fuel&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
   if(!items.length) return;
   const now=Date.now();let done=0;
   for(const x of items){const c=x.g?nCache(x.name):null;if(c){foodSave({...x,n100:c,n:scaleN(c,x.g/100),ts:now+done});done++;}}
-  items=foodDay(d).filter(x=>!x.n&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
+  items=foodDay(d).filter(x=>!x.n&&!x.fuel&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
   if(!items.length||!aiKey()){if(done) refreshNut(d);return;}
   FILL.busy=true;FILL.err="";refreshNut(d);
   items.forEach(x=>FILL.tried[x.id]=(FILL.tried[x.id]||0)+1);
@@ -572,7 +654,7 @@ function bindNut(d){const na=$("nut-ai");if(na) na.onclick=()=>autoFill(d,true);
 function recents(){
   const m=new Map(),lim=isoAdd(todayISO(),-90);
   for(const d of foodDates()) if(d>=lim) for(const it of foodDay(d)){
-    if(it.k100==null&&it.src!=="quick") continue;
+    if(it.fuel||(it.k100==null&&it.src!=="quick")) continue;
     const k=norm(it.name)+"|"+norm(it.brand); const o=m.get(k)||{n:0};
     m.set(k,{n:o.n+1,last:Math.max(o.last||0,it.ts||0),it});
   }
@@ -587,7 +669,7 @@ function goalGet(){
   const g=!s?l:!l?s:(l.ts||0)>=(s.ts||0)?l:s;
   return g&&g.target?g:null;
 }
-function weightNow(){ATH_CACHE=null;const w=athLast("weight");return w?w.v:null;}
+function weightNow(){const w=athLast("weight");return w?w.v:null;}
 function goalState(){
   const g=goalGet(),w=weightNow(); if(!g) return null;
   if(w==null) return {g,w:null,dir:0,adj:0};
@@ -599,7 +681,7 @@ function goalState(){
 let CAL=null;
 function calib(){
   if(CAL) return CAL;
-  const H=DATA.energy?.history||[],today=todayISO(),lim=isoAdd(today,-28),ws=(ATH_CACHE=null,athSeries("weight")).filter(p=>p.date>=lim);
+  const H=DATA.energy?.history||[],today=todayISO(),lim=isoAdd(today,-28),ws=athSeries("weight").filter(p=>p.date>=lim);
   const days=H.filter(h=>h.date>=lim&&h.date<today&&h.kcal).map(h=>({b:h.kcal,e:ftot(foodDay(h.date)).kcal})).filter(x=>x.e>=1000);
   CAL={f:1,n:days.length,ok:false};
   if(days.length<14||ws.length<2) return CAL;
@@ -664,7 +746,7 @@ function renderFood(){
     <p class="f-sub">${tg?esc(targetLine(tg,isToday)):"Waiting for today's burn from Garmin."}</p>
   </button>
   <div class="macros">${["p","c","f"].map(mac).join("")}</div>
-  ${isToday?weekCard(true):""}
+  ${isToday?weekCard(true):""}${fuelCard(d,items)}
   <button class="coach-bar" id="f-coach">${SPARK}<span>Tell me what you ate, or ask your food coach…</span></button>
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
     ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}
@@ -681,7 +763,7 @@ function renderFood(){
   $("gear").onclick=openSettings; on("f-hero",()=>openTarget(d));
   on("fprev",()=>foodGo(-1)); on("fnext",()=>foodGo(1));
   document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openAddFood(b.dataset.add,d));
-  document.querySelectorAll("[data-fi]").forEach(b=>b.onclick=()=>{const it=items.find(x=>x.id===b.dataset.fi); if(it) openPortion(itemFood(it),{meal:it.meal,date:d,item:it});});
+  document.querySelectorAll("[data-fi]").forEach(b=>b.onclick=()=>{const it=items.find(x=>x.id===b.dataset.fi); if(!it) return; if(it.fuel) return openFuel(it); openPortion(itemFood(it),{meal:it.meal,date:d,item:it});});
   document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copyMeal(b.dataset.copy,d));
   document.querySelectorAll("[data-libm]").forEach(b=>b.onclick=()=>{const [id,m]=b.dataset.libm.split("|"),e=libAll().find(x=>x.id===id);if(e) logLibMeal(e,m,d);});
   document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
@@ -724,13 +806,13 @@ function targetLine(tg,isToday){
   return a?`${fmtK(Math.abs(a))} kcal ${a<0?"under":"over"} ${what}, for your goal.`:`Matches ${what}.`;
 }
 function mealCard(m,n,its,d){
-  const T=ftot(its),prev=its.length?[]:foodDay(isoAdd(d,-1)).filter(x=>x.meal===m);
+  const T=ftot(its),prev=its.length?[]:foodDay(isoAdd(d,-1)).filter(x=>x.meal===m&&!x.fuel);
   return `<div class="meal"><div class="ml-h"><i class="ml-i ml-${m}">${MEAL_ICON[m]}</i><b>${n}</b><span>${its.length?`${fmtK(Math.round(T.kcal))}<u>kcal</u>`:""}</span>
       <button class="ml-add" data-add="${m}" aria-label="Add to ${n}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
-    ${its.map(x=>`<div class="fi-w" data-fw="${x.id}"><div class="fi-bg">${TRASH}</div><button class="fi" data-fi="${x.id}"><span class="fn">${esc(x.name)}<small>${x.g?`${fmtNum(x.g)} g`:"Quick add"}${x.note?` · ${esc(x.note)}`:""}${x.brand?` · ${esc(x.brand)}`:""}</small></span><b>${fmtK(Math.round(x.kcal))}</b></button></div>`).join("")}
+    ${its.map(x=>`<div class="fi-w" data-fw="${x.id}"><div class="fi-bg">${TRASH}</div><button class="fi" data-fi="${x.id}"><span class="fn">${esc(x.name)}<small>${x.fuel?`${Math.round(x.c)} g carbs`:x.g?`${fmtNum(x.g)} g`:"Quick add"}${x.note?` · ${esc(x.note)}`:""}${x.brand?` · ${esc(x.brand)}`:""}</small></span><b>${fmtK(Math.round(x.kcal))}</b></button></div>`).join("")}
     ${!its.length?libAll().filter(e=>e.kind==="meal"&&e.for===m).map(e=>`<button class="ml-copy mine" data-libm="${e.id}|${m}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join(""):""}
     ${!its.length&&prev.length?`<button class="ml-copy" data-copy="${m}">Same as yesterday · ${prev.length} item${prev.length>1?"s":""}, ${fmtK(Math.round(ftot(prev).kcal))} kcal</button>`:""}
-    ${its.length?`<button class="ml-save" data-savem="${m}">Save as my meal</button>`:""}</div>`;
+    ${its.some(x=>!x.fuel)?`<button class="ml-save" data-savem="${m}">Save as my meal</button>`:""}</div>`;
 }
 const MEAL_ICON={
   b:`<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3"/></svg>`,
@@ -764,7 +846,7 @@ function bindSwipeDelete(){
   });
 }
 function copyMeal(m,d){
-  const src=foodDay(isoAdd(d,-1)).filter(x=>x.meal===m),now=Date.now();
+  const src=foodDay(isoAdd(d,-1)).filter(x=>x.meal===m&&!x.fuel),now=Date.now();
   src.forEach((x,i)=>foodSave({...x,id:uid(),date:d,ts:now+i,at:now+i}));
   buzz(); toast(`Copied ${src.length} item${src.length>1?"s":""} to ${MEAL_NAME[m]}`); renderFood();
 }
@@ -894,7 +976,7 @@ function logLibMeal(e,meal,date){
   buzz(); toast(`${e.name} added · ${fmtK(Math.round(ftot(e.items).kcal))} kcal`); render();
 }
 function openSaveMeal(m,d){
-  const its=foodDay(d).filter(x=>x.meal===m);
+  const its=foodDay(d).filter(x=>x.meal===m&&!x.fuel);
   openSheet(`<div class="sh-top"><h2>Save as my meal</h2>${X}</div>
     <p class="sh-desc">${its.length} item${its.length>1?"s":""} · ${fmtK(Math.round(ftot(its).kcal))} kcal. It will appear in ${MEAL_NAME[m]}, ready to log with one tap.</p>
     <div class="field"><label for="sm-n">Name</label><input id="sm-n" type="text" maxlength="40" value="My ${MEAL_NAME[m].toLowerCase().replace(/s$/,"")}"></div>

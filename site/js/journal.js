@@ -143,6 +143,35 @@ function feelNudge(){
   }
   return "";
 }
+/* ------------------------------------------------------------ reminders */
+// Three gentle nudges, each only when the thing is actually missing: the morning check-in, the evening journal and the
+// weekly weigh-in. As notifications they are sent by the server (push.py reads the same settings, which follow you
+// between devices); inside the app they show as one small card on Today.
+const REMIND_DEF={checkin:true,journal:true,weight:true,jhour:21};
+const remindCfg=()=>({...REMIND_DEF,...(lsJSON("rd_remind",null)||{})});
+function weighAge(){const w=athLast("weight");return w?Math.round((new Date(todayISO()+"T12:00")-new Date(w.date+"T12:00"))/864e5):null;}
+function remindNudge(){
+  const cfg=remindCfg(),h=new Date().getHours(),age=weighAge();
+  const card=(id,ic,t,sub)=>`<button class="nudge" id="${id}"><span class="ni">${ic}</span><span><b>${t}</b><span>${sub}</span></span></button>`;
+  if(cfg.weight&&age!=null&&age>=7&&h<12) return card("nd-w",`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9.5a4.2 4.2 0 0 1 6 0M12 9.5l1.5-1.5"/></svg>`,
+    "Weekly weigh-in",`Your last one was ${age} days ago. Before breakfast is the best moment.`);
+  if(cfg.journal&&h>=20&&!jAll()[todayISO()]) return card("nd-j",`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h11a1 1 0 0 1 1 1v15H7a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1zM9 9h6M9 13h4"/></svg>`,
+    "Today's journal","Ten seconds: tap what happened today.");
+  return "";
+}
+function remindRow(){
+  if(pushState()!=="on") return "";
+  const c=remindCfg(),chip=(k,t)=>`<button data-rm="${k}" class="${c[k]?"on":""}" aria-pressed="${!!c[k]}">${t}</button>`;
+  return `<div class="rem"><label>Reminders</label><p>Sent only when something is missing, each at most once. Tap to switch one off.</p>
+    <div class="chips">${chip("checkin","Morning check-in")}${chip("journal","Evening journal")}${chip("weight","Weekly weigh-in")}</div>
+    <div class="rem-h${c.journal?"":" off"}"><span>Journal reminder at</span><div class="range">${[20,21,22].map(h=>`<button data-rh="${h}" class="${c.jhour===h?"on":""}">${h}:00</button>`).join("")}</div></div></div>`;
+}
+function bindRemind(){
+  const box=document.querySelector("#sheet .rem"); if(!box) return;
+  const redraw=()=>{box.outerHTML=remindRow();bindRemind();};
+  box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const c=remindCfg();c[b.dataset.rm]=!c[b.dataset.rm];syncSet("rd_remind",c);buzz(5);redraw();});
+  box.querySelectorAll("[data-rh]").forEach(b=>b.onclick=()=>{const c=remindCfg();c.jhour=+b.dataset.rh;syncSet("rd_remind",c);buzz(5);redraw();});
+}
 function weekReviewSection(){
   const today=new Date(todayISO()+"T12:00"),monday=today.getDay()===1;
   const R=monday&&DATA.last_week_review?DATA.last_week_review:DATA.week_review; if(!R||!R.cur.days) return "";
@@ -165,7 +194,12 @@ function weekReviewSection(){
 const repoInfo=()=>({owner:location.hostname.split(".")[0],repo:location.pathname.split("/").filter(Boolean)[0]});
 const b64u=s=>{const p="=".repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(b,c=>c.charCodeAt(0));};
 // token-free channel to the server: encrypted messages on an ntfy.sh topic derived from the passphrase
+let MAIL_TOPIC=null;
 async function mailTopic(){
+  const pw=LS.get("rd_pass"); if(MAIL_TOPIC&&MAIL_TOPIC[0]===pw) return MAIL_TOPIC[1];
+  const t=await mailTopic0(); MAIL_TOPIC=[pw,t]; return t;
+}
+async function mailTopic0(){
   const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("readiness-mailbox:"+LS.get("rd_pass")));
   return "rd-"+[...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,32);
 }

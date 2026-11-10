@@ -55,8 +55,24 @@ Il verdetto arriva con 30 sedute valutate e 4 settimane di score; prima di allor
 ## Report mensili
 In *Training → This month*: per ognuno degli ultimi 12 mesi recupero, sonno, HRV e FC notturne, volume e carico, CTL, peso e marker, confrontati col mese prima e con la media dei 3 mesi prima, più alcune frasi che leggono i segnali insieme (es. più allenamento con HRV stabile = carico assorbito). I trend lunghi usano la pendenza sugli ultimi 6 mesi completi.
 
+## Fuel in bici e recupero
+- Ogni uscita in bici di almeno 60 minuti (dal 10 novembre 2026) aggiunge da sola al diario la riga **Ride fuel** negli Snacks: i carboidrati registrati su Intervals per quella uscita (`carbs_ingested`) se ci sono, altrimenti i g/h abituali (70 di base) × la durata. Si corregge con un tocco e si elimina come ogni altra voce; g/h, durata minima e interruttore sono in *Settings → Ride fuel*.
+- Nel diario di oggi un riquadro dice quanti carboidrati portare per l'uscita ancora da fare e, a seduta finita, quanti carboidrati (1 g/kg dopo una seduta grossa o prima di un giorno grosso, 0,6 g/kg altrimenti) e proteine (0,3 g/kg) servono, contando quello che hai già registrato da quando è finita.
+
+## Promemoria
+Notifiche inviate dal calcolo (`push.py`), ognuna al massimo una volta e solo se la cosa manca davvero: check-in del mattino (25 minuti dopo la notifica dello score, se non hai risposto, entro le 11), journal della sera (alle 21, se oggi è vuoto), peso settimanale (al mattino, se l'ultima pesata ha almeno 7 giorni; poi non prima di una settimana). Si spengono una per una in *Settings → Reminders*; toccandole l'app si apre già sul punto giusto. In Today compare anche un piccolo riquadro per peso e journal.
+
+## Stessi dati su telefono e computer
+Diario, journal, note sul cibo, profilo e obiettivo viaggiano già una voce alla volta. Il piano alimentare, le alternative scelte e le impostazioni di fuel e promemoria sono "valori sincronizzati" (`site/js/sync.js`, `mailbox.keep_value`): ogni modifica parte cifrata nella stessa casella di posta, il piano compresso e a pezzi perché è grande; vince la copia più recente.
+
+## Velocità
+- La chiave di cifratura si ricava una volta sola e resta sul dispositivo (i dati pubblicati usano sempre lo stesso sale; l'IV cambia ogni volta): l'app si apre senza rifare 200.000 giri a ogni avvio, e i messaggi al server riusano la stessa chiave.
+- `site/stamp.json` dice quale versione dei dati è online: l'app scarica `data.enc` solo quando è cambiato, non a ogni apertura né a ogni controllo.
+- Il service worker serve subito dalla copia sul telefono i file con versione (`?v=`) e i font; la pagina viene chiesta alla rete per al massimo 2 secondi, poi si apre quella salvata.
+- L'elenco del cibo di ogni giorno è calcolato una volta e riusato (le pagine Balance e Diary leggevano la memoria del telefono per ogni giorno).
+
 ## Struttura del codice e test
-- `site/index.html` contiene solo la struttura della pagina; lo stile è in `site/app.css` e il codice dell'app in `site/js/`, un file per area (core, gauge, sleep, dayflow, coach, score, training, food, assistant, journal, athlete, months, app). I file sono script normali caricati in ordine; quando si cambia uno di essi si aggiorna il numero `?v=` in `index.html`, così i telefoni scaricano la versione nuova.
+- `site/index.html` contiene solo la struttura della pagina; lo stile è in `site/app.css` e il codice dell'app in `site/js/`, un file per area (core, gauge, sleep, dayflow, coach, score, training, food, plan, assistant, journal, athlete, months, sync, app). I file sono script normali caricati in ordine; quando si cambia uno di essi si aggiorna **sempre** il numero `?v=` in `index.html`: i telefoni tengono in memoria i file per versione e senza numero nuovo non scaricano la modifica.
 - `tests/fixture.py` costruisce dati finti (nessun dato personale) con la stessa pipeline del calcolo vero.
 - `tests/test_engine.py` (pytest) controlla motore, score, allarmi, energia e cifratura; `tests/smoke.js` apre l'app in Chrome headless con i dati finti, passa da tutte le schede e i fogli principali e fallisce a qualsiasi errore.
 - Il workflow *Tests* li esegue a ogni modifica del codice (non sui commit orari dei dati).

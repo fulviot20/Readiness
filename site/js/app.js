@@ -53,7 +53,8 @@ function pendingNote(){
     <p class="st" id="upd-note">Garmin Connect opens for a moment to collect the night: come back here and the score appears by itself.</p>`
     :`<button class="btn quiet" id="upd">Update now</button><p class="st" id="upd-note"></p>`}</div>`;
 }
-let TAB=(()=>new URLSearchParams(location.search).get("tab")||"today")();   // every launch opens on Today…
+let TAB=QS.get("tab")||"today";   // every launch opens on Today…
+if(location.search){try{history.replaceState(null,"",location.pathname);}catch(e){}}   // a later refresh shouldn't replay the link
 if(NAV0){TAB=NAV0.t||TAB;ATH_SUB=NAV0.s||"profile";if(NAV0.p) PG={...PG,...NAV0.p};if(NAV0.f) foodSel=NAV0.f;}  // …but a refresh stays on the page you were on
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
 function setTab(t){ if(t===TAB) {scrollTo({top:0,behavior:"smooth"});return;} TAB=t; if(t==="athlete"){ATH_SUB="profile";PG.athlete="profile";foodSel=todayISO();} buzz(5); render(); scrollTo(0,0); animIn("enter"); }
@@ -117,7 +118,7 @@ function renderToday(){
   ${isToday?keyNotice():""}
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
-  ${isToday?feelNudge():""}
+  ${isToday?feelNudge()+remindNudge():""}
   ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
   <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
     <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
@@ -141,6 +142,7 @@ function bind(raw){
   on("guide",()=>openGuide());
   on("m-sleep",()=>openSleepScore()); on("m-strain",()=>openStrain());
   const of=$("off"); if(of) of.onclick=openOff;
+  on("nd-w",()=>openAth("weight")); on("nd-j",()=>{jDay=todayISO();setPage("today","journal");});
   // Calories opens the food diary (when it's on); the other tiles open their history
   document.querySelectorAll(".day4 [data-en]").forEach(b=>b.onclick=()=>{
     if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";PG.athlete="diary";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
@@ -312,21 +314,26 @@ function openSettings(){
     <div class="field"><label for="s-pw">Passphrase</label><div style="display:flex;gap:8px"><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"><button class="btn quiet" id="s-show" type="button">Show</button></div></div>
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.`:""}</p>
+    ${remindRow()}
     <div class="tog"><div><label>Food diary</label><p>Food in Athlete: log meals, daily target and energy balance.</p></div>
       <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>
+    ${foodOn()?`<div class="tog"><div><label>Ride fuel</label><p>${fuelCfg().on?`${fuelCfg().rate} g of carbs an hour go into the diary by themselves on rides of ${fuelCfg().min} min or more.`:"Off: rides don't add anything to the diary."}</p></div>
+      <button class="btn quiet" id="s-fuel">Change</button></div>`:""}
     <div class="field"><label for="s-ai">AI key (Google Gemini, free)</label><div style="display:flex;gap:8px"><input id="s-ai" type="password" autocomplete="off" placeholder="Paste your key" value="${esc(aiKey())}"><button class="btn quiet" id="s-ai-t" type="button">Test</button></div>
       <p>For food photos, speaking and free-text logging. Create it at aistudio.google.com → Get API key. It stays on this phone; on the free tier Google may use what you send to improve its models.</p><p id="s-ai-st"></p></div>
     <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>
     <div class="savebar" style="margin-top:22px"><button class="btn quiet" id="s-out">Lock app</button><button class="btn" id="s-save">Save settings</button></div>`);
   const keepAI=()=>{const k=$("s-ai").value.trim(); if(k) LS.set("rd_gemini",k); else LS.del("rd_gemini");};
-  $("s-save").onclick=()=>{keepAI(); const p=$("s-pw").value.trim(); if(p) LS.set("rd_pass",p); closeSheet(); load();};
+  $("s-save").onclick=()=>{keepAI(); const p=$("s-pw").value.trim(),ch=p&&p!==LS.get("rd_pass"); if(p) LS.set("rd_pass",p); closeSheet();
+    if(ch){ENV_IV=null;load();} else render();};
   $("s-food").onclick=()=>{const on=foodOn(); if(on) LS.set("rd_food_off","1"); else LS.del("rd_food_off"); if(on){ATH_SUB="profile";PG.athlete="profile";}
     $("s-food").textContent=on?"Show":"Hide"; $("s-food").classList.toggle("quiet",!on); render();};
   $("s-ai-t").onclick=async()=>{keepAI(); const st=$("s-ai-st"); if(!aiKey()){st.textContent="Paste a key first.";return;} st.textContent="Testing…";
     try{const it=await aiItems([{text:"1 banana"}]); st.textContent=it.length?`Works: 1 banana ≈ ${it[0].kcal} kcal.`:"The key works.";}catch(e){st.textContent=e.message;}};
-  $("s-out").onclick=()=>{LS.del("rd_pass"); closeSheet(); lock();};
+  $("s-out").onclick=()=>{LS.del("rd_pass"); forgetKeys(); closeSheet(); lock();};
   $("s-show").onclick=()=>{const i=$("s-pw"),h=i.type==="password";i.type=h?"text":"password";$("s-show").textContent=h?"Hide":"Show";};
   $("s-val").onclick=openValidation;
+  bindRemind(); const sf=$("s-fuel"); if(sf) sf.onclick=openFuelSettings;
   $("s-push").onclick=async()=>{const st=t=>$("s-pst").textContent=t,b=$("s-push");b.disabled=true;
     try{ await enableNotifications(st); await sendMail("test",{ts:Date.now()}); LS.del("rd_ping"); await pingServer();
       st("Test sent: it should arrive within about a minute. If it doesn't, check Android Settings → Apps → Readiness → Notifications.");

@@ -72,7 +72,52 @@ def sub_id(sub):
     return hashlib.sha256((sub.get("endpoint") or "").encode()).hexdigest()[:16]
 
 
-def due(data, sent, now):
+REMIND = {"checkin": True, "journal": True, "weight": True, "jhour": 21}   # defaults; changed in the app's Settings
+
+
+def remind_cfg(data):
+    v = ((data.get("sync") or {}).get("rd_remind") or {}).get("v")
+    return {**REMIND, **(v if isinstance(v, dict) else {})}
+
+
+def reminders(data, sent, now, at):
+    """Gentle nudges, each at most once and only when the thing is actually missing:
+    * morning check-in: 25 minutes after the score notification, if no answers yet (before 11:00);
+    * journal: in the evening (21:00 unless changed), if nothing was tapped for today;
+    * weigh-in: in the morning, when the last weight is a week old; then not again for a week.
+    `at` holds when the score notification and the last weigh-in reminder went out (epoch seconds)."""
+    cfg, out = remind_cfg(data), []
+    t = now.date().isoformat()
+    d = next((x for x in data.get("days") or [] if x.get("date") == t), {})
+    ts = now.timestamp()
+    morning = d.get("score") is not None and 5 <= now.hour < 11
+    scored = at.get(f"score:{t}")
+    if cfg["checkin"] and morning and not d.get("answers") and scored and ts - scored >= 25 * 60 \
+            and f"checkin:{t}" not in sent:
+        out.append((f"checkin:{t}", {"title": "Morning check-in",
+                                     "body": "Two taps: how rested you woke up and how your body feels. It fine-tunes today's score.",
+                                     "tag": "checkin", "url": "./?go=checkin"}))
+    try:
+        jhour = min(23, max(17, int(cfg.get("jhour") or 21)))
+    except (TypeError, ValueError):
+        jhour = 21
+    if cfg["journal"] and now.hour >= jhour and t not in ((data.get("journal") or {}).get("days") or {}) \
+            and f"journal:{t}" not in sent:
+        out.append((f"journal:{t}", {"title": "Today's journal",
+                                     "body": "Ten seconds: tap what happened today, so tomorrow's recovery has its context.",
+                                     "tag": "journal", "url": "./?go=journal"}))
+    ath = data.get("athlete") or {}
+    dates = [w.get("date") for w in ath.get("weights") or []] + list(((ath.get("metrics") or {}).get("weight") or {}))
+    dates = [x for x in dates if x]
+    age = (now.date() - dt.date.fromisoformat(max(dates))).days if dates else None
+    if cfg["weight"] and morning and (age is None or age >= 7) and ts - (at.get("weight") or 0) >= 6.5 * 86400 \
+            and f"weight:{t}" not in sent:
+        body = (f"Your last one was {age} days ago. " if age is not None else "") + "Before breakfast is the best moment."
+        out.append((f"weight:{t}", {"title": "Weekly weigh-in", "body": body, "tag": "weight", "url": "./?go=weight"}))
+    return out
+
+
+def due(data, sent, now, at=None):
     """Notifications that should go out now: [(key, payload)]."""
     out = []
     days = {d["date"]: d for d in data["days"]}
@@ -94,6 +139,7 @@ def due(data, sent, now):
     if now.weekday() == 6 and now.hour >= 19 and wk.get("start") and f"week:{wk['start']}" not in sent:
         out.append((f"week:{wk['start']}", {"title": "Your week in review", "body": wk.get("headline", "")[:180],
                                             "tag": "week", "url": "./?tab=training"}))
+    out.extend(reminders(data, sent, now, at or {}))
     return out
 
 
@@ -111,7 +157,8 @@ def run(data, cache, pw, encrypt, decrypt, now):
         return False
     sent = cache.setdefault("push_sent", [])
     hello = set(cache.setdefault("push_hello", []))
-    todo = due(data, set(sent), now)
+    at = cache.setdefault("push_at", {})
+    todo = due(data, set(sent), now, at)
     test = mail.get("test")
     if test and f"test:{test}" not in sent:
         todo.append((f"test:{test}", {"title": "Test notification",
@@ -136,7 +183,14 @@ def run(data, cache, pw, encrypt, decrypt, now):
                     delivered.add(key)
                 print("push sent:", key.split(":")[0])
     sent.extend(k for k, _ in todo if k in delivered)
-    cache["push_sent"] = sent[-60:]
+    today = now.date().isoformat()
+    for k in delivered:
+        if k.startswith("score:"):
+            at[k] = now.timestamp()
+        elif k.startswith("weight:"):
+            at["weight"] = now.timestamp()
+    cache["push_at"] = {k: v for k, v in at.items() if k in ("weight", f"score:{today}")}
+    cache["push_sent"] = sent[-150:]
     cache["push_hello"] = sorted(hello & set(subs))
     data["push_devices"] = len(subs)
     return True
