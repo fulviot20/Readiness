@@ -277,3 +277,11 @@ def test_fuel_reaches_sessions_and_plans():
     plans = [p for ps in data["upcoming"].values() for p in ps]
     assert plans and all(p.get("fuel") for p in plans)
     assert any(p.get("done_id") for d in data["days"] for p in d["plan"])
+
+
+def test_widget_file_has_todays_numbers():
+    data = build_data()
+    w = readiness.widget_data(data)
+    today = data["days"][-1]
+    assert w["date"] == data["today"] and w["score"] == today["score"] and w["band"] == today["band"]
+    assert w["sleep"] == today["sleep_score"]["score"] and set(w) == {"date", "score", "band", "sleep", "strain", "alarm", "generated_at"}

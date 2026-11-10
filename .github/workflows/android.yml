@@ -1,0 +1,66 @@
+name: Android
+
+# Builds the Android widget app and publishes the installable file as a release:
+# https://github.com/<owner>/<repo>/releases/latest/download/readiness-widget.apk
+# The signing key is created at the first build and kept in the repository encrypted with the passphrase,
+# so every later build is signed with the same key and installs over the previous one.
+on:
+  push:
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Signing key
+        env:
+          READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
+        run: |
+          KS_PASS=$(printf 'readiness-keystore:%s' "$READINESS_PASSPHRASE" | sha256sum | cut -c1-40)
+          echo "::add-mask::$KS_PASS"
+          if [ -f android/keystore.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass "pass:$KS_PASS" -in android/keystore.enc -out "$RUNNER_TEMP/release.jks"
+          else
+            keytool -genkeypair -keystore "$RUNNER_TEMP/release.jks" -storetype JKS -alias readiness -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$KS_PASS" -keypass "$KS_PASS" -dname "CN=Readiness"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -pass "pass:$KS_PASS" -in "$RUNNER_TEMP/release.jks" -out android/keystore.enc
+            git config user.name "readiness-bot"
+            git config user.email "readiness-bot@users.noreply.github.com"
+            git add android/keystore.enc
+            git commit -m "Android signing key (encrypted)"
+            for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
+          fi
+          echo "KS_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "KS_PASS=$KS_PASS" >> "$GITHUB_ENV"
+      - name: Build
+        run: gradle -p android --no-daemon assembleRelease
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk readiness-widget.apk
+          ls -la readiness-widget.apk
+          if gh release view widget >/dev/null 2>&1; then
+            gh release upload widget readiness-widget.apk --clobber
+            gh release edit widget --title "Readiness Widget 1.${{ github.run_number }}" --latest
+          else
+            gh release create widget readiness-widget.apk --title "Readiness Widget 1.${{ github.run_number }}" \
+              --notes "Android widget for Readiness. Install the file, open it once and type your passphrase." --latest
+          fi

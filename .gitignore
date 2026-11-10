@@ -3,3 +3,7 @@ __pycache__/
 tests/out/
 node_modules
 site/stamp.json
+site/widget.enc
+android/.gradle/
+android/app/build/
+android/build/

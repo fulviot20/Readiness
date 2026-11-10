@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Readiness Widget</string>
+    <string name="widget_name">Readiness</string>
+    <string name="widget_desc">Today\'s recovery score, sleep and strain</string>
+</resources>

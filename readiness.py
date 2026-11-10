@@ -868,6 +868,15 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
             "fitness": fit, "energy": energy.build(gdays, days, today)}
 
 
+def widget_data(data):
+    """What the Android widget shows: today's score, band, sleep and strain. A small file of its own, so the
+    widget doesn't download the whole data set every quarter of an hour."""
+    d = next((x for x in data["days"] if x["date"] == data["today"]), {})
+    return {"date": data["today"], "score": d.get("score"), "band": d.get("band"),
+            "sleep": (d.get("sleep_score") or {}).get("score"), "strain": (d.get("strain") or {}).get("score"),
+            "alarm": bool(d.get("alarm")), "generated_at": data["generated_at"]}
+
+
 def main():
     today = dt.datetime.now(TZ).date()
     pw = os.environ["READINESS_PASSPHRASE"]
@@ -927,6 +936,8 @@ def main():
         json.dump(env, f)
     with open("site/stamp.json", "w") as f:      # tiny file the app checks to know whether the data changed
         json.dump({"iv": env["iv"]}, f)
+    with open("site/widget.enc", "w") as f:
+        json.dump(encrypt(widget_data(data), pw, data_salt(pw)), f)
     stable = {k: v for k, v in data.items() if k != "generated_at"}
     with open("data.hash", "w") as f:
         f.write(hashlib.sha256(json.dumps(stable, sort_keys=True).encode()).hexdigest() + "\n")
