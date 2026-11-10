@@ -57,10 +57,11 @@ let TAB=QS.get("tab")||"today";   // every launch opens on Today…
 if(location.search){try{history.replaceState(null,"",location.pathname);}catch(e){}}   // a later refresh shouldn't replay the link
 if(NAV0){TAB=NAV0.t||TAB;ATH_SUB=NAV0.s||"profile";if(NAV0.p) PG={...PG,...NAV0.p};if(NAV0.f) foodSel=NAV0.f;}  // …but a refresh stays on the page you were on
 const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
-// Four tabs at the bottom. Food is its own tab (it used to sit inside Athlete, two taps away); inside the app it is
-// still the "food" half of the athlete section, so everything that already jumps there keeps working.
+// Three tabs at the bottom. Food lives inside Athlete (pills Profile · Diary · Plan · Balance): it is reached from
+// there, from the Calories tile on Today, or from Find. FOOD_TAB would show it as a fourth tab; it stays off.
+const FOOD_TAB=false;
 let FOOD_PG="diary";
-const curTab=()=>TAB==="athlete"&&ATH_SUB==="food"&&foodOn()?"food":TAB;
+const curTab=()=>FOOD_TAB&&TAB==="athlete"&&ATH_SUB==="food"&&foodOn()?"food":TAB;
 function setTab(t){
   if(t===curTab()){scrollTo({top:0,behavior:"smooth"});return;}
   if(t==="food"){TAB="athlete";ATH_SUB="food";PG.athlete=FOOD_PG;foodSel=todayISO();}
@@ -81,7 +82,7 @@ const PAGES={today:[["overview","Overview"],["day","Your day"],["journal","Journ
   training:[["week","Week"],["month","Month"],["volume","Hours"],["fitness","Fitness"]],
   athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"],["balance","Balance"]]};
 function pageBar(tab){
-  const list=PAGES[tab].filter(p=>tab!=="athlete"||(ATH_SUB==="food"&&foodOn()&&p[0]!=="profile"));
+  const list=PAGES[tab].filter(p=>tab!=="athlete"||(FOOD_TAB?ATH_SUB==="food"&&foodOn()&&p[0]!=="profile":p[0]==="profile"||foodOn()));
   if(list.length<2) return "";
   return `<nav class="pbar" role="tablist">${list.map(([k,n])=>`<button role="tab" data-pg="${k}" class="${PG[tab]===k?"on":""}" aria-selected="${PG[tab]===k}">${n}</button>`).join("")}</nav>`;
 }
@@ -99,7 +100,7 @@ function tabbar(){
   let bar=$("tabbar");
   if(!bar){bar=document.createElement("nav");bar.id="tabbar";bar.className="tabbar";document.body.appendChild(bar);}
   const cur=curTab(); if(cur==="food") FOOD_PG=PG.athlete==="profile"?"diary":PG.athlete;
-  bar.innerHTML=["today","training",...(foodOn()?["food"]:[]),"athlete"].map(t=>`<button data-tab="${t}" class="${cur===t?"on":""}" aria-current="${cur===t?"page":"false"}">${ic[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></button>`).join("");
+  bar.innerHTML=["today","training",...(FOOD_TAB&&foodOn()?["food"]:[]),"athlete"].map(t=>`<button data-tab="${t}" class="${cur===t?"on":""}" aria-current="${cur===t?"page":"false"}">${ic[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></button>`).join("");
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
 function render(){
@@ -334,7 +335,7 @@ function openSettings(){
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.`:""}</p>
     ${remindRow()}
-    <div class="tog"><div><label>Food</label><p>The Food tab: diary, meal plan, daily target and energy balance.</p></div>
+    <div class="tog"><div><label>Food</label><p>Inside Athlete: diary, meal plan, daily target and energy balance.</p></div>
       <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>
     ${foodOn()?`<div class="tog"><div><label>Fuelling</label><p>${fuelCfg().on?"What each session burns, what to take while riding and what to eat after.":"Off: rides don't add anything to the diary."}</p></div>
       <button class="btn quiet" id="s-fuel">Open</button></div>`:""}

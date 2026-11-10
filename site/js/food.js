@@ -841,7 +841,7 @@ function renderFood(){
   else if(pg==="balance") body=`${weekCard(false)}${goalCard()}${balanceSection()}<p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.</p>`;
   else {PG.athlete="diary";return renderFood();}
   $("app").innerHTML=`
-  <div class="top"><div class="ttl">Food</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
+  <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
   ${pageBar("athlete")}${body}`;
   const on=(id,f)=>{const e=$(id);if(e) e.onclick=f;};
   $("gear").onclick=openSettings; on("f-hero",()=>openTarget(d));

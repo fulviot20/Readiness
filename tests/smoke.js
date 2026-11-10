@@ -78,9 +78,8 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     ["reminders", () => { localStorage.setItem("rd_push", "1"); remindRow(); remindNudge(); GO_PENDING = "journal"; applyGo();
       if (PG.today !== "journal") throw new Error("notification link did not open the journal"); PG.today = "overview"; }],
     // four tabs, and the search sheet reaches every destination without an error
-    ["food-tab", () => { setTab("food"); if (curTab() !== "food" || !document.querySelector('.tabbar [data-tab="food"].on')) throw new Error("Food tab not active");
-      if (document.querySelector('.pbar [data-pg="profile"]')) throw new Error("Profile pill still inside Food");
-      setTab("athlete"); if (curTab() !== "athlete" || document.querySelector(".pbar")) throw new Error("Athlete should be the profile alone"); }],
+    ["tabs", () => { if (document.querySelectorAll(".tabbar button").length !== 3) throw new Error("the bar should have three tabs");
+      setTab("athlete"); setPage("athlete", "diary"); if (!document.querySelector('.tabbar [data-tab="athlete"].on') || !document.querySelector('.pbar [data-pg="profile"]')) throw new Error("Food should sit inside Athlete"); }],
     ["find", () => { openFind(); const q = document.getElementById("fd-q"); q.value = "peso"; q.oninput();
       if (!document.querySelectorAll("#fd-l [data-fd]").length) throw new Error("search in Italian found nothing");
       q.value = ""; q.oninput(); if (document.querySelectorAll("#fd-l [data-fd]").length !== FIND.length) throw new Error("not every destination is listed");
