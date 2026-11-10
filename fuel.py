@@ -174,18 +174,25 @@ def intake_rate(f, ceiling=90):
     mins = f["min"]
     if mins < 60:
         return 0
-    lo, hi = (30, 60) if mins < 150 else (50, 90 if ceiling <= 90 else ceiling)
     burn = used(f) / (mins / 60)                      # g/h burned with nothing taken
+    if mins < 75:                                     # about an hour: only worth it when it's a hard one
+        return min(30, ceiling) if burn >= 100 else 0
+    lo, hi = (30, 60) if mins < 150 else (50, 90 if ceiling <= 90 else ceiling)
     want = 0.55 * burn                                # cover a bit more than half: the rest is what stores are for
     return int(round(min(ceiling, hi, max(lo, want)) / 5) * 5)
 
 
-def recovery(used_g, intake_g, kg, soon):
+def recovery(used_g, intake_g, kg, soon, extra=0):
     """Carbs and protein for after the session (mirrored in site/js/food.js).
 
-    soon: another demanding session within about a day. Returns {deficit, carbs, protein, window}."""
+    soon: another demanding session within about a day. extra: grams of deficit the plan had not foreseen
+    (the session ran longer or harder, or less was eaten): an unplanned hole is refilled promptly too.
+    Returns {deficit, carbs (first dose), more (a second dose in the following two hours), protein, window}."""
     deficit = max(0, used_g - intake_g)
-    cap = (1.2 if soon else 0.8) * kg
+    fast = soon or extra >= 0.3 * kg
+    cap = (1.2 if fast else 0.8) * kg
     carbs = 0 if deficit < 0.25 * kg else min(deficit, cap)
-    return {"deficit": round(deficit), "carbs": int(round(carbs / 5) * 5), "protein": int(round(0.3 * kg)),
-            "window": "within the hour" if soon else "in your next meal"}
+    more = min(deficit - carbs, 1.0 * kg) if fast and carbs else 0
+    more = more if more >= 0.25 * kg else 0
+    return {"deficit": round(deficit), "carbs": int(round(carbs / 5) * 5), "more": int(round(more / 5) * 5),
+            "protein": int(round(0.3 * kg)), "window": "within the hour" if fast else "in your next meal"}

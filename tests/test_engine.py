@@ -213,3 +213,57 @@ def test_data_key_is_stable_and_iv_is_not():
 def test_ride_carbs_reach_the_app():
     out = readiness.summary({"id": "i1", "type": "Ride", "moving_time": 7200, "carbs_ingested": 150}, {})
     assert out["carbs_in"] == 150 and readiness.summary({"id": "i2", "type": "Ride", "moving_time": 600}, {})["carbs_in"] is None
+
+
+# ---------------------------------------------------------------- fuelling model
+def test_fuel_share_follows_intensity_and_duration():
+    import fuel
+    assert fuel.frac_power(0.55) < fuel.frac_power(0.75) < fuel.frac_power(0.95) <= fuel.frac_power(1.3) == 1.0
+    ride = lambda mins, zones: {"type": "Ride", "moving_time": mins * 60, "icu_ftp": 280, "icu_joules": 190 * mins * 60,
+                                "icu_power_zones": [55, 75, 90, 105, 120, 150, 999],
+                                "icu_zone_times": [{"id": f"Z{i}", "secs": mins * 60 * s} for i, s in enumerate(zones, 1)]}
+    easy, hard = [.3, .65, .05, 0, 0, 0, 0], [.3, .25, .1, .3, .05, 0, 0]
+    e2, h2, e4 = fuel.session(ride(120, easy)), fuel.session(ride(120, hard)), fuel.session(ride(240, easy))
+    assert e2["how"] == "power zones" and e2["kcal"] == h2["kcal"] == round(190 * 7.2 / fuel.GE / 4.184)
+    assert h2["frac"] > e2["frac"] > e4["frac"]                     # harder burns more carbohydrate, longer burns less of it
+    # two hours of easy endurance, nothing eaten: 40-50% of energy, close to what lab studies in trained cyclists report
+    assert 0.38 <= e2["frac"] <= 0.50 and 70 <= fuel.used(e2) / 2 <= 110
+    assert fuel.used(e2, 180) > fuel.used(e2)                       # eating on the bike raises carbohydrate use
+    # without power: Garmin's calories and heart rate
+    run = fuel.session({"type": "Run", "moving_time": 3600, "calories": 800, "average_heartrate": 150}, 48, 188)
+    assert run["how"] == "heart rate" and 0.5 < run["frac"] < 0.8
+    assert fuel.session({"type": "Run", "moving_time": 3600}, 48, 188) is None
+
+
+def test_fuel_plan_intake_and_recovery():
+    import fuel
+    steps = [{"min": 15, "lo": 55, "hi": 55}] + [{"min": 8, "lo": 100, "hi": 100}, {"min": 4, "lo": 50, "hi": 50}] * 4 + [{"min": 17, "lo": 60, "hi": 60}]
+    p = fuel.planned({"type": "Ride", "minutes": 80, "steps": steps, "load": 85}, 280)
+    long = fuel.planned({"type": "Ride", "minutes": 240, "steps": [{"min": 240, "lo": 65, "hi": 65}]}, 280)
+    assert p["how"] == "planned power" and p["frac"] > long["frac"]
+    assert fuel.intake_rate({**p, "min": 50}) == 0                  # under an hour: nothing
+    assert 30 <= fuel.intake_rate(p) <= 60 and 50 <= fuel.intake_rate(long) <= 90
+    assert fuel.intake_rate(long, ceiling=40) == 40                 # never above what you tolerate
+    kg, intake = 65, fuel.intake_rate(long) * 4
+    used = fuel.used(long, intake)
+    soon, later = fuel.recovery(used, intake, kg, True), fuel.recovery(used, intake, kg, False)
+    assert soon["deficit"] == later["deficit"] == round(used - intake) and soon["carbs"] >= later["carbs"]
+    assert soon["carbs"] <= round(1.2 * kg / 5) * 5 and later["carbs"] <= round(0.8 * kg / 5) * 5 and soon["protein"] == round(0.3 * kg)
+    assert fuel.recovery(100, 95, kg, True)["carbs"] == 0           # nearly everything was covered on the bike
+    # the same ride an hour longer than planned leaves more to refill, with the same food in the pocket
+    longer = {**long, "min": 300, "kcal": round(long["kcal"] * 1.25)}
+    assert fuel.recovery(fuel.used(longer, intake), intake, kg, True)["deficit"] > soon["deficit"]
+    # an unplanned hole is refilled promptly even with nothing demanding close, in two doses when it is big
+    calm, hole = fuel.recovery(300, 80, kg, False), fuel.recovery(300, 80, kg, False, extra=95)
+    assert calm["window"] == "in your next meal" and calm["more"] == 0
+    assert hole["window"] == "within the hour" and hole["carbs"] > calm["carbs"] and hole["more"] > 0
+    assert hole["carbs"] + hole["more"] <= hole["deficit"] + 5
+
+
+def test_fuel_reaches_sessions_and_plans():
+    data = build_data()
+    rides = [w for d in data["days"] for w in d["workouts"] if w["type"] == "Ride"]
+    assert rides and all(w.get("fuel", {}).get("how") == "power zones" for w in rides)
+    plans = [p for ps in data["upcoming"].values() for p in ps]
+    assert plans and all(p.get("fuel") for p in plans)
+    assert any(p.get("done_id") for d in data["days"] for p in d["plan"])

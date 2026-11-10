@@ -317,8 +317,8 @@ function openSettings(){
     ${remindRow()}
     <div class="tog"><div><label>Food diary</label><p>Food in Athlete: log meals, daily target and energy balance.</p></div>
       <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>
-    ${foodOn()?`<div class="tog"><div><label>Ride fuel</label><p>${fuelCfg().on?`${fuelCfg().rate} g of carbs an hour go into the diary by themselves on rides of ${fuelCfg().min} min or more.`:"Off: rides don't add anything to the diary."}</p></div>
-      <button class="btn quiet" id="s-fuel">Change</button></div>`:""}
+    ${foodOn()?`<div class="tog"><div><label>Fuelling</label><p>${fuelCfg().on?"What each session burns, what to take while riding and what to eat after.":"Off: rides don't add anything to the diary."}</p></div>
+      <button class="btn quiet" id="s-fuel">Open</button></div>`:""}
     <div class="field"><label for="s-ai">AI key (Google Gemini, free)</label><div style="display:flex;gap:8px"><input id="s-ai" type="password" autocomplete="off" placeholder="Paste your key" value="${esc(aiKey())}"><button class="btn quiet" id="s-ai-t" type="button">Test</button></div>
       <p>For food photos, speaking and free-text logging. Create it at aistudio.google.com → Get API key. It stays on this phone; on the free tier Google may use what you send to improve its models.</p><p id="s-ai-st"></p></div>
     <button class="btn quiet" id="s-val" style="width:100%;margin-top:18px">Score check</button>

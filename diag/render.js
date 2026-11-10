@@ -24,6 +24,8 @@ const {chromium}=require('playwright-core');
   const more=await p.evaluate(()=>{const out={},t=k=>{try{return k();}catch(e){return 'ERR '+String(e.message).slice(0,80);}};
     out.stamp=!!ENV_IV; out.sync=Object.keys(DATA.sync||{}).length;
     out.rides30=DATA.days.slice(-30).reduce((a,d)=>a+(d.workouts||[]).filter(isRide).length,0);
+    out.withModel=DATA.days.reduce((a,d)=>a+(d.workouts||[]).filter(w=>w.fuel).length,0);out.plansWithModel=Object.values(DATA.upcoming||{}).flat().filter(p=>p.fuel).length;
+    out.matched=DATA.days.reduce((a,d)=>a+(d.workouts||[]).filter(w=>w.fuel&&planOf(d.date,w)).length,0);
     out.carbsOnIntervals=DATA.days.reduce((a,d)=>a+(d.workouts||[]).filter(w=>w.carbs_in>0).length,0);
     out.fuelLines=t(()=>{const c=fuelCfg();LS.set('rd_fuel',JSON.stringify({...c,since:'2000-01-01'}));foodReset();
       const n=DATA.days.slice(-30).reduce((a,d)=>a+fuelItems(d.date).length,0);LS.del('rd_fuel');foodReset();return n;});
