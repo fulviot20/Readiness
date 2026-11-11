@@ -77,6 +77,28 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (fuelCfg().max !== 90) throw new Error("older server value overwrote the local one"); }],
     ["reminders", () => { localStorage.setItem("rd_push", "1"); remindRow(); remindNudge(); GO_PENDING = "journal"; applyGo();
       if (PG.today !== "journal") throw new Error("notification link did not open the journal"); PG.today = "overview"; }],
+    // food search: a plain "ciambella" is the baked ring cake; foods found by the AI lookup are kept and found again locally,
+    // and rows whose energy disagrees with the macros are dropped (from the AI and from Open Food Facts)
+    ["food-db", () => { if (!/^Ring cake/.test(localSearch("ciambella")[0].name) || !/^Ring cake/.test(bestMatch("ciambella").name)) throw new Error("ciambella should be the ring cake");
+      if (aiRefFood({name: "x", kcal: 900, protein: 1, carbs: 1, fat: 1}) || aiRefFood({name: "x", kcal: 100, protein: 60, carbs: 60, fat: 0})) throw new Error("implausible AI row kept");
+      const f = aiRefFood({name: "Crema di zucca", kcal: 55, protein: 1.2, carbs: 7, fat: 2.4, unit: "Portion", unit_g: 300, nutrients: {fiber: 1.1}});
+      if (!f || f.unit[1] !== 300 || f.n100.fiber !== 1.1) throw new Error("AI row not read");
+      if (localSearch("vellutata zucca").some(x => x.src === "ai")) throw new Error("store should start empty");
+      fdbPut("vellutata zucca", [f]); FDB = null;
+      if (!fdbAsked("Vellutata  zucca".replace("  ", " ")) || localSearch("crema di zucca")[0].name !== "Crema di zucca" || bestMatch("vellutata zucca").name !== "Crema di zucca") throw new Error("learned food not found again");
+      const o = (k, p, c, fat) => offFood({product_name: "Y", nutriments: {"energy-kcal_100g": k, proteins_100g: p, carbohydrates_100g: c, fat_100g: fat}});
+      if (!o(400, 10, 60, 13).ok || o(400, 1, 2, 1).ok || offFood({product_name: "Y", nutriments: {"energy-kcal_100g": 400}}).ok) throw new Error("product label check wrong");
+      localStorage.removeItem("rd_fdb"); FDB = null; }],
+    // typing a food the table doesn't have: after a pause the AI lookup fills "More foods", and the next search needs no request
+    ["food-search", async () => { localStorage.setItem("rd_gemini", "x"); const real = aiCall; let calls = 0;
+      aiCall = async () => { calls++; return {json: {foods: [{name: "Castagnaccio", kcal: 190, protein: 3.5, carbs: 33, fat: 5, unit: "slice", unit_g: 80}]}}; };
+      try { openAddFood("s", todayISO()); const q = document.getElementById("af-q"); q.value = "castagnaccio"; q.oninput();
+        if (!document.getElementById("af-gen")) throw new Error("no lookup started");
+        await new Promise(r => setTimeout(r, 1300));
+        if (!/Castagnaccio/.test(document.getElementById("af-gen").textContent) || calls !== 1) throw new Error("AI foods not shown");
+        q.value = ""; q.oninput(); q.value = "castagnaccio"; q.oninput(); await new Promise(r => setTimeout(r, 1100));
+        if (calls !== 1 || document.getElementById("af-gen") || !/Castagnaccio/.test(document.getElementById("af-res").textContent)) throw new Error("learned food should come from the phone");
+      } finally { aiCall = real; localStorage.removeItem("rd_gemini"); localStorage.removeItem("rd_fdb"); FDB = null; ADD = null; } }],
     // four tabs, and the search sheet reaches every destination without an error
     ["tabs", () => { if (document.querySelectorAll(".tabbar button").length !== 3) throw new Error("the bar should have three tabs");
       setTab("athlete"); setPage("athlete", "diary"); if (!document.querySelector('.tabbar [data-tab="athlete"].on') || !document.querySelector('.pbar [data-pg="profile"]')) throw new Error("Food should sit inside Athlete"); }],

@@ -213,7 +213,7 @@ Crostata (jam tart)|crostata di marmellata confettura jam tart|400|5|62|15|slice
 Crostata alla Nutella|crostata alla nutella cioccolato nutella tart|450|6|58|22|slice|80
 Fruit tart (crostata di frutta)|crostata di frutta crema|260|4|36|11|slice|100
 Sponge cake|torta margherita pan di spagna torta paradiso|370|7|58|12|slice|60
-Ring cake (ciambellone)|ciambellone ciambella torta yogurt|380|6.5|55|15|slice|60
+Ring cake (ciambella, ciambellone)|ciambella ciambellone al forno torta yogurt|380|6.5|55|15|slice|60
 Apple cake|torta di mele|250|3.5|38|9.5|slice|100
 Chocolate cake|torta al cioccolato tenerina sacher|420|6|50|22|slice|80
 Tiramisù|tiramisu|290|6|30|16|portion|120
@@ -1115,7 +1115,7 @@ function openRecipe(e){
 }
 
 /* ------------------------------------------------------------ food: search */
-let offCtl=null,offTimer=null;const offCache=new Map();
+let offCtl=null,offTimer=null,genTimer=null;const offCache=new Map();
 const stem=w=>w.length>4?w.slice(0,-1):w;
 function scoreFood(q,f){
   const ws=norm(q).split(/[^a-z0-9]+/).filter(w=>w.length>1); if(!ws.length) return 0;
@@ -1129,16 +1129,55 @@ function scoreFood(q,f){
 }
 function myFoods(){return libAll().filter(e=>e.kind==="recipe").map(recipeFood);}
 function localSearch(q,n=14){
-  return [...myFoods(),...FOOD_REF].map(f=>({f,s:scoreFood(q,f)})).filter(x=>x.s>=1).sort((a,b)=>b.s-a.s).slice(0,n).map(x=>x.f);
+  return [...myFoods(),...FOOD_REF,...fdbAll()].map(f=>({f,s:scoreFood(q,f)})).filter(x=>x.s>=1).sort((a,b)=>b.s-a.s).slice(0,n).map(x=>x.f);
 }
 function bestMatch(q){
-  const pool=[...myFoods(),...recents().map(itemFood),...FOOD_REF];
+  const pool=[...myFoods(),...recents().map(itemFood),...FOOD_REF,...fdbAll()];
   let best=null,bs=0; for(const f of pool){const s=scoreFood(q,f); if(s>bs){bs=s;best=f;}}
   return bs>=1?best:null;
+}
+// Foods the built-in table doesn't have are looked up with the AI (generic foods and dishes, per 100 g, with their
+// natural unit) and remembered on the phone: the second time a food is there at once, also offline and in Speak / Paste list.
+let FDB=null;const FDB_MAX=1200,fdbBusy=new Map();
+function fdbAll(){if(!FDB){const j=lsJSON("rd_fdb",null);FDB=j&&Array.isArray(j.f)?j:{f:[],q:{}};} return FDB.f;}
+function fdbPut(q,foods){
+  fdbAll();const nq=norm(q).trim();
+  for(const f of foods){const i=FDB.f.findIndex(x=>norm(x.name)===norm(f.name));
+    if(i>=0){const old=FDB.f[i];if(!(" "+old.alias+" ").includes(" "+nq+" ")) old.alias=(old.alias+" "+nq).trim().slice(0,120);}
+    else FDB.f.push({...f,alias:nq});}
+  if(FDB.f.length>FDB_MAX) FDB.f.splice(0,FDB.f.length-FDB_MAX);
+  FDB.q[nq]=Date.now();const ks=Object.keys(FDB.q);if(ks.length>600) delete FDB.q[ks[0]];
+  LS.set("rd_fdb",JSON.stringify(FDB));
+}
+const fdbAsked=q=>{fdbAll();return !!FDB.q[norm(q).trim()];};
+function aiRefFood(x){
+  const k=+x.kcal,p=+x.protein||+x.p||0,c=+x.carbs||+x.c||0,f=+x.fat||+x.f||0,name=String(x.name||"").trim().slice(0,60);
+  // a row must be a plausible "per 100 g": the energy has to agree with the macros
+  if(!name||!(k>=0&&k<=900)||p+c+f>101) return null;
+  const est=4*p+4*c+9*f; if(k>40&&(est<k*.55||est>k*1.45)) return null;
+  const ug=+x.unit_g,u=String(x.unit||"").trim().toLowerCase().slice(0,14);
+  return {name,alias:"",brand:"",k:Math.round(k),p:r1(p),c:r1(c),f:r1(f),unit:u&&ug>0&&ug<1500&&u!=="g"?[u,Math.round(ug)]:null,n100:normN(x.nutrients),src:"ai"};
+}
+function aiSearch(q){
+  const nq=norm(q).trim(); if(fdbBusy.has(nq)) return fdbBusy.get(nq);
+  const run=(async()=>{
+    const {json}=await aiCall([{role:"user",parts:[{text:`Food database lookup. The user searched: "${q}" (Italian or English).
+List up to 6 foods they may mean, most likely first: the plain generic food or homemade/restaurant dish as eaten, then its common variants (baked vs fried, plain vs filled, raw vs cooked, with or without oil). A branded product only if the search names the brand.
+Values per 100 g, realistic and consistent (Italian CREA tables, USDA, real labels; kcal must agree with protein, carbs and fat). "unit": the natural way to count it, English singular (slice, piece, pot, cup, portion, biscuit…), and "unit_g" its typical weight in grams; for a dish use "portion".
+Names short and specific, in the language of the search. If it is not a food reply {"foods":[]}.
+JSON only: {"foods":[{"name":"","kcal":0,"protein":0,"carbs":0,"fat":0,"unit":"","unit_g":0,${NUT_JSON.replace("for the portion","per 100 g")}}]}`}]}],20000);
+    const out=(Array.isArray(json)?json:json.foods||json.items||[]).map(aiRefFood).filter(Boolean).slice(0,6);
+    fdbPut(q,out);return out;
+  })();
+  fdbBusy.set(nq,run);run.catch(()=>{}).finally(()=>fdbBusy.delete(nq));
+  return run;
 }
 function offFood(p){
   const n=p.nutriments||{},k=n["energy-kcal_100g"]??(n["energy_100g"]!=null?n["energy_100g"]/4.184:null);
   const name=p.product_name_it||p.product_name||p.product_name_en; if(!name||k==null) return null;
+  // a label is trusted only when protein, carbs and fat are all there and the energy agrees with them
+  const P=+n.proteins_100g,C=+n.carbohydrates_100g,F=+n.fat_100g,full=[n.proteins_100g,n.carbohydrates_100g,n.fat_100g].every(v=>v!=null&&v!==""&&isFinite(+v));
+  const est=4*P+4*C+9*F,ok=full&&k<=900&&P+C+F<=101&&(k<=40||(est>=k*.6&&est<=k*1.4));
   const brand=Array.isArray(p.brands)?p.brands[0]:String(p.brands||"").split(",")[0].trim();
   const sv=+p.serving_quantity;
   // Open Food Facts stores minerals and vitamins in grams per 100 g
@@ -1148,7 +1187,7 @@ function offFood(p){
   const N={};for(const [key,[f,m]] of Object.entries(M)){const v=n[f+"_100g"];if(v!=null&&v!==""&&isFinite(+v)) N[key]=+v*m;}
   if(N.sodium==null&&n.salt_100g!=null&&isFinite(+n.salt_100g)) N.sodium=+n.salt_100g/2.5*1e3;
   return {name:String(name).trim(),brand:brand||"",k:Math.round(k),p:r1(+n.proteins_100g||0),c:r1(+n.carbohydrates_100g||0),f:r1(+n.fat_100g||0),
-    n100:scaleN(N,1),serving:sv>0&&sv<2000?sv:null,src:"off",code:p.code||null};
+    n100:scaleN(N,1),serving:sv>0&&sv<2000?sv:null,src:"off",code:p.code||null,ok};
 }
 const OFF_F="code,product_name,product_name_it,product_name_en,brands,nutriments,serving_quantity";
 async function offSearch(q,signal){
@@ -1159,14 +1198,16 @@ async function offSearch(q,signal){
     t(`https://search.openfoodfacts.org/search?q=${encodeURIComponent(q)}&page_size=24&langs=it,en&fields=${OFF_F}`,j=>j.hits),
     t(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=24&lc=it&fields=${OFF_F}`,j=>j.products),
     new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),12000))]).catch(e=>{if(signal.aborted) throw new DOMException("","AbortError");return [];});
-  if(res.length) offCache.set(q,res);
-  return res;
+  const seen=new Set(),clean=res.filter(f=>{const key=norm(f.name+"|"+f.brand);if(seen.has(key)||!f.ok) return false;seen.add(key);return true;})
+    .map((f,i)=>({f,s:scoreFood(q,f)-i/100})).sort((a,b)=>b.s-a.s).map(x=>x.f);
+  if(clean.length) offCache.set(q,clean);
+  return clean;
 }
 async function offBarcode(code){
   const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_F}`);
   if(!r.ok) return null; const j=await r.json(); return j.status===1&&j.product?offFood({...j.product,code}):null;
 }
-const foodRow=(f,i)=>`<button class="fr-row" data-fr="${i}"><span class="fn">${esc(f.name)}<small>${f.quick?"Quick add":[f.brand,f.unit?`1 ${f.unit[0]} = ${f.unit[1]} g`:"",f.serving&&!f.unit?`serving ${fmtNum(f.serving)} g`:""].filter(Boolean).map(esc).join(" · ")||"per 100 g"}</small></span>
+const foodRow=(f,i)=>`<button class="fr-row" data-fr="${i}"><span class="fn">${esc(f.name)}<small>${f.quick?"Quick add":[f.brand,f.src==="ai"?"AI estimate":"",f.unit?`1 ${f.unit[0]} = ${f.unit[1]} g`:"",f.serving&&!f.unit?`serving ${fmtNum(f.serving)} g`:""].filter(Boolean).map(esc).join(" · ")||"per 100 g"}</small></span>
   <b>${f.quick?fmtK(Math.round(f.kcal)):fmtK(f.k)}<u>${f.quick?"kcal":"/100 g"}</u></b></button>`;
 const withN=f=>f.n100||f.quick?f:{...f,n100:nCache(f.name)};
 const fromFood=(f0,g,meal,f=withN(f0))=>({meal,name:f.name,brand:f.brand||"",g:Math.round(g),kcal:Math.round(f.k*g/100),p:r1(f.p*g/100),c:r1(f.c*g/100),f:r1(f.f*g/100),
@@ -1218,6 +1259,7 @@ function addView(){
     }else{
       add("Recent",rec.filter(it=>norm(it.name+" "+(it.brand||"")).includes(nq)).slice(0,5).map(itemFood));
       add("Basics",localSearch(q));
+      if(aiKey()&&q.trim().length>=3&&!fdbAsked(q)) html+=`<div id="af-gen"><p class="af-wait"><i class="spin"></i>Looking up more foods…</p></div>`;
       html+=`<div id="af-off">${q.trim().length>=3?`<p class="af-wait"><i class="spin"></i>Searching Open Food Facts…</p>`:""}</div>`;
       if(aiKey()&&diary) html+=`<button class="af-ai" id="af-ai">✦ Estimate “${esc(q.trim())}” with AI</button>`;
     }
@@ -1232,8 +1274,14 @@ function addView(){
     const ai=$("af-ai"); if(ai) ai.onclick=()=>smartRun(A.q,"text");
   };
   const q=$("af-q");
-  const search=v=>{show(v);clearTimeout(offTimer);if(offCtl) offCtl.abort();
+  const search=v=>{show(v);clearTimeout(offTimer);clearTimeout(genTimer);if(offCtl) offCtl.abort();
     if(v.trim().length<3) return;
+    // the AI lookup waits for a pause in typing, so half-written words don't use up the free requests
+    if($("af-gen")) genTimer=setTimeout(async()=>{
+      let res=[];try{res=await aiSearch(v.trim());}catch(e){}
+      const box=$("af-gen");if(!box||q.value!==v) return;
+      const have=new Set(list.map(f=>norm(f.name)));res=res.filter(f=>!have.has(norm(f.name)));
+      box.innerHTML=res.length?`<h3 class="sh-sub">More foods</h3>`+res.map(f=>foodRow(f,list.push(f)-1)).join(""):"";bindRows();},900);
     offTimer=setTimeout(async()=>{offCtl=new AbortController();
       try{const res=await offSearch(v.trim(),offCtl.signal);const box=$("af-off");if(!box||q.value!==v) return;
         if(!res.length){box.innerHTML=`<p class="af-wait">No products found on Open Food Facts${navigator.onLine?"":" (offline)"}.</p>`;return;}
