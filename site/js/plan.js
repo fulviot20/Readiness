@@ -27,7 +27,7 @@ function dayTypeToday(){
 }
 // typical target for each kind of day, from what you burned on similar days in the last 6 weeks
 function dayTypeTargets(){
-  const H=DATA.energy?.history||[],f=calib().f,adj=goalState()?.adj||0,floor=Math.max(1200,DATA.energy?.bmr||0),byd=Object.fromEntries((DATA.days||[]).map(x=>[x.date,x]));
+  const H=DATA.energy?.history||[],f=1,adj=(goalState()?.adj||0)+(trimGet().v||0),floor=Math.max(1200,DATA.energy?.bmr||0),byd=Object.fromEntries((DATA.days||[]).map(x=>[x.date,x]));
   const groups={rest:[],train:[],long:[]};
   for(const h of H.slice(-42)){if(!h.kcal||h.date>=todayISO()) continue;const m=((byd[h.date]||{}).workouts||[]).filter(w=>w.type).reduce((a,w)=>a+(w.minutes||0),0);
     groups[m>=180?"long":m>=30?"train":"rest"].push(h.kcal);}

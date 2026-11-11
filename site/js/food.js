@@ -15,7 +15,7 @@ function yourDay(){
   <div class="day4">
     <button class="en-c" data-en="kcal"><small>CALORIES</small><b>${fmtK(E.kcal_now)}<u>kcal</u></b>
       <div class="en-bar">${["basal","active_so_far","rest_of_day","planned"].map(seg).join("")}</div>
-      <span>${(()=>{const e=foodOn()?ftot(foodDay(todayISO())).kcal:0,t=e?targetOf(todayISO()):null;return e?`Eaten ${fmtK(Math.round(e))}${t?` · ${fmtK(Math.max(0,Math.round(t.kcal-e)))} left`:""}`:`On track for ~${fmtK(E.projected)}`;})()}</span></button>
+      <span>${(()=>{const e=foodOn()?ftot(foodDay(todayISO())).kcal:0,t=e?targetOf(todayISO()):null;const st=rangeState(e,t);return e?`Eaten ${fmtK(Math.round(e))}${st?` · ${st.k==="in"?"":fmtK(Math.round(st.n))+" "}${st.txt}`:""}`:`On track for ~${fmtK(E.projected)}`;})()}</span></button>
     <button class="en-c" data-en="steps"><small>STEPS</small><b>${fmtK(E.steps)}</b>
       <div class="en-bar"><i style="width:${sp}%;background:#34d399"></i></div>
       <span>${E.goal?(E.steps>=E.goal?"Goal reached":`${fmtK(E.goal-E.steps)} to ${fmtK(E.goal)}`):`~${fmtK(E.steps_projected)} by tonight`}</span></button>
@@ -786,25 +786,81 @@ function burnOf(date){
   }
   const h=H.find(x=>x.date===date); return h&&h.kcal?{v:Math.round(h.kcal*f),proj:false}:null;
 }
-function targetOf(date){
-  const b=burnOf(date); if(!b) return null;
-  const gs=goalState(),adj=gs?gs.adj:0,floor=Math.max(1200,DATA.energy?.bmr||0);
-  const kcal=Math.round(Math.max(floor,b.v+adj)/10)*10,w=weightNow()||70;
-  const p=Math.round(1.8*w),f=Math.round(kcal*.27/9),c=Math.max(0,Math.round((kcal-p*4-f*9)/4));
-  return {kcal,burn:b,adj:kcal-b.v,p,c,f,floored:b.v+adj<floor};
+// What a day costs is known from the morning: your everyday burn without training (median of the last four weeks)
+// plus that day's training — what the planned sessions usually cost you, replaced once by what they really cost
+// when they are done. So the target doesn't drift with every Garmin sync.
+const sportOf=t=>/Run/.test(t||"")?"run":/Ride/.test(t||"")?"ride":"other";
+let PB=null;
+function burnModel(){
+  if(PB) return PB;
+  const E=DATA.energy||{},H=E.history||[],t=todayISO(),lim=isoAdd(t,-28),rate=(E.bmr||1700)/1440;
+  const wAct=w=>w.kcal&&w.minutes?Math.max(0,w.kcal-rate*w.minutes):null;      // a session's cost on top of resting
+  const per={};
+  for(const d of DATA.days||[]) for(const w of d.workouts||[]){const a=wAct(w);if(a!=null&&w.type)(per[sportOf(w.type)]=per[sportOf(w.type)]||[]).push(a/w.minutes);}
+  for(const k in per) per[k]=median(per[k]);
+  const base=[];
+  for(const h of H){if(!h.kcal||h.date<lim||h.date>=t) continue;
+    base.push(h.kcal-((dayOf(h.date)||{}).workouts||[]).filter(w=>w.type).reduce((a,w)=>a+(wAct(w)??0),0));}
+  return PB={ok:base.length>=7,base:base.length?Math.round(median(base)):null,n:base.length,per,wAct};
 }
+function dayTraining(date){
+  const M=burnModel(),d=dayOf(date)||{},rateOf=t=>M.per[sportOf(t)]??M.per.ride??7;let kcal=0,min=0,pending=false;const names=[];
+  for(const w of (d.workouts||[]).filter(w=>w.type)){kcal+=M.wAct(w)??rateOf(w.type)*(w.minutes||0);min+=w.minutes||0;names.push(w.name||w.type);}
+  if(date===todayISO()) for(const p of (d.plan||[]).filter(p=>!p.done&&p.minutes)){kcal+=rateOf(p.type)*p.minutes;min+=p.minutes;pending=true;names.push(p.name||"Workout");}
+  return {kcal:Math.round(kcal),min,pending,names};
+}
+const dayKind=tr=>!tr||tr.min<20?"Rest day":`${tr.min>=180?"Long day":"Training day"} · ${durTxt(tr.min)}`;
+// The scale has the last word. Once a week the trend of your weigh-ins (last three weeks) is compared with the pace
+// of your goal: losing faster than planned raises every day's range, gaining lowers it a little, anything else leaves it.
+// It needs no food logging at all, so it also corrects what the watch and eyeballed portions get wrong.
+const trimGet=()=>lsJSON("rd_trim",null)||{v:0};
+function weightTrend(){
+  const t=todayISO(),ws=athSeries("weight").filter(p=>p.date>=isoAdd(t,-21)&&p.date<=t),n=ws.length;
+  if(n<4) return {ok:false,n};
+  const x=ws.map(p=>(new Date(p.date+"T12:00")-new Date(ws[0].date+"T12:00"))/864e5),span=x[n-1];
+  if(span<14) return {ok:false,n,span};
+  const mx=x.reduce((a,b)=>a+b)/n,my=ws.reduce((a,p)=>a+p.v,0)/n;
+  const slope=x.reduce((a,v,i)=>a+(v-mx)*(ws[i].v-my),0)/x.reduce((a,v)=>a+(v-mx)**2,0)*7;
+  return {ok:true,n,span,slope};
+}
+function trimBand(){
+  const gs=goalState(),want=gs&&gs.dir?gs.dir*gs.g.pace:0;
+  return {want,lo:Math.min(want,0)-(want>0?.1:.2),hi:Math.max(want,0)+(want<0?.1:.2)};
+}
+function trimCheck(){
+  if(!foodOn()) return;
+  const T=trimGet(),t=todayISO(); if(T.at&&T.at>isoAdd(t,-7)) return;
+  const tr=weightTrend(); if(!tr.ok) return;
+  const B=trimBand(),step=tr.slope<B.lo-.25?150:tr.slope<B.lo?100:tr.slope>B.hi?-100:0;
+  syncSet("rd_trim",{v:clip((T.v||0)+step,-300,400),at:t,step,slope:Math.round(tr.slope*100)/100,want:B.want});
+}
+function targetOf(date){
+  const M=burnModel();let burn,tr=null;
+  if(M.ok){tr=dayTraining(date);burn={v:M.base+tr.kcal,proj:date===todayISO()&&tr.pending,fixed:true};}
+  else{burn=burnOf(date); if(!burn) return null;}
+  const gs=goalState(),goal=gs?gs.adj:0,trim=burn.fixed?trimGet().v||0:0,floor=Math.max(1200,DATA.energy?.bmr||0);
+  const kcal=Math.round(Math.max(floor,burn.v+goal+trim)/50)*50,w=weightNow()||70;
+  const p=Math.round(1.8*w),f=Math.round(kcal*.27/9),c=Math.max(0,Math.round((kcal-p*4-f*9)/4));
+  return {kcal,lo:kcal-100,hi:kcal+100,burn,tr,goal,trim,adj:kcal-burn.v,p,c,f,floored:burn.v+goal+trim<floor};
+}
+// where what you ate sits against the day's range
+function rangeState(eaten,tg){
+  if(!tg) return null;
+  return eaten<tg.lo?{k:"under",n:tg.lo-eaten,txt:"to your range"}:eaten<=tg.hi?{k:"in",n:eaten,txt:"in your range"}:{k:"over",n:eaten-tg.hi,txt:"above range"};
+}
+const rangeTxt=tg=>`${fmtK(tg.lo)}–${fmtK(tg.hi)}`;
 
 /* ------------------------------------------------------------ food: tab */
-function foodRing(eaten,target){
-  const r=84,C=2*Math.PI*r,k=target?eaten/target:0,L=C*Math.min(1,k),over=target&&eaten>target;
-  const left=target?Math.round(target-eaten):null;
-  return `<svg viewBox="0 0 200 200" class="fr" aria-label="${fmtK(Math.round(eaten))} of ${fmtK(target)} kcal">
+function foodRing(eaten,tg){
+  const r=84,C=2*Math.PI*r,target=tg?.kcal,k=target?eaten/target:0,L=C*Math.min(1,k),st=rangeState(eaten,tg);
+  const col=!st||st.k==="under"?"url(#frg)":st.k==="in"?"#5fc795":"#f2a65a";
+  return `<svg viewBox="0 0 200 200" class="fr" aria-label="${fmtK(Math.round(eaten))} kcal eaten${tg?`, range ${rangeTxt(tg)}`:""}">
     <defs><linearGradient id="frg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fcd34d"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>
     <circle cx="100" cy="100" r="${r}" fill="none" stroke="#fff" stroke-opacity=".06" stroke-width="12"/>
-    <circle class="fr-arc" cx="100" cy="100" r="${r}" fill="none" stroke="${over?"#f0798a":"url(#frg)"}" stroke-width="12" stroke-linecap="round"
+    <circle class="fr-arc" cx="100" cy="100" r="${r}" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round"
       stroke-dasharray="${L.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 100 100)" style="--len:${L.toFixed(1)}"/>
-    <text x="100" y="104" text-anchor="middle" class="fr-n">${left==null?fmtK(Math.round(eaten)):fmtK(Math.abs(left))}</text>
-    <text x="100" y="130" text-anchor="middle" class="fr-l">${left==null?"KCAL EATEN":left>=0?"KCAL LEFT":"KCAL OVER"}</text></svg>`;
+    <text x="100" y="104" text-anchor="middle" class="fr-n">${fmtK(Math.round(st?st.n:eaten))}</text>
+    <text x="100" y="130" text-anchor="middle" class="fr-l">${!st?"KCAL EATEN":st.k==="in"?"IN YOUR RANGE":`KCAL ${st.txt.toUpperCase()}`}</text></svg>`;
 }
 function renderFood(){
   const today=todayISO(); if(!foodSel||foodSel>today) foodSel=today;
@@ -813,7 +869,7 @@ function renderFood(){
   const chev=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${p}"/></svg>`;
   const mac=k=>{const v=T[k],t=tg?.[k],pc=t?Math.min(100,v/t*100):0;
     return `<div class="mc"><small>${MAC[k][0].toUpperCase()}</small><b>${Math.round(v)}<u>${t?` / ${t} g`:" g"}</u></b><div class="en-bar"><i style="width:${pc}%;background:${MAC[k][1]}"></i></div></div>`;};
-  const nLib=libAll().length;
+  const LIB=libAll(),nLib=LIB.length,real=items.filter(x=>!x.fuel),usual=LIB.filter(e=>e.kind==="day");
   const dayPick=`<div class="daypick f-day">
     <button class="chev" id="fprev" aria-label="Previous day" ${d<=minD?"disabled":""}>${chev("M15 18l-6-6 6-6")}</button>
     <span class="d">${esc(label)}</span>
@@ -821,11 +877,11 @@ function renderFood(){
   let body="";
   if(pg==="diary") body=`${dayPick}
   <button class="f-hero" id="f-hero" aria-label="How the target works">
-    ${foodRing(T.kcal,tg?.kcal)}
+    ${foodRing(T.kcal,tg)}
     <div class="f-stats">
       <div><small>EATEN</small><b>${fmtK(Math.round(T.kcal))}</b></div>
-      <div><small>${tg?.burn.proj?"BURN (EXP.)":"BURNED"}</small><b>${tg?fmtK(tg.burn.v):"–"}</b></div>
-      <div><small>TARGET</small><b>${tg?fmtK(tg.kcal):"–"}</b></div>
+      <div class="rg"><small>YOUR RANGE</small><b>${tg?rangeTxt(tg):"–"}</b></div>
+      <div><small>${tg?.burn.proj?"BURN (EXP.)":"BURN"}</small><b>${tg?fmtK(tg.burn.v):"–"}</b></div>
     </div>
     <p class="f-sub">${tg?esc(targetLine(tg,isToday)):"Waiting for today's burn from Garmin."}</p>
   </button>
@@ -833,8 +889,10 @@ function renderFood(){
   ${isToday?weekCard(true):""}${fuelCard(d,items)}
   <button class="coach-bar" id="f-coach">${SPARK}<span>Tell me what you ate, or ask your food coach…</span></button>
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
+    ${!real.length&&usual.length?`<div class="ud"><small>USUAL DAY · ONE TAP, THEN FIX ONLY WHAT WAS DIFFERENT</small>${usual.map(e=>`<button class="ml-copy mine" data-libd="${e.id}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join("")}</div>`:""}
     ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}
-    <button class="lib-c" id="lib-c"><span><b>My meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save your usual breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
+    ${real.length>=3?`<button class="ml-save day" id="day-save">Save this day as a usual day</button>`:""}
+    <button class="lib-c" id="lib-c"><span><b>My days, meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save a usual day or breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
   ${nutrientSection(d)}
   <p class="foot">Swipe sideways to change day.</p>`;
   else if(pg==="plan") body=planView();
@@ -851,6 +909,8 @@ function renderFood(){
   document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copyMeal(b.dataset.copy,d));
   document.querySelectorAll("[data-libm]").forEach(b=>b.onclick=()=>{const [id,m]=b.dataset.libm.split("|"),e=libAll().find(x=>x.id===id);if(e) logLibMeal(e,m,d);});
   document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
+  document.querySelectorAll("[data-libd]").forEach(b=>b.onclick=()=>{const e=libAll().find(x=>x.id===b.dataset.libd);if(e) logLibDay(e,d);});
+  on("day-save",()=>openSaveDay(d));
   on("lib-c",openLibrary); bindSwipeDelete();
   if($("nut")) bindNut(d);
   if(pg==="diary") setTimeout(()=>autoFill(d),500);
@@ -884,10 +944,11 @@ function foodGo(k){
   foodSel=n; buzz(5); renderFood(); animIn(k>0?"swl":"swr");
 }
 function targetLine(tg,isToday){
-  const a=Math.round(tg.adj);
   if(tg.floored) return `Kept at your resting burn (${fmtK(DATA.energy?.bmr)} kcal): eating below it costs training quality.`;
-  const what=isToday?(tg.burn.usual?"your usual daily burn":"what you're expected to burn today"):"what you burned";
-  return a?`${fmtK(Math.abs(a))} kcal ${a<0?"under":"over"} ${what}, for your goal.`:`Matches ${what}.`;
+  if(!tg.burn.fixed){const a=Math.round(tg.adj),what=isToday?(tg.burn.usual?"your usual daily burn":"what you're expected to burn today"):"what you burned";
+    return a?`${fmtK(Math.abs(a))} kcal ${a<0?"under":"over"} ${what}, for your goal.`:`Matches ${what}.`;}
+  const k=dayKind(tg.tr);
+  return !isToday?`${k}.`:tg.tr.pending?`${k}. Set for the day: it changes only once, when the session is done.`:`${k}. Set for the day: it won't move.`;
 }
 function mealCard(m,n,its,d){
   const T=ftot(its),prev=its.length?[]:foodDay(isoAdd(d,-1)).filter(x=>x.meal===m&&!x.fuel);
@@ -987,18 +1048,25 @@ function bindBalance(){
 
 /* ------------------------------------------------------------ food: target and goal sheets */
 function openTarget(d){
-  const tg=targetOf(d),C=calib(),gs=goalState(),E=DATA.energy?.today;
+  const tg=targetOf(d),gs=goalState(),M=burnModel(),T=trimGet(),W=weightTrend(),B=trimBand(),isToday=d===todayISO();
   if(!tg) return;
-  openSheet(`<div class="sh-top"><h2>Daily target</h2>${X}</div>
-    <div class="sh-big" style="color:#f59e0b">${fmtK(tg.kcal)}<small>kcal</small></div>
-    <p class="sh-desc">${d===todayISO()?"It moves during the day: it starts from what you usually burn plus today's planned training, and settles on what you actually burned as Garmin's data comes in.":"Based on what you actually burned that day."}</p>
-    <div class="kv"><span>${tg.burn.proj?"Expected burn":"Burned"}</span><b>${fmtK(tg.burn.v)}</b>
-      ${gs&&gs.adj?`<span>Goal ${gs.adj<0?"deficit":"surplus"} (${gs.g.pace} kg/week)</span><b>${gs.adj<0?"−":"+"}${fmtK(Math.abs(gs.adj))}</b>`:""}
-      <span>Target</span><b>${fmtK(tg.kcal)}</b>
+  const sg=v=>`${v<0?"−":"+"}${fmtK(Math.abs(v))}`,kgw=v=>Math.abs(v)<.05?"no change":`${v>0?"+":"−"}${Math.abs(v).toFixed(2)} kg a week`;
+  const scale=!tg.burn.fixed?"":!W.ok?`It needs at least 4 weigh-ins over two weeks (${W.n} in the last three weeks so far): three or four mornings a week is ideal, same conditions each time. Until then the range stays as it is.`:
+    `Your weigh-ins show ${kgw(W.slope)}${B.want?`, against ${kgw(B.want)} planned`:""}. ${T.at?`Last check on ${fmtDay(T.at,{day:"numeric",month:"short"})}: ${T.step>0?`you were losing faster than planned, so every day got ${T.step} kcal more`:T.step<0?`weight was going up, so every day got ${-T.step} kcal less`:"on course, nothing changed"}.`:"The first check comes with the next weigh-in."} Checked once a week, in small steps.`;
+  openSheet(`<div class="sh-top"><h2>Daily range</h2>${X}</div>
+    <div class="sh-big" style="color:#f59e0b;font-size:46px;white-space:nowrap">${rangeTxt(tg)}<small>kcal</small></div>
+    <p class="sh-desc">${!tg.burn.fixed?"Still learning your days: for now it follows Garmin's estimate. After a week of data it becomes a fixed range for each kind of day.":`A range, not a number: neither the watch nor a food diary is precise to the calorie, so landing anywhere inside it is a day done right. ${isToday?"It is set from the training planned for today and changes only once, if the session ends up different.":"Based on the training you did that day."}`}</p>
+    <div class="kv">${tg.burn.fixed?`<span>Everyday burn, no training</span><b>${fmtK(M.base)}</b>
+      <span>${esc(dayKind(tg.tr))}${tg.tr.pending?" (planned)":""}</span><b>${tg.tr.kcal?sg(tg.tr.kcal):"–"}</b>`:`<span>${tg.burn.proj?"Expected burn":"Burned"}</span><b>${fmtK(tg.burn.v)}</b>`}
+      ${tg.goal?`<span>Goal ${tg.goal<0?"deficit":"surplus"} (${gs.g.pace} kg/week)</span><b>${sg(tg.goal)}</b>`:""}
+      ${tg.trim?`<span>Correction from your weight</span><b>${sg(tg.trim)}</b>`:""}
+      <span>Range</span><b>${rangeTxt(tg)}</b>
       <span>Protein · 1.8 g per kg</span><b>${tg.p} g</b><span>Fat · 27% of energy</span><b>${tg.f} g</b><span>Carbs · the rest</span><b>${tg.c} g</b></div>
-    ${E&&d===todayISO()?`<p class="sh-note">Garmin so far: ${fmtK(E.kcal_now)} kcal at ${asofTxt(E.asof)}${E.planned_names.length?`, plus ${esc(E.planned_names.join(", "))} still to do`:""}.</p>`:""}
-    <h3 class="sh-h3">Tuned to your weight</h3>
-    <p class="sh-note">${C.ok?`Over the last ${C.n} logged days your weight trend says you really burn about ${fmtK(C.real)} kcal a day, against ${fmtK(C.garmin)} from Garmin, so Garmin's numbers are adjusted by ${C.f>=1?"+":"−"}${Math.abs(Math.round((C.f-1)*100))}%.`:`Watches often misjudge calories by 10% or more. After two weeks of logging full days (${C.n}/14 so far) with a weigh-in at the start and end, the target is corrected with what your weight actually did.`}</p>`);
+    ${tg.burn.fixed?`<p class="sh-note">Everyday burn is the middle value of your last ${M.n} days once training is taken out${tg.tr.names.length?`; ${isToday?"today's":"that day's"} training is ${esc(tg.tr.names.join(", "))}`:""}.</p>
+    <h3 class="sh-h3">The scale has the last word</h3>
+    <p class="sh-note">${scale}</p>
+    ${T.v?`<button class="btn quiet" id="trim-0" style="margin-top:12px">Reset the correction</button>`:""}`:""}`);
+  if($("trim-0")) $("trim-0").onclick=()=>{syncSet("rd_trim",{v:0,at:todayISO(),step:0});closeSheet();render();toast("Correction reset");};
 }
 function openGoal(){
   const g=goalGet(),w=weightNow();let pace=g?.pace||0.5;
@@ -1042,10 +1110,11 @@ function libAll(){
   return Object.values(m).filter(e=>!e.del).sort((a,b)=>a.name.localeCompare(b.name));
 }
 const LIB_KEYS=["name","brand","g","kcal","p","c","f","n","k100","p100","c100","f100","unit","serving","um","uq","src","code"];
-function slim(it,full){const o={};for(const k of full?LIB_KEYS:LIB_KEYS.slice(0,full===0?8:7)) if(it[k]!=null&&it[k]!=="") o[k]=it[k];return o;}
+function slim(it,full){const o={};for(const k of full?LIB_KEYS:LIB_KEYS.slice(0,full===0?8:7)) if(it[k]!=null&&it[k]!=="") o[k]=it[k];if(it.meal) o.meal=it.meal;return o;}
 function libSave(e){
   e={...e,ts:Date.now()};
-  if(e.items){e.items=e.items.map(x=>slim(x,true)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,0)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,false));}
+  if(e.items){e.items=e.items.map(x=>slim(x,true)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,0)); if(JSON.stringify(e).length>2600) e.items=e.items.map(x=>slim(x,false));
+    if(JSON.stringify(e).length>2600) e.items=e.items.map(({brand,...x})=>x);}        // a whole day is long: one message must carry it
   const L=libLocal();L[e.id]=e;LS.set("rd_lib",JSON.stringify(L));sendQ("lib",e);
 }
 function recipeFood(e){
@@ -1059,6 +1128,41 @@ function logLibMeal(e,meal,date){
   e.items.forEach((x,i)=>foodSave({...x,id:uid(),date,meal,at:now+i,ts:now+i}));
   buzz(); toast(`${e.name} added · ${fmtK(Math.round(ftot(e.items).kcal))} kcal`); render();
 }
+// A usual day: every meal of a day saved together. One tap fills the diary, then only the differences are edited.
+function logLibDay(e,date){
+  const now=Date.now(),ids=[];
+  e.items.forEach((x,i)=>{const id=uid();ids.push(id);foodSave({...x,id,date,meal:MEAL_NAME[x.meal]?x.meal:"s",at:now+i,ts:now+i});});
+  buzz(); render();
+  toast(`${e.name} logged · ${fmtK(Math.round(ftot(e.items).kcal))} kcal`,"Undo",()=>{const ts=Date.now();ids.forEach(id=>foodSave({id,date,del:true,ts}));render();});
+}
+function openSaveDay(d){
+  const its=foodDay(d).filter(x=>!x.fuel),days=libAll().filter(e=>e.kind==="day"),wd=(new Date(d+"T12:00").getDay()+6)%7;
+  openSheet(`<div class="sh-top"><h2>Save as a usual day</h2>${X}</div>
+    <p class="sh-desc">${its.length} items · ${fmtK(Math.round(ftot(its).kcal))} kcal, ride fuel left out (it comes in by itself). It will sit on top of an empty diary: one tap logs the whole day, then you only fix what was different.</p>
+    <div class="field"><label for="sd-n">Name</label><input id="sd-n" type="text" maxlength="40" value="${wd<5?"Weekday":"Weekend"}"></div>
+    <p class="src" id="sd-h" style="margin:8px 0 0"></p>
+    <div class="savebar" style="margin-top:22px"><span></span><button class="btn" id="sd-s">Save</button></div>`);
+  const same=()=>days.find(e=>norm(e.name)===norm($("sd-n").value.trim()));
+  const hint=()=>{$("sd-h").textContent=same()?"You already have a day with this name: saving replaces it.":"";};
+  $("sd-n").oninput=hint; hint();
+  $("sd-s").onclick=()=>{const old=same();libSave({id:old?old.id:uid(),kind:"day",name:$("sd-n").value.trim()||"My day",items:its});buzz();closeSheet();render();toast("Saved to My days");};
+}
+function openLibDay(e){
+  const d=foodSel||todayISO(),t=todayISO(),lab=d===t?"today":d===isoAdd(t,-1)?"yesterday":fmtDay(d,{weekday:"short",day:"numeric",month:"short"});
+  const draw=()=>{
+    openSheet(`<div class="sh-top"><h2>Usual day</h2>${X}</div>
+      <div class="field"><label for="ld-n">Name</label><input id="ld-n" type="text" maxlength="40" value="${esc(e.name)}"></div>
+      <h3 class="sh-sub">${fmtK(Math.round(ftot(e.items).kcal))} kcal · ${e.items.length} items</h3>
+      ${MEALS.map(([m])=>e.items.map((x,i)=>x.meal===m||(m==="s"&&!MEAL_NAME[x.meal])?`<div class="ent"><span><i class="ent-m">${MEAL_TAG[m]}</i>${esc(x.name)}${x.g?` · ${x.g} g`:""}</span><b>${fmtK(Math.round(x.kcal))}</b><button data-rm="${i}">Remove</button></div>`:"").join("")).join("")}
+      <button class="btn" id="ld-log" style="width:100%;margin-top:16px">Log it ${lab}</button>
+      <div class="savebar" style="margin-top:14px"><button class="btn quiet" id="ld-del">Delete</button><button class="btn quiet" id="ld-s">Save changes</button></div>`);
+    $("sheet").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{e.name=$("ld-n").value;e.items.splice(+b.dataset.rm,1);draw();});
+    $("ld-s").onclick=()=>{e.name=$("ld-n").value.trim()||e.name;if(!e.items.length) return;libSave(e);buzz();openLibrary();render();};
+    $("ld-del").onclick=()=>{libSave({id:e.id,del:true,name:e.name});closeSheet();render();toast(`Deleted ${e.name}`);};
+    $("ld-log").onclick=()=>{closeSheet();logLibDay(e,d);};
+  };
+  draw();
+}
 function openSaveMeal(m,d){
   const its=foodDay(d).filter(x=>x.meal===m&&!x.fuel);
   openSheet(`<div class="sh-top"><h2>Save as my meal</h2>${X}</div>
@@ -1068,16 +1172,17 @@ function openSaveMeal(m,d){
   $("sm-s").onclick=()=>{libSave({id:uid(),kind:"meal",for:m,name:$("sm-n").value.trim()||"My meal",items:its});buzz();closeSheet();render();toast("Saved to My meals");};
 }
 function openLibrary(){
-  const L=libAll(),row=e=>`<button class="fr-row" data-lib="${e.id}"><span class="fn">${esc(e.name)}<small>${e.kind==="recipe"?`Recipe · ${e.items.length} ingredients${e.servings?` · ${e.servings} servings`:""}`:`${MEAL_NAME[e.for]||"Meal"} · ${e.items.length} items`}</small></span>
+  const L=libAll(),row=e=>`<button class="fr-row" data-lib="${e.id}"><span class="fn">${esc(e.name)}<small>${e.kind==="recipe"?`Recipe · ${e.items.length} ingredients${e.servings?` · ${e.servings} servings`:""}`:e.kind==="day"?`Whole day · ${e.items.length} items`:`${MEAL_NAME[e.for]||"Meal"} · ${e.items.length} items`}</small></span>
     <b>${fmtK(Math.round(e.kind==="recipe"?recipeFood(e).k:ftot(e.items).kcal))}<u>${e.kind==="recipe"?"/100 g":"kcal"}</u></b></button>`;
-  const meals=L.filter(e=>e.kind==="meal"),recs=L.filter(e=>e.kind==="recipe");
-  openSheet(`<div class="sh-top"><h2>My meals &amp; recipes</h2>${X}</div>
-    <p class="sh-desc">Save a meal from the diary with "Save as my meal". Recipes become a food you log by the serving.</p>
+  const meals=L.filter(e=>e.kind==="meal"),recs=L.filter(e=>e.kind==="recipe"),days=L.filter(e=>e.kind==="day");
+  openSheet(`<div class="sh-top"><h2>My days, meals &amp; recipes</h2>${X}</div>
+    <p class="sh-desc">Save a whole day from the diary with "Save this day as a usual day", or one meal with "Save as my meal". Recipes become a food you log by the serving.</p>
     <button class="btn" id="lb-new" style="width:100%">New recipe</button>
+    ${days.length?`<h3 class="sh-sub">My days</h3>${days.map(row).join("")}`:""}
     ${meals.length?`<h3 class="sh-sub">My meals</h3>${meals.map(row).join("")}`:""}
     ${recs.length?`<h3 class="sh-sub">Recipes</h3>${recs.map(row).join("")}`:""}`);
   $("lb-new").onclick=()=>openRecipe({id:uid(),kind:"recipe",name:"",servings:4,items:[],isNew:true});
-  $("sheet").querySelectorAll("[data-lib]").forEach(b=>b.onclick=()=>{const e=L.find(x=>x.id===b.dataset.lib);e.kind==="recipe"?openRecipe(structuredClone(e)):openLibMeal(structuredClone(e));});
+  $("sheet").querySelectorAll("[data-lib]").forEach(b=>b.onclick=()=>{const e=L.find(x=>x.id===b.dataset.lib);e.kind==="recipe"?openRecipe(structuredClone(e)):e.kind==="day"?openLibDay(structuredClone(e)):openLibMeal(structuredClone(e));});
 }
 function openLibMeal(e){
   const draw=()=>{

@@ -22,3 +22,4 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 12. Fueling in bici e post-allenamento collegati al diario: modello fisiologico (fuel.py) che stima i carboidrati consumati dalle zone di potenza, dice quanto prendere in sella e quanto reintegrare dopo; se la seduta esce diversa dal piano, la differenza va nel recupero
 - [x] 13. Promemoria intelligenti: notifica serale se il journal è vuoto, peso settimanale, check-in del mattino (ognuno solo se manca davvero, una volta sola, disattivabile in Settings)
 - [x] 14. Sincronizzare anche piano alimentare e note tra telefono e computer: piano, alternative scelte e impostazioni (fuel, promemoria) seguono tutti i dispositivi
+- [x] 15. Diario alimentare meno faticoso e più affidabile: range fisso per tipo di giornata al posto del target mobile, giornata tipo registrata in un tocco, correzione settimanale dalla bilancia

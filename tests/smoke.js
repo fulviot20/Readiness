@@ -71,6 +71,45 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (!(r.used > 0) || r.plan == null || r.extra == null) throw new Error("planned vs done not compared");
       TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "diary"; foodSel = todayISO(); render(); }],
     ["fuel-settings", () => openFuelSettings()],
+    // usual day: a whole day saved from the diary comes back with one tap, each food in its meal
+    ["usual-day", () => { const t = todayISO(), now = Date.now(), real = () => foodDay(t).filter(x => !x.fuel);
+      [["b", "Oats", 300], ["l", "Chicken", 400], ["d", "Rice", 500], ["s", "Banana", 100]].forEach(([meal, name, kcal], i) =>
+        foodSave({id: "ud" + i, date: t, meal, name, g: 100, kcal, p: 10, c: 30, f: 5, at: now + i, ts: now + i}));
+      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "diary"; foodSel = t; render();
+      document.getElementById("day-save").click(); document.getElementById("sd-n").value = "Weekday canteen"; document.getElementById("sd-s").click();
+      const e = libAll().find(x => x.kind === "day");
+      if (!e || e.items.length !== 4 || e.items.map(x => x.meal).join("") !== "blds") throw new Error("usual day not saved with its meals");
+      real().forEach(x => foodSave({id: x.id, date: t, del: true, ts: Date.now() + 9})); render();
+      const b = document.querySelector(`[data-libd="${e.id}"]`); if (!b) throw new Error("usual day not offered on an empty diary");
+      b.click();
+      if (real().length !== 4 || real().map(x => x.meal).sort().join("") !== "bdls" || ftot(real()).kcal !== 1300) throw new Error("usual day not logged");
+      if (document.querySelector("[data-libd]")) throw new Error("usual day still offered on a filled diary"); }],
+    ["usual-day-edit", () => { const e = libAll().find(x => x.kind === "day"); openLibDay(structuredClone(e));
+      if (!document.getElementById("ld-log") || document.querySelectorAll("#sheet [data-rm]").length !== 4) throw new Error("usual day can't be opened"); }],
+    // the target is a range fixed for the day: Garmin's moving projection doesn't touch it, the session does once it's done
+    ["range", () => { const t = todayISO(), a = targetOf(t);
+      if (!a || !a.burn.fixed || a.hi - a.lo !== 200 || a.kcal % 50) throw new Error("no fixed range");
+      DATA.energy.today.projected += 600; DATA.energy.today.kcal_now += 600;
+      if (targetOf(t).kcal !== a.kcal) throw new Error("the range moved with Garmin's projection");
+      const d = DATA.days.find(x => x.date === t), extra = {name: "Test ride", type: "Ride", minutes: 120};
+      (d.plan = d.plan || []).push(extra); const r = targetOf(t);
+      if (!(r.kcal > a.kcal + 300) || !r.burn.proj || !/Training day|Long day/.test(dayKind(r.tr))) throw new Error("a planned session should raise the range from the morning");
+      extra.done = true; const q = targetOf(t); d.plan.pop();
+      if (q.kcal !== a.kcal) throw new Error("a planned session that isn't pending any more shouldn't count twice");
+      if (rangeState(a.lo - 10, a).k !== "under" || rangeState(a.kcal, a).k !== "in" || rangeState(a.hi + 10, a).k !== "over") throw new Error("range state wrong");
+      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "diary"; foodSel = t; render(); openTarget(t); }],
+    // the scale corrects the range: losing faster than the goal's pace raises it, once a week, in a small step
+    ["scale", () => { const t = todayISO(), set = f => { DATA.athlete.weights = [0, 4, 8, 12, 16, 20].map(k => ({date: isoAdd(t, -k), kg: 63 + f * k / 7})); ATH_CACHE = null; };
+      localStorage.removeItem("ath_m_weight"); if (DATA.athlete.metrics) DATA.athlete.metrics.weight = {};
+      localStorage.removeItem("rd_trim"); localStorage.removeItem("rd_goal"); DATA.nutrition.goal = null;
+      const base = targetOf(t).kcal;
+      set(0); trimCheck(); if (trimGet().v !== 0 || trimGet().at !== t) throw new Error("stable weight should change nothing");
+      localStorage.removeItem("rd_trim"); set(0.6); trimCheck();                       // 0.6 kg lighter every week
+      if (trimGet().v !== 150 || targetOf(t).kcal !== base + 150) throw new Error("fast loss should raise the range");
+      set(-0.6); trimCheck(); if (trimGet().v !== 150) throw new Error("checked twice in the same week");
+      localStorage.setItem("rd_trim", JSON.stringify({v: 150, at: isoAdd(t, -8)})); trimCheck();
+      if (trimGet().v !== 50) throw new Error("gaining should lower the range a little");
+      openTarget(t); if (!document.getElementById("trim-0")) throw new Error("no reset"); }],
     // synced values: a newer copy from the server replaces the local one, an older one doesn't
     ["sync", () => { const ts = Date.now() + 5000; DATA.sync = {rd_plan_sel: {ts, v: {b0: 2}}, rd_fuel: {ts: 5, v: {max: 40}}}; syncPull();
       if (lsJSON("rd_plan_sel", {}).b0 !== 2) throw new Error("newer server value not taken");

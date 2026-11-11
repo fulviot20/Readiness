@@ -104,7 +104,7 @@ async function cachedEnv(){try{const c=await caches.open("rd-data"),r=await c.ma
 async function saveEnv(txt){try{const c=await caches.open("rd-data");await c.put("data.enc",new Response(txt,{headers:{"content-type":"application/json"}}));}catch(e){}}
 function useData(d,quiet,keepY){
   const keepDate=quiet&&DATA?DATA.days[sel]?.date:null,keepDraft=quiet?{...draft}:null;
-  DATA=d; CAL=null; ATH_CACHE=null; foodReset(); syncPull();
+  DATA=d; CAL=null; PB=null; ATH_CACHE=null; foodReset(); syncPull(); try{trimCheck();}catch(e){}
   for(const d of DATA.days){const n=LS.get("note:"+d.date); if(n&&!d.note) d.note=JSON.parse(n);}
   for(const d of DATA.days){const l=LS.get("ans:"+d.date); if(l&&!d.answers) Object.assign(d,applyAnswers(d,JSON.parse(l)));}
   // always open on today, even before today's data has arrived

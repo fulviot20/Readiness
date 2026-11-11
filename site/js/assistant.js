@@ -38,7 +38,7 @@ function aiContext(){
     energy:E?{burned_so_far:E.kcal_now,expected_today:E.projected,steps:E.steps,km:E.km,stress:E.stress}:null,
     food_diary_on:fo,food_today:items.map(x=>({id:x.id,meal:x.meal,name:x.name,grams:x.g,kcal:x.kcal})),
     eaten:{kcal:Math.round(T.kcal),protein:Math.round(T.p),carbs:Math.round(T.c),fat:Math.round(T.f)},
-    target:tg?{kcal:tg.kcal,protein:tg.p,carbs:tg.c,fat:tg.f}:null,
+    target:tg?{kcal_range:[tg.lo,tg.hi],day:tg.tr?dayKind(tg.tr):null,protein:tg.p,carbs:tg.c,fat:tg.f}:null,
     weight_kg:weightNow(),goal:gs?{target_kg:gs.g.target,pace_kg_week:gs.g.pace,eta:gs.eta}:null,
     my_meals:libAll().map(e=>({id:e.id,kind:e.kind,name:e.name,for:e.for||null})),
     food_notes:fnAll().map(n=>({id:n.id,text:n.text})),has_meal_plan:!!planGet(),
