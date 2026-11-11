@@ -119,7 +119,7 @@ const AM={
   fitage:{name:"Fitness age",unit:"years",col:"#5fe08a",fmt:yrs,better:-1,eps:.5,dfmt:d=>`${Math.abs(d).toFixed(1)} yr`,
     desc:"The age at which an average healthy person has your VO₂max. Reference: the HUNT Fitness Study (3,816 healthy Norwegian adults tested on a treadmill): on average men reach 54.4 and women 43.0 ml/kg/min at 20–29, and lose about 3.5 every decade. It follows your estimated VO₂max, so it moves with your training. The scale starts at 20: below that there is no healthy reference."},
   weight:{name:"Weight",unit:"kg",col:"#d9c46a",fmt:v=>v.toFixed(1),better:0,eps:.2,dfmt:d=>`${Math.abs(d).toFixed(1)} kg`,
-    desc:"What you log here each week, plus any weigh-ins recorded on Intervals. Weigh yourself in the same conditions (morning, after the bathroom, before breakfast): day-to-day swings of 1 kg are mostly water."},
+    desc:"What you log here every few days, plus any weigh-ins recorded on Intervals. Weigh yourself in the same conditions (morning, after the bathroom, before breakfast): day-to-day swings of 1 kg are mostly water."},
   vo2max:{name:"VO₂max",unit:"ml/kg/min",col:"#5fe08a",fmt:v=>v.toFixed(1),better:1,eps:.3,dfmt:d=>Math.abs(d).toFixed(1),desc:MK.vo2max.desc},
   ftp:{name:"FTP",unit:"W",col:"#3a9cf5",fmt:v=>String(Math.round(v)),better:1,eps:2,dfmt:d=>`${Math.abs(Math.round(d))} W`,desc:MK.ftp.desc},
   wkg:{name:"Power to weight",unit:"W/kg",col:"#6fd3e6",fmt:v=>v.toFixed(2),better:1,eps:.03,dfmt:d=>Math.abs(d).toFixed(2),
@@ -204,7 +204,7 @@ function renderAthlete(){
     <div class="amks">${amkCard("ftp",wk?`${wk.v.toFixed(2)} W/kg`:"")}${amkCard("wkg")}</div></section>
   <section class="sec"><div class="sec-h"><h2>Running</h2><span>Tap for history</span></div>
     <div class="amks">${amkCard("lthr",lsub)}${amkCard("thr_pace",L?`at ${Math.round(L.v)} bpm`:"")}${amkCard("easy_pace",DATA.fitness?.easy_hr?`at ${DATA.fitness.easy_hr} bpm`:"")}</div></section>
-  <p class="foot">Age and fitness age update by themselves. Log your weight once a week, same conditions.</p>`;
+  <p class="foot">Age and fitness age update by themselves. Log your weight every 3–4 days, same conditions: the calorie range follows its trend.</p>`;
   $("gear").onclick=openSettings;
   $("ath-edit").onclick=openProfile; bindSwitch();
   const f=$("ath-fit"); if(f) f.onclick=()=>openAth("fitage");
@@ -250,14 +250,17 @@ function athChart(key,days){
   const dots=s.map((p,i)=>`<circle cx="${x(p.date).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${i===pick?r+2:r}" fill="${i===pick?m.col:"var(--surface)"}" stroke="${m.col}" stroke-width="${s.length>60&&i!==pick?1.4:2}"/>`).join("");
   const ticks=[hi-pad,lo+pad].map(v=>`<line x1="${PL}" x2="${W-PR+4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".4"/><text x="${W-PR+8}" y="${y(v)+4}" class="rl">${m.fmt(v)}</text>`).join("");
   const extra=key==="fitage"?`<span style="margin-left:auto">age ${pk.age.toFixed(1)}</span>`:key==="ftp"||key==="wkg"?"":"";
+  const WT=key==="weight"&&typeof weightTrend==="function"?weightTrend():null;let trend="";
+  if(WT&&WT.ok){const a=WT.from<new Date(t0).toLocaleDateString("sv-SE")?new Date(t0).toLocaleDateString("sv-SE"):WT.from,b=todayISO(),cy=v=>clip(y(v),PT,H-PB);
+    trend=`<line x1="${x(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y1="${cy(WT.at(a)).toFixed(1)}" y2="${cy(WT.at(b)).toFixed(1)}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round" opacity=".9"/>`;}
   return `<div class="readout"><span>${fmtDay(pk.date,{weekday:"short",day:"numeric",month:"short",year:days&&days<=90?undefined:"2-digit"})}</span><b>${m.fmt(pk.v)}</b><em style="color:${m.col}">${m.unit}</em>${extra}</div>
     <div class="sh-chart"><svg id="ath-svg" viewBox="0 0 ${W} ${H}" style="touch-action:pan-y">${ticks}
       <line x1="${x(pk.date)}" x2="${x(pk.date)}" y1="${PT}" y2="${H-PB}" stroke="var(--muted)" opacity=".5"/>${ref}
       ${gl?`<line x1="${PL}" x2="${W-PR+4}" y1="${y(gl.target)}" y2="${y(gl.target)}" stroke="#5fc795" stroke-dasharray="5 4" opacity=".8"/><text x="${PL+4}" y="${y(gl.target)-6}" class="rl" style="fill:#5fc795">goal ${gl.target.toFixed(1)}</text>`:""}
-      ${s.length>1?`<polyline points="${line}" fill="none" stroke="${m.col}" stroke-width="2" stroke-linejoin="round"/>`:""}${dots}
+      ${s.length>1?`<polyline points="${line}" fill="none" stroke="${m.col}" stroke-width="2" stroke-linejoin="round"/>`:""}${trend}${dots}
       <rect x="0" y="0" width="${W}" height="${H}" fill="transparent" style="cursor:pointer"/></svg>
     <div class="ax"><span>${fmtDay(new Date(t0).toLocaleDateString("sv-SE"),{day:"numeric",month:"short",year:"2-digit"})}</span><span>${fmtDay(new Date(t1).toLocaleDateString("sv-SE"),{day:"numeric",month:"short",year:"2-digit"})}</span></div>
-    ${key==="fitage"?`<div class="lg">Dashed: your real age</div>`:""}</div>`;
+    ${key==="fitage"?`<div class="lg">Dashed: your real age</div>`:""}${trend?`<div class="lg">Dashed amber: the trend of your last three weeks, the one the calorie range follows</div>`:""}</div>`;
 }
 function athBindChart(key,days){
   const svg=$("ath-svg");if(!svg) return;
@@ -279,7 +282,7 @@ function openAth(key,days=90,keep=false){
       <h3 class="sh-sub">Log weight</h3>
       <div class="ath-log"><div class="field"><label for="w-d">Date</label><input id="w-d" type="date" value="${todayISO()}" max="${todayISO()}"></div>
         <div class="field"><label for="w-v">Kg</label><input id="w-v" type="number" inputmode="decimal" step="0.1" min="30" max="200" placeholder="${l?l.v.toFixed(1):"70.0"}"></div>
-        <button class="btn" id="w-save">Save</button></div><p class="st" id="w-st" style="font-size:13px;color:var(--muted);margin:-6px 0 10px"></p>
+        <button class="btn" id="w-save">Save</button></div><p class="st" id="w-st" style="font-size:13px;color:var(--muted);margin:-6px 0 10px"></p><div id="w-adh"></div>
       ${ent.length?ent.map(([d,v])=>`<div class="ent"><span>${esc(fmtDay(d,{weekday:"short",day:"numeric",month:"short",year:"numeric"}))}</span><b>${(+v).toFixed(1)} kg</b><button data-del="${d}" aria-label="Delete">Delete</button></div>`).join(""):""}`;
   } else if(key==="lthr"){
     const own=Object.keys(athEntries("lthr")).length,src=DATA.athlete?.lthr_src;
@@ -316,8 +319,17 @@ function openAth(key,days=90,keep=false){
     sv.disabled=true;const sent=await logMetric(key,d,key==="weight"?Math.round(v*10)/10:Math.round(v));
     openAth(key,days);renderIfAthlete();
     $("w-st").textContent=sent?"Saved.":"Saved on this phone: it goes out as soon as you're back online.";
+    if(key==="weight"&&foodOn()&&d>=isoAdd(todayISO(),-2)) adhAsk(d);
   };
   $("sheet").querySelectorAll("button[data-del]").forEach(b=>b.onclick=async()=>{await logMetric(key,b.dataset.del,null);openAth(key,days);renderIfAthlete();});
+}
+// one tap after a weigh-in, instead of a food diary
+function adhAsk(date){
+  const box=$("w-adh");if(!box) return;
+  box.innerHTML=`<div class="note-card" style="margin:4px 0 14px"><b>One tap, instead of a food diary</b><p style="margin:6px 0 10px">Since your last weigh-in, compared with your plan you ate:</p>
+    <div class="seg three" id="adh-s"><button data-a="-1"><b>Less</b><span>Skipped, smaller</span></button><button data-a="0"><b>About that</b><span>Close to it</span></button><button data-a="1"><b>More</b><span>Extras, bigger</span></button></div></div>`;
+  box.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{adhSet(date,+b.dataset.a);buzz();try{trimCheck();}catch(e){}
+    box.innerHTML=`<p class="st" style="font-size:13px;color:var(--muted);margin:0 0 12px">Noted. Weight and this answer together decide whether your range moves.</p>`;renderIfAthlete();});
 }
 function renderIfAthlete(){ if(TAB==="athlete"){const y=scrollY;renderAthlete();scrollTo(0,y);} }
 

@@ -32,10 +32,37 @@ function dayTypeTargets(){
   for(const h of H.slice(-42)){if(!h.kcal||h.date>=todayISO()) continue;const m=((byd[h.date]||{}).workouts||[]).filter(w=>w.type).reduce((a,w)=>a+(w.minutes||0),0);
     groups[m>=180?"long":m>=30?"train":"rest"].push(h.kcal);}
   const med=a=>{const s=[...a].sort((x,y)=>x-y);return s.length?s[s.length>>1]:null;};
-  const out={};for(const [k,a] of Object.entries(groups)){const b=med(a);out[k]=b?Math.round(Math.max(floor,b*f+adj)/10)*10:null;}
+  const out={},M=burnModel();
+  if(M.ok){                                      // same model as the daily range: everyday burn + what training usually costs on such days
+    const tr={rest:[],train:[],long:[]};
+    for(const d of (DATA.days||[]).slice(-43)){if(d.date>=todayISO()) continue;const m=(d.workouts||[]).filter(w=>w.type).reduce((a,w)=>a+(w.minutes||0),0);
+      tr[m>=180?"long":m>=30?"train":"rest"].push(dayTraining(d.date).kcal);}
+    for(const [k,a] of Object.entries(tr)) out[k]=a.length?Math.round(Math.max(floor,M.base+med(a)+adj)/50)*50:null;
+  }else
+  for(const [k,a] of Object.entries(groups)){const b=med(a);out[k]=b?Math.round(Math.max(floor,b*f+adj)/10)*10:null;}
   if(!out.train) out.train=targetOf(todayISO())?.kcal||null;
   if(!out.rest&&out.train) out.rest=out.train-300; if(!out.long&&out.train) out.long=out.train+700;
   return out;
+}
+// The plan follows the range by itself: the carbohydrate parts of each meal are resized so that the day's meals,
+// plus what you take on the bike, land in the middle of the range for that kind of day. Following the portions
+// is how you stay in range without logging anything.
+function planTarget(dt){
+  const t=todayISO();
+  if(dt===dayTypeToday()){const tg=targetOf(t);if(tg) return {kcal:tg.kcal,fuel:Math.round(foodDay(t).filter(x=>x.fuel).reduce((a,x)=>a+x.kcal,0))};}
+  const k=dayTypeTargets()[dt]; if(!k) return null;
+  const fu=[];
+  for(const d of (DATA.days||[]).slice(-43,-1)){const m=(d.workouts||[]).filter(w=>w.type).reduce((a,w)=>a+(w.minutes||0),0);
+    if((m>=180?"long":m>=30?"train":"rest")===dt) fu.push(foodDay(d.date).filter(x=>x.fuel).reduce((a,x)=>a+x.kcal,0));}
+  return {kcal:Math.round(k/50)*50,fuel:fu.length?Math.round(median(fu)):0};
+}
+function planFactor(P,dt){
+  const sel=lsJSON("rd_plan_sel",{}),T=planTarget(dt),f0=+(P.day_types?.[dt]?.carb_factor)||1,wk=new Date().getDay()%6!==0;let fix=0,carb=0;
+  for(const m of P.meals||[]){
+    if(wk&&P.canteen&&(P.canteen.picks||[]).length&&m.meal===P.canteen.meal){const ks=P.canteen.picks.map(p=>+p.kcal||0);fix+=ks.reduce((a,b)=>a+b,0)/ks.length;continue;}
+    (m.components||[]).forEach((c,ci)=>{const o=(c.options||[])[sel[m.meal+ci]??0];if(o) c.carb?carb+=+o.kcal||0:fix+=+o.kcal||0;});}
+  const f=T&&carb?clip(Math.round((T.kcal-T.fuel-fix)/carb*20)/20,.5,2.5):f0;
+  return {f,T,meals:Math.round(fix+carb*f)};
 }
 /* notes: the food memory */
 function fnLocal(){return lsJSON("rd_fnotes",{});}
@@ -96,7 +123,7 @@ function planView(){
       <button class="pl-q" id="pl-quiz">Prefer quick questions? Answer a short questionnaire</button>
       ${N.length?`<button class="pl-q" id="pl-notes">What I already know about you · ${N.length} notes</button>`:""}`
       :`<button class="btn" id="pl-key" style="width:100%">Add your Gemini key in Settings first</button>`}</div></section>`;
-  const dt=PLAN_DT||dayTypeToday(),D=P.day_types?.[dt]||{},f=+D.carb_factor||1,wk=new Date().getDay()%6!==0;
+  const dt=PLAN_DT||dayTypeToday(),D=P.day_types?.[dt]||{},PF=planFactor(P,dt),f=PF.f,wk=new Date().getDay()%6!==0;
   const sel=lsJSON("rd_plan_sel",{});
   const comp=(m,ci,c)=>{const pick=sel[m.meal+ci]??0;
     return `<div class="pl-c"><small>${esc(c.role)}</small><div class="pl-o">${(c.options||[]).map((o,oi)=>{const k=c.carb?f:1;
@@ -105,7 +132,9 @@ function planView(){
   const canteen=P.canteen&&(P.canteen.picks||[]).length;
   return `<section class="sec first">
     <div class="pl-top"><div class="range" id="pl-dt">${[["rest","Rest"],["train","Training"],["long","Long ride"]].map(([k,n])=>`<button data-dt="${k}" class="${dt===k?"on":""}">${n}</button>`).join("")}</div>
-      <div class="pl-k"><b>${D.kcal?fmtK(D.kcal):"–"}</b><span>kcal target</span></div></div>
+      <div class="pl-k"><b${PF.T?' style="font-size:21px;white-space:nowrap"':""}>${PF.T?`${fmtK(PF.T.kcal-100)}–${fmtK(PF.T.kcal+100)}`:D.kcal?fmtK(D.kcal):"–"}</b><span>kcal ${PF.T?"range":"target"}</span></div></div>
+    ${PF.T?`<p class="pl-fit">These portions are sized for this range: about ${fmtK(PF.meals)} kcal at the table${PF.T.fuel?` plus ${fmtK(PF.T.fuel)} on the bike`:""}. Eat like this and you're in range, with nothing to log.</p>`:""}
+    ${trendCard()}
     <div class="pl-tell"><input id="pl-new" type="text" placeholder="Tell me something new… e.g. no spicy food" enterkeyhint="send">${SR?`<button class="as-b" id="pl-mic2" aria-label="Speak"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>`:""}<button class="as-b send" id="pl-send" aria-label="Update the plan"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
     <button class="pl-q" id="pl-notes" style="margin-top:6px">What I know about how you eat · ${N.length} note${N.length===1?"":"s"} →</button>
     ${P.summary?`<p class="pl-sum">${esc(P.summary)}</p>`:""}
@@ -150,7 +179,7 @@ function bindPlan(){
 }
 function logPlanMeal(meal){
   const P=planGet(),m=(P.meals||[]).find(x=>x.meal===meal);if(!m) return;
-  const dt=PLAN_DT||dayTypeToday(),f=+(P.day_types?.[dt]?.carb_factor)||1,sel=lsJSON("rd_plan_sel",{}),now=Date.now();let n=0,k=0;
+  const dt=PLAN_DT||dayTypeToday(),f=planFactor(P,dt).f,sel=lsJSON("rd_plan_sel",{}),now=Date.now();let n=0,k=0;
   (m.components||[]).forEach((c,ci)=>{const o=(c.options||[])[sel[meal+ci]??0];if(!o) return;const s=c.carb?f:1;
     const it=aiFood({name:o.name,grams:(+o.grams||0)*s||null,kcal:(+o.kcal||0)*s,protein:(+o.protein||0)*s,carbs:(+o.carbs||0)*s,fat:(+o.fat||0)*s,note:o.portion||null},meal);
     foodSave({...it,src:"plan",id:uid(),date:todayISO(),meal,at:now+n,ts:now+n});n++;k+=it.kcal;});

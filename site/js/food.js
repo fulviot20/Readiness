@@ -821,7 +821,16 @@ function weightTrend(){
   if(span<14) return {ok:false,n,span};
   const mx=x.reduce((a,b)=>a+b)/n,my=ws.reduce((a,p)=>a+p.v,0)/n;
   const slope=x.reduce((a,v,i)=>a+(v-mx)*(ws[i].v-my),0)/x.reduce((a,v)=>a+(v-mx)**2,0)*7;
-  return {ok:true,n,span,slope};
+  return {ok:true,n,span,slope,from:ws[0].date,at:d=>my+slope/7*((new Date(d+"T12:00")-new Date(ws[0].date+"T12:00"))/864e5-mx)};
+}
+// Without a diary the app can't see what you ate, so at each weigh-in it asks one thing: compared with your plan,
+// did you eat less, about that, or more? It keeps the correction fair: weight going up after days of "more" says
+// nothing against the range, so the range stays and the advice is simply to come back inside it.
+const adhGet=()=>lsJSON("rd_adh",{});
+function adhSet(date,v){const A=adhGet(),lim=isoAdd(todayISO(),-90);A[date]=v;for(const d of Object.keys(A)) if(d<lim) delete A[d];syncSet("rd_adh",A);}
+function adhRecent(){
+  const t=todayISO(),v=Object.entries(adhGet()).filter(([d])=>d>=isoAdd(t,-21)&&d<=t).map(([,x])=>+x||0);
+  return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;
 }
 function trimBand(){
   const gs=goalState(),want=gs&&gs.dir?gs.dir*gs.g.pace:0;
@@ -831,8 +840,10 @@ function trimCheck(){
   if(!foodOn()) return;
   const T=trimGet(),t=todayISO(); if(T.at&&T.at>isoAdd(t,-7)) return;
   const tr=weightTrend(); if(!tr.ok) return;
-  const B=trimBand(),step=tr.slope<B.lo-.25?150:tr.slope<B.lo?100:tr.slope>B.hi?-100:0;
-  syncSet("rd_trim",{v:clip((T.v||0)+step,-300,400),at:t,step,slope:Math.round(tr.slope*100)/100,want:B.want});
+  const B=trimBand(),a=adhRecent();let step=tr.slope<B.lo-.25?150:tr.slope<B.lo?100:tr.slope>B.hi?-100:0,held=null;
+  if(step<0&&a!=null&&a>=.5){step=0;held="more";}             // gaining while eating over the plan: the plan isn't the problem
+  if(step>0&&a!=null&&a<=-.5){step=0;held="less";}            // losing fast while eating under it: same
+  syncSet("rd_trim",{v:clip((T.v||0)+step,-300,400),at:t,step,held,slope:Math.round(tr.slope*100)/100,want:B.want});
 }
 function targetOf(date){
   const M=burnModel();let burn,tr=null;
@@ -842,6 +853,13 @@ function targetOf(date){
   const kcal=Math.round(Math.max(floor,burn.v+goal+trim)/50)*50,w=weightNow()||70;
   const p=Math.round(1.8*w),f=Math.round(kcal*.27/9),c=Math.max(0,Math.round((kcal-p*4-f*9)/4));
   return {kcal,lo:kcal-100,hi:kcal+100,burn,tr,goal,trim,adj:kcal-burn.v,p,c,f,floored:burn.v+goal+trim<floor};
+}
+// weight trend in one card: what the scale says, what the goal wants, what happened to the range
+function trendCard(){
+  const W=weightTrend(),B=trimBand(),T=trimGet(),kgw=v=>Math.abs(v)<.05?"Stable":`${v>0?"+":"−"}${Math.abs(v).toFixed(2)}`;
+  const verdict=!W.ok?`${W.n} of 4 weigh-ins in the last three weeks: weigh in every 3–4 days and the range starts correcting itself.`:
+    `${B.want?`Goal ${kgw(B.want)} kg a week. `:""}${T.held==="more"?"Range unchanged: you ate over the plan, come back inside it.":T.held==="less"?"Range unchanged: eat the full plan.":T.v?`Range ${T.v>0?"raised":"lowered"} by ${fmtK(Math.abs(T.v))} kcal a day.`:"Range unchanged: you're on course."}`;
+  return `<button class="wk-c" id="wt-c"><div class="wk-h"><small>WEIGHT TREND · 3 WEEKS</small><b>${W.ok?kgw(W.slope):"–"}<u>${W.ok&&Math.abs(W.slope)>=.05?"kg/week":""}</u></b></div><span>${esc(verdict)}</span></button>`;
 }
 // where what you ate sits against the day's range
 function rangeState(eaten,tg){
@@ -896,7 +914,7 @@ function renderFood(){
   ${nutrientSection(d)}
   <p class="foot">Swipe sideways to change day.</p>`;
   else if(pg==="plan") body=planView();
-  else if(pg==="balance") body=`${weekCard(false)}${goalCard()}${balanceSection()}<p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.</p>`;
+  else if(pg==="balance") body=`${trendCard()}${weekCard(false)}${goalCard()}${balanceSection()}<p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.</p>`;
   else {PG.athlete="diary";return renderFood();}
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
@@ -915,7 +933,7 @@ function renderFood(){
   if($("nut")) bindNut(d);
   if(pg==="diary") setTimeout(()=>autoFill(d),500);
   on("f-coach",()=>openAssistant("food")); on("fuel-c",openFuelSettings);
-  on("goal-c",openGoal); on("wk-c",()=>setPage("athlete","balance"));
+  on("goal-c",openGoal); on("wk-c",()=>setPage("athlete","balance")); on("wt-c",()=>openAth("weight"));
   if($("bal-r")) bindBalance();
   if(pg==="plan") bindPlan();
 }
@@ -1052,7 +1070,7 @@ function openTarget(d){
   if(!tg) return;
   const sg=v=>`${v<0?"−":"+"}${fmtK(Math.abs(v))}`,kgw=v=>Math.abs(v)<.05?"no change":`${v>0?"+":"−"}${Math.abs(v).toFixed(2)} kg a week`;
   const scale=!tg.burn.fixed?"":!W.ok?`It needs at least 4 weigh-ins over two weeks (${W.n} in the last three weeks so far): three or four mornings a week is ideal, same conditions each time. Until then the range stays as it is.`:
-    `Your weigh-ins show ${kgw(W.slope)}${B.want?`, against ${kgw(B.want)} planned`:""}. ${T.at?`Last check on ${fmtDay(T.at,{day:"numeric",month:"short"})}: ${T.step>0?`you were losing faster than planned, so every day got ${T.step} kcal more`:T.step<0?`weight was going up, so every day got ${-T.step} kcal less`:"on course, nothing changed"}.`:"The first check comes with the next weigh-in."} Checked once a week, in small steps.`;
+    `Your weigh-ins show ${kgw(W.slope)}${B.want?`, against ${kgw(B.want)} planned`:""}. ${T.at?`Last check on ${fmtDay(T.at,{day:"numeric",month:"short"})}: ${T.step>0?`you were losing faster than planned, so every day got ${T.step} kcal more`:T.step<0?`weight was going up, so every day got ${-T.step} kcal less`:T.held==="more"?"weight was going up, but you said you'd eaten more than the plan, so the range stays: coming back inside it is enough":T.held==="less"?"you were losing fast, but you said you'd eaten less than the plan, so the range stays: eat the full plan":"on course, nothing changed"}.`:"The first check comes with the next weigh-in."} Checked once a week, in small steps.`;
   openSheet(`<div class="sh-top"><h2>Daily range</h2>${X}</div>
     <div class="sh-big" style="color:#f59e0b;font-size:46px;white-space:nowrap">${rangeTxt(tg)}<small>kcal</small></div>
     <p class="sh-desc">${!tg.burn.fixed?"Still learning your days: for now it follows Garmin's estimate. After a week of data it becomes a fixed range for each kind of day.":`A range, not a number: neither the watch nor a food diary is precise to the calorie, so landing anywhere inside it is a day done right. ${isToday?"It is set from the training planned for today and changes only once, if the session ends up different.":"Based on the training you did that day."}`}</p>

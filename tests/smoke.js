@@ -110,6 +110,31 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       localStorage.setItem("rd_trim", JSON.stringify({v: 150, at: isoAdd(t, -8)})); trimCheck();
       if (trimGet().v !== 50) throw new Error("gaining should lower the range a little");
       openTarget(t); if (!document.getElementById("trim-0")) throw new Error("no reset"); }],
+    // no diary: the one-tap answer at the weigh-in keeps the correction fair, and the weight sheet shows the trend
+    ["weigh-in", () => { const t = todayISO();
+      DATA.athlete.weights = [0, 4, 8, 12, 16, 20].map(k => ({date: isoAdd(t, -k), kg: 63 - 0.6 * k / 7})); ATH_CACHE = null;      // gaining
+      localStorage.removeItem("rd_adh"); adhSet(isoAdd(t, -3), 1);
+      localStorage.setItem("rd_trim", JSON.stringify({v: 0, at: isoAdd(t, -8)})); trimCheck();
+      if (trimGet().v !== 0 || trimGet().held !== "more") throw new Error("gaining after eating over the plan shouldn't lower the range");
+      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "balance"; render();
+      if (!document.getElementById("wt-c") || !/come back inside/.test(document.getElementById("wt-c").textContent)) throw new Error("trend card missing");
+      openAth("weight");
+      if (!document.querySelector('#ath-svg line[stroke="#f59e0b"]')) throw new Error("no trend line on the weight chart");
+      document.getElementById("w-v").value = "63.2"; document.getElementById("w-save").click(); }],
+    ["weigh-in-answer", () => { const b = document.querySelector('#adh-s [data-a="0"]'); if (!b) throw new Error("no question after the weigh-in");
+      b.click(); if (adhGet()[todayISO()] !== 0 || document.getElementById("adh-s")) throw new Error("answer not kept"); }],
+    // the plan follows the range: carbohydrate portions are resized so the meals land in it
+    ["plan-range", () => { const opt = (name, kcal) => ({name, grams: 100, portion: "1 plate", kcal, protein: 10, carbs: 40, fat: 5});
+      syncSet("rd_plan", {made: todayISO(), summary: "Test plan.", day_types: {rest: {carb_factor: .8}, train: {carb_factor: 1}, long: {carb_factor: 1.4}},
+        meals: ["b", "l", "d"].map(m => ({meal: m, title: MEAL_NAME[m], components: [
+          {role: "Carbs", carb: true, options: [opt("Pasta", 500), opt("Rice", 450)]}, {role: "Protein", options: [opt("Chicken", 250)]}]})), tips: []});
+      syncSet("rd_plan_sel", {});
+      for (const dt of ["rest", "train", "long"]) { const P = planGet(), F = planFactor(P, dt);
+        if (!F.T) throw new Error("no range for " + dt);
+        if (F.f > .5 && F.f < 2.5 && Math.abs(F.meals + F.T.fuel - F.T.kcal) > 60) throw new Error(`plan misses the range on ${dt} days`); }
+      if (!(planFactor(planGet(), "long").f > planFactor(planGet(), "rest").f)) throw new Error("long days should carry more carbohydrate");
+      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "plan"; PLAN_DT = null; render();
+      if (!/–/.test(document.querySelector(".pl-k b").textContent) || !document.querySelector(".pl-fit")) throw new Error("plan doesn't show its range"); }],
     // synced values: a newer copy from the server replaces the local one, an older one doesn't
     ["sync", () => { const ts = Date.now() + 5000; DATA.sync = {rd_plan_sel: {ts, v: {b0: 2}}, rd_fuel: {ts: 5, v: {max: 40}}}; syncPull();
       if (lsJSON("rd_plan_sel", {}).b0 !== 2) throw new Error("newer server value not taken");
