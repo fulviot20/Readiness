@@ -16,15 +16,15 @@ const bandOf=s=>BANDS.find(b=>s>=b[0]);
 const FEEL={1:"Strong",2:"Good",3:"Normal",4:"Poor",5:"Weak"};
 const Q={
   sleep:{title:"How rested did you wake up?",
-    hint:"Judge how you felt getting out of bed, not how the night went. Your watch already tracks the night.",
+    hint:"Judge how rested you are, not how the night went: your watch already tracks that. A foggy head right after waking fades in minutes, so answer once you're properly awake.",
     opts:[["Exhausted","drained, could barely get up."],["Tired","felt like you needed a lot more sleep."],
       ["So-so","groggy at first, fine once moving."],["Rested","woke up fresh, even after a broken night."],
       ["Recharged","woke easily, full of energy."]]},
-  feel:{title:"How recovered does your body feel?",
-    hint:"Think legs and energy as if you had to train right now.",
+  feel:{title:"How do your legs and body feel?",
+    hint:"Muscles only, as if you had to train right now. Sleepiness belongs to the first question, not here.",
     opts:[["Wrecked","heavy, sore legs; a session would be a struggle."],["Fatigued","legs still carry the last sessions."],
-      ["Normal","neither fresh nor tired."],["Fresh","light legs, ready for a solid session."],
-      ["Primed","you could go hard right now."]]},
+      ["Normal","no soreness or heaviness, nothing special either."],["Fresh","light legs, ready for a solid session."],
+      ["Primed","legs feel great, you could go hard right now."]]},
 };
 
 /* ------------------------------------------------------------ crypto */
