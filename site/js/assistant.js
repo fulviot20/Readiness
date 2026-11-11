@@ -2,6 +2,25 @@
 /* ------------------------------------------------------------ assistant: ask or tell, by text or voice */
 // It reads a summary of your day, answers questions, and turns requests into actions
 // (log food, save a meal or recipe, set the goal, log weight, delete entries) that you confirm before they run.
+// Foods already in the day's diary that a new list says again: same or similar name, the same food under its
+// database name (e.g. "Ciambella al forno" and "Ring cake"), or the same meal with nearly the same grams and kcal.
+// The list then replaces every old copy instead of adding one more.
+const DUP_STOP=new Set(["di","del","della","con","al","alla","allo","e","the","of","with","and","in"]);
+const dupToks=s=>norm(s).split(/[^a-z0-9]+/).filter(w=>w.length>2&&!DUP_STOP.has(w)).map(w=>w.length>4?w.slice(0,-1):w);
+function dupSame(n,o){
+  const a=dupToks(n.name),b=dupToks(o.name);
+  if(a.length&&b.length){const hit=a.filter(w=>b.some(t=>t.startsWith(w)||w.startsWith(t))).length;
+    if(a[0]===b[0]&&hit/Math.min(a.length,b.length)>=.5) return true;
+    if(hit===Math.min(a.length,b.length)&&hit>=1&&n.meal===o.meal) return true;}
+  const m=bestMatch(n.name); if(m&&m.src==="ref"&&(m.name===o.name||bestMatch(o.name)===m)) return true;
+  const near=(x,y,k)=>x>0&&y>0&&Math.abs(x-y)<=k*Math.max(x,y);
+  return n.meal===o.meal&&near(n.g,o.g,.1)&&near(n.kcal,o.kcal,.3);
+}
+function dupIds(items,date){
+  const old=foodDay(date).filter(x=>!x.fuel&&x.kcal!=null),used=new Set();
+  for(const n of items) for(const o of old) if(dupSame(n,o)) used.add(o.id);   // every old copy goes: the list is the truth for that food
+  return [...used];
+}
 const mealNow=()=>{const h=new Date().getHours();return h<11?"b":h<15?"l":h<18?"s":"d";};
 let AS={msgs:[],pending:null,busy:false,draft:(()=>{try{return sessionStorage.getItem("rd_as_draft")||"";}catch(e){return "";}})()};
 const SPARK=`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.5l2.1 6.4 6.4 2.1-6.4 2.1L12 19.5l-2.1-6.4L3.5 11l6.4-2.1z"/><path d="M19 15.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg>`;
@@ -49,6 +68,7 @@ ${AI_ESTIMATE}
 When you estimate, the reply lists each food with its kcal and says the user can adjust the grams after saving.
 meal: b breakfast/colazione, l lunch/pranzo, d dinner/cena, s snack/spuntino/merenda; if not said, pick from the time of day.
 When the user wants to save something they always eat (e.g. "la mia colazione"), use save_meal with "for" set to that meal so it gets a one-tap button, even if they call it a recipe; use save_recipe for dishes made in several servings or when they talk about servings or the cooked weight.
+Never log a food twice: when a food the user tells you is already in food_today (same or similar name, or clearly the same thing), put its id in a delete_food in the same answer so the new entry replaces the old one, and say so in the reply. A corrected amount ("erano 80 g, non 50") is a replacement too.
 To log a saved meal, copy its foods into log_food only if you know them; otherwise tell the user to tap its button.
 Dates: "ieri" = the day before today; never in the future. Keep names short, in the user's language.
 Context (JSON): ${JSON.stringify(aiContext())}`;
@@ -59,7 +79,7 @@ function actText(a){
   if(a.type==="log_food") return `<b>Log ${(a.items||[]).length} food${(a.items||[]).length>1?"s":""} · ${day(a.date)} · ${fmtK(sum(a.items))} kcal</b>${(a.items||[]).map(it=>`<span>${MEAL_TAG[it.meal]||""} · ${L(it)}</span>`).join("")}`;
   if(a.type==="save_meal") return `<b>Save meal “${esc(a.name)}” · ${MEAL_NAME[a.for]||""} · ${fmtK(sum(a.items))} kcal</b>${(a.items||[]).map(it=>`<span>${L(it)}</span>`).join("")}`;
   if(a.type==="save_recipe") return `<b>Save recipe “${esc(a.name)}” · ${a.servings||1} serving${(a.servings||1)>1?"s":""}</b>${(a.items||[]).map(it=>`<span>${L(it)}</span>`).join("")}`;
-  if(a.type==="delete_food"){const its=foodDay(a.date).filter(x=>(a.ids||[]).includes(x.id));return `<b>Delete from ${day(a.date)}</b>${its.map(x=>`<span>${esc(x.name)} · ${fmtK(Math.round(x.kcal))} kcal</span>`).join("")}`;}
+  if(a.type==="delete_food"){const its=foodDay(a.date).filter(x=>(a.ids||[]).includes(x.id));return `<b>${a.replace?"Replace, already in "+day(a.date)+"'s diary":"Delete from "+day(a.date)}</b>${its.map(x=>`<span>${esc(x.name)} · ${fmtK(Math.round(x.kcal))} kcal</span>`).join("")}`;}
   if(a.type==="delete_saved"){const e=libAll().find(x=>x.id===a.id);return `<b>Delete “${esc(e?.name||"?")}”</b>`;}
   if(a.type==="food_notes"){const N=fnAll();return `<b>Update what I know about how you eat${a.rebuild_plan&&planGet()?" and your plan":""}</b>${(a.add||[]).map(t=>`<span>+ ${esc(t)}</span>`).join("")}${(a.edit||[]).map(e=>`<span>✎ ${esc(e.text)}</span>`).join("")}${(a.remove||[]).map(id=>`<span>− ${esc(N.find(n=>n.id===id)?.text||"")}</span>`).join("")}`;}
   if(a.type==="set_goal") return `<b>Goal ${(+a.target_kg).toFixed(1)} kg · ${a.pace_kg_week} kg a week</b>`;
@@ -132,7 +152,8 @@ function openAssistant(section){
     const ready=foodOn()?parseList(text,mealNow()):[];
     if(ready.length&&ready.every(x=>x.exact)){
       const acts=[{type:"log_food",date:todayISO(),items:ready.map(x=>({meal:x.meal,name:x.name,grams:x.g,kcal:x.kcal,protein:x.p,carbs:x.c,fat:x.f}))}];
-      AS.msgs.push({role:"model",text:`I read ${ready.length} food${ready.length>1?"s":""} from your list:`,acts,state:"pending"});redraw();buzz(6);return;}
+      const dup=dupIds(ready,todayISO()); if(dup.length) acts.unshift({type:"delete_food",date:todayISO(),ids:dup,replace:true});
+      AS.msgs.push({role:"model",text:`I read ${ready.length} food${ready.length>1?"s":""} from your list${dup.length?`. ${dup.length} ${dup.length>1?"are":"is"} already in today's diary: the list replaces ${dup.length>1?"them":"it"}, nothing is counted twice`:""}:`,acts,state:"pending"});redraw();buzz(6);return;}
     AS.busy=true;redraw();
     const t0=Date.now(),tick=setInterval(()=>{const el=$("as-el");if(!el) return;const s=Math.round((Date.now()-t0)/1000);
       el.textContent=s<8?"Thinking…":s<20?`Working on it… ${s} s`:`Still working… ${s} s (trying a faster model if needed)`;},1000);
@@ -141,6 +162,11 @@ function openAssistant(section){
     try{
       const {json,raw}=await aiCall(contents);
       const acts=(json.actions||[]).filter(validAct);
+      // safety net: foods being logged that are already in that day and that the AI didn't mark for replacement
+      for(const a of acts.filter(x=>x.type==="log_food")){
+        const gone=new Set(acts.filter(x=>x.type==="delete_food"&&x.date===a.date).flatMap(x=>x.ids));
+        const dup=dupIds(a.items.map(x=>({meal:x.meal,name:x.name,g:+x.grams||0,kcal:+x.kcal||0})),a.date).filter(id=>!gone.has(id));
+        if(dup.length) acts.unshift({type:"delete_food",date:a.date,ids:dup,replace:true});}
       AS.msgs.push({role:"model",text:json.reply||(acts.length?"Here's what I'll do:":"Ok."),acts,raw,state:acts.length?"pending":null});
     }catch(e){AS.msgs.push({role:"model",text:e.message});}
     clearInterval(tick);AS.busy=false;redraw();buzz(6);

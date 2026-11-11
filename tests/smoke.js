@@ -101,14 +101,27 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       } finally { aiCall = real; localStorage.removeItem("rd_gemini"); localStorage.removeItem("rd_fdb"); FDB = null; ADD = null; } }],
     // a ready-made list pasted in the Food coach is read on the phone, with no AI request, and saved after Confirm
     ["coach-list", async () => { localStorage.setItem("rd_gemini", "x"); const real = aiCall; let calls = 0; aiCall = async () => { calls++; throw new Error("no"); };
-      try { const day = todayISO(), n0 = foodDay(day).length; AS.msgs = []; openAssistant("food");
+      try { const day = todayISO(), had = new Set(foodDay(day).map(x => x.id)), fresh = () => foodDay(day).filter(x => !had.has(x.id)); AS.msgs = []; openAssistant("food");
         document.getElementById("as-t").value = "Breakfast\nCiambella al forno, 100 g, 340 kcal, P 7, C 55, F 10\nSkyr 0%, 150 g, 95 kcal, P 16, C 6, F 0.3\nSnack\nBacio Perugina, 12 g, 70 kcal, P 1, C 6, F 4.5\nLunch\nCrema di zucca con crostini, 250 g, 150 kcal, P 4, C 22, F 5\nPatate contorno, 80 g, 100 kcal, P 2, C 15, F 3.5";
         document.getElementById("as-go").click(); await new Promise(r => setTimeout(r, 200));
         const yes = document.querySelector("[data-yes]"); if (calls || !yes) throw new Error("the list should be read without the AI");
         yes.click(); await new Promise(r => setTimeout(r, 200));
-        const it = foodDay(day).slice(n0), sk = it.find(x => x.name === "Skyr 0%"), cr = it.find(x => /^Crema di zucca/.test(x.name));
+        const it = fresh(), sk = it.find(x => x.name === "Skyr 0%"), cr = it.find(x => /^Crema di zucca/.test(x.name));
         if (it.length !== 5 || !sk || sk.g !== 150 || sk.kcal !== 95 || sk.p !== 16 || sk.f !== 0.3 || sk.meal !== "b" || !cr || cr.meal !== "l" || cr.c !== 22 || it.find(x => /^Bacio/.test(x.name)).meal !== "s") throw new Error("list not saved as written: " + JSON.stringify(it.map(x => [x.name, x.meal, x.g, x.kcal])));
-        it.forEach(x => foodSave({id: x.id, date: day, del: true, ts: Date.now() + 9}));
+        // the same list again, with one amount corrected and one new food: the five old entries are replaced, not doubled;
+        // an entry under its database name counts as the same food, an unrelated one stays
+        const ref = bestMatch("ciambella"), keep = uid(), alias = uid(), twin = uid();
+        foodSave({id: twin, date: day, meal: "s", name: "Skyr", g: 150, kcal: 95, p: 16, c: 6, f: 0.3, at: 3, ts: Date.now()});   // a second old copy goes too
+        foodSave({id: keep, date: day, meal: "d", name: "Salmone al forno", g: 180, kcal: 360, p: 36, c: 0, f: 24, at: 1, ts: Date.now()});
+        foodSave({id: it.find(x => /^Ciambella/.test(x.name)).id, date: day, del: true, ts: Date.now() + 9});
+        foodSave({id: alias, date: day, meal: "b", name: ref.name, g: 60, kcal: 228, p: 4, c: 33, f: 9, at: 2, ts: Date.now()});
+        document.getElementById("as-t").value = "Breakfast\nCiambella al forno, 100 g, 340 kcal, P 7, C 55, F 10\nSkyr 0%, 150 g, 95 kcal, P 16, C 6, F 0.3\nSnack\nBacio Perugina, 12 g, 70 kcal, P 1, C 6, F 4.5\nLunch\nCrema di zucca con crostini, 300 g, 180 kcal, P 5, C 26, F 6\nPatate contorno, 80 g, 100 kcal, P 2, C 15, F 3.5\nPanino, 60 g, 165 kcal, P 5, C 33, F 1";
+        document.getElementById("as-go").click(); await new Promise(r => setTimeout(r, 200));
+        if (!/Replace, already in/.test(document.getElementById("as-log").textContent)) throw new Error("replacement not announced: " + document.getElementById("as-log").textContent.slice(-300));
+        [...document.querySelectorAll("[data-yes]")].pop().click(); await new Promise(r => setTimeout(r, 200));
+        const now = fresh(), names = now.map(x => x.name).sort().join("|");
+        if (now.length !== 7 || !now.find(x => x.id === keep) || now.find(x => x.id === alias) || now.filter(x => /^Skyr/.test(x.name)).length !== 1 || now.find(x => /^Crema/.test(x.name)).g !== 300) throw new Error("duplicates not replaced: " + names);
+        now.forEach(x => foodSave({id: x.id, date: day, del: true, ts: Date.now() + 99}));
       } finally { aiCall = real; localStorage.removeItem("rd_gemini"); AS.msgs = []; } }],
     // four tabs, and the search sheet reaches every destination without an error
     ["tabs", () => { if (document.querySelectorAll(".tabbar button").length !== 3) throw new Error("the bar should have three tabs");
