@@ -70,7 +70,7 @@ function dfStats(F){
   if(DFTAB==="energy"){let up=0,dn=0;for(let k=1;k<288;k++){const a=F.energy[k-1],b=F.energy[k];if(a==null||b==null) continue;if(b>a) up+=b-a; else dn+=a-b;}
     const v=F.energy.filter(x=>x!=null);
     return [["Charged",`+${Math.round(up)}`],["Drained",`−${Math.round(dn)}`],["Lowest",v.length?Math.round(Math.min(...v)):"–"]];}
-  if(DFTAB==="hr"){const aw=F.hr.filter(awake);return [["Resting",`${F.rest} bpm`],["Awake avg",aw.length?`${Math.round(mean(aw))} bpm`:"–"],["Max",aw.length?`${Math.max(...F.hr.filter(x=>x!=null))} bpm`:"–"]];}
+  if(DFTAB==="hr"){const aw=F.hr.filter(awake);return [["Resting",`${F.rest} bpm`],["Awake avg",aw.length?`${Math.round(mean(aw))} bpm`:"–"],["Max",aw.length?`${Math.max(F.peak||0,...F.hr.filter(x=>x!=null))} bpm`:"–"]];}
   const ok=F.stress.filter(x=>x!=null&&x>=0),act=F.stress.filter(x=>x===-1).length;
   return [["Calm",hmh(ok.filter(x=>x<=25).length*5/60)],["High",hmh(ok.filter(x=>x>75).length*5/60)],["Activity",hmh(act*5/60)]];
 }

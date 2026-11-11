@@ -275,6 +275,7 @@ def summary(a, streams):
         "id": a.get("id"), "type": a.get("type"), "name": a.get("name"), "feel": a.get("feel"),
         "start": (a.get("start_date_local") or "")[11:16] or None,
         "rpe": a.get("icu_rpe"), "minutes": mins, "kcal": a.get("calories"),
+        "elapsed": round(a["elapsed_time"] / 60) if a.get("elapsed_time") else None,
         "load": first("icu_training_load"),
         "avg_w": first("icu_average_watts", "average_watts"),
         "np": first("icu_weighted_avg_watts", "weighted_average_watts"),

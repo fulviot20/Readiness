@@ -104,6 +104,24 @@ def test_energy_recharges_overnight(data):
     assert v["energy"][last] > v["energy"][first]
 
 
+def test_session_heart_rate_replaces_the_wrist(data):
+    # a ride recorded with a strap from 18:00 for 60 minutes: its own trace is what the day's chart shows
+    days = [{"date": "2026-11-11", "workouts": [
+        {"start": "18:00", "minutes": 58, "elapsed": 60, "max_hr": 171, "avg_hr": 150,
+         "profile": {"hr": [120] * 10 + [160] * 40 + [130] * 10}}]}]
+    hr, peak = dayflow._workout_hr(days)
+    s = hr["2026-11-11"]
+    assert sorted(s) == list(range(216, 228)) and s[216] == 120 and s[220] == 160 and s[227] == 130
+    assert peak["2026-11-11"] == 171
+    # no trace (older session): the average fills the session
+    hr, _ = dayflow._workout_hr([{"date": "d", "workouts": [{"start": "07:30", "minutes": 30, "avg_hr": 141.6}]}])
+    assert hr["d"] == {k: 142 for k in range(90, 96)}
+    # and the published day carries it instead of the watch's reading
+    gd = {"2026-11-11": {"hr": {"hr5": [60] * 230 + [None] * 58, "rest_used": 50}}}
+    f = dayflow.build(gd, days, dt.date(2026, 11, 11), 186)["days"]["2026-11-11"]
+    assert f["hr"][215] == 60 and f["hr"][220] == 160 and f["peak"] == 171 and f["stress"][220] == -1
+
+
 # ---------------------------------------------------------------- crypto and output
 def test_encrypt_roundtrip(data):
     enc = readiness.encrypt({"a": 1, "b": [1, 2]}, PASS)

@@ -58,6 +58,40 @@ def _smooth(v):
     return out
 
 
+def _workout_hr(days):
+    """Heart rate recorded by the sessions themselves, per 5-minute slot: {date: {slot: bpm}} and the peak of each day.
+
+    During exercise the watch's all-day wrist reading is unreliable (hands on the bars, sweat, and often the session is
+    recorded by a chest or arm strap on another device), so inside a session its own heart-rate trace replaces it.
+    Without a trace (older sessions) the session's average is used."""
+    out, peak = {}, {}
+    for x in days:
+        for w in x.get("workouts") or []:
+            st, mins = w.get("start"), w.get("elapsed") or w.get("minutes")
+            try:
+                s0 = int(st[:2]) * 60 + int(st[3:5])
+            except (TypeError, ValueError):
+                continue
+            if not mins:
+                continue
+            trace = [v for v in (w.get("profile") or {}).get("hr") or []]
+            slots = out.setdefault(x["date"], {})
+            for k in range(s0 // SLOT_MIN, min(SLOTS, -(-(s0 + mins) // SLOT_MIN))):
+                a, b = max(k * SLOT_MIN, s0) - s0, min((k + 1) * SLOT_MIN, s0 + mins) - s0     # minutes into the session
+                if b - a < SLOT_MIN / 2:
+                    continue                                   # barely touches this slot: leave the watch's value
+                if any(trace):
+                    n = len(trace)
+                    vals = [v for v in trace[int(a * n / mins):max(int(a * n / mins) + 1, -(-b * n // mins))] if v]
+                    if vals:
+                        slots[k] = round(sum(vals) / len(vals))
+                elif w.get("avg_hr"):
+                    slots[k] = round(w["avg_hr"])
+            if w.get("max_hr"):
+                peak[x["date"]] = max(peak.get(x["date"], 0), round(w["max_hr"]))
+    return out, peak
+
+
 def build(gdays, days, today, hrmax, now_slot=None):
     hrmax = hrmax if hrmax and hrmax >= 150 else 190
     first = today - dt.timedelta(days=12)
@@ -71,6 +105,7 @@ def build(gdays, days, today, hrmax, now_slot=None):
     sleep = _asleep(gdays, dates + [(today + dt.timedelta(days=1)).isoformat()])
     score = {x["date"]: (x.get("sleep_score") or {}).get("score") for x in days}
     level, out = 60.0, {}
+    session_hr, session_peak = _workout_hr(days)
 
     def fill(date):
         q = (score.get(date) or 75) / 100
@@ -83,6 +118,10 @@ def build(gdays, days, today, hrmax, now_slot=None):
         if not h5 and not started:
             continue
         started = True
+        if h5 and session_hr.get(d):
+            h5 = list(h5)
+            for k, v in session_hr[d].items():
+                h5[k] = v
         rest = hr.get("rest_used") or ((gdays.get(d) or {}).get("daily") or {}).get("rhr") or 55
         nxt = (dt.date.fromisoformat(d) + dt.timedelta(days=1)).isoformat()
         f_morning, f_evening = fill(d), fill(nxt)      # a night is scored on the date it ends
@@ -114,7 +153,9 @@ def build(gdays, days, today, hrmax, now_slot=None):
                 runs[-1][1] = k
             else:
                 runs.append([k, k])
+        if d == today.isoformat() and h5 and now_slot is not None:
+            h5 = h5[:now_slot + 1] + [None] * (SLOTS - now_slot - 1)
         out[d] = {"energy": series, "hr": h5 or [None] * SLOTS, "rest": round(rest), "sleep": runs,
-                  "stress": _smooth(stress)}
+                  "stress": _smooth(stress), "peak": session_peak.get(d)}
     keep = dates[-SHOW_DAYS:]
     return {"slot_min": SLOT_MIN, "now": now_slot, "hrmax": round(hrmax), "days": {d: out[d] for d in keep if d in out}}
