@@ -99,6 +99,17 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
         q.value = ""; q.oninput(); q.value = "castagnaccio"; q.oninput(); await new Promise(r => setTimeout(r, 1100));
         if (calls !== 1 || document.getElementById("af-gen") || !/Castagnaccio/.test(document.getElementById("af-res").textContent)) throw new Error("learned food should come from the phone");
       } finally { aiCall = real; localStorage.removeItem("rd_gemini"); localStorage.removeItem("rd_fdb"); FDB = null; ADD = null; } }],
+    // a ready-made list pasted in the Food coach is read on the phone, with no AI request, and saved after Confirm
+    ["coach-list", async () => { localStorage.setItem("rd_gemini", "x"); const real = aiCall; let calls = 0; aiCall = async () => { calls++; throw new Error("no"); };
+      try { const day = todayISO(), n0 = foodDay(day).length; AS.msgs = []; openAssistant("food");
+        document.getElementById("as-t").value = "Breakfast\nCiambella al forno, 100 g, 340 kcal, P 7, C 55, F 10\nSkyr 0%, 150 g, 95 kcal, P 16, C 6, F 0.3\nSnack\nBacio Perugina, 12 g, 70 kcal, P 1, C 6, F 4.5\nLunch\nCrema di zucca con crostini, 250 g, 150 kcal, P 4, C 22, F 5\nPatate contorno, 80 g, 100 kcal, P 2, C 15, F 3.5";
+        document.getElementById("as-go").click(); await new Promise(r => setTimeout(r, 200));
+        const yes = document.querySelector("[data-yes]"); if (calls || !yes) throw new Error("the list should be read without the AI");
+        yes.click(); await new Promise(r => setTimeout(r, 200));
+        const it = foodDay(day).slice(n0), sk = it.find(x => x.name === "Skyr 0%"), cr = it.find(x => /^Crema di zucca/.test(x.name));
+        if (it.length !== 5 || !sk || sk.g !== 150 || sk.kcal !== 95 || sk.p !== 16 || sk.f !== 0.3 || sk.meal !== "b" || !cr || cr.meal !== "l" || cr.c !== 22 || it.find(x => /^Bacio/.test(x.name)).meal !== "s") throw new Error("list not saved as written: " + JSON.stringify(it.map(x => [x.name, x.meal, x.g, x.kcal])));
+        it.forEach(x => foodSave({id: x.id, date: day, del: true, ts: Date.now() + 9}));
+      } finally { aiCall = real; localStorage.removeItem("rd_gemini"); AS.msgs = []; } }],
     // four tabs, and the search sheet reaches every destination without an error
     ["tabs", () => { if (document.querySelectorAll(".tabbar button").length !== 3) throw new Error("the bar should have three tabs");
       setTab("athlete"); setPage("athlete", "diary"); if (!document.querySelector('.tabbar [data-tab="athlete"].on') || !document.querySelector('.pbar [data-pg="profile"]')) throw new Error("Food should sit inside Athlete"); }],

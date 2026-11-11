@@ -1592,7 +1592,7 @@ async function aiModels(){
 // (it can make a Flash model take a minute or more), and a slow or failing model hands over to the next one.
 const thinkCfg=m=>/gemini-2\.5/.test(m)?{thinkingBudget:0}:/gemini-[3-9]|latest/.test(m)?{thinkingLevel:"low"}:null;
 async function aiCall(contents,limitMs=35000){
-  const errs=[];
+  const errs=[];let netRetry=false;
   for(const model of await aiModels()){
     let think=thinkCfg(model);
     for(let attempt=0;attempt<3;attempt++){
@@ -1603,8 +1603,9 @@ async function aiCall(contents,limitMs=35000){
         headers:{"Content-Type":"application/json","x-goog-api-key":aiKey()},body:JSON.stringify({contents,generationConfig:cfg})});}
       catch(e){timedOut=e.name==="AbortError";}
       finally{clearTimeout(timer);}
+      if(!r&&!timedOut&&!netRetry){netRetry=true;await new Promise(z=>setTimeout(z,900));attempt--;continue;}   // a dropped request: once more
       if(timedOut){errs.push(`${model}: no answer within ${Math.round(limitMs/1000)} s`);break;}
-      if(!r) throw new Error("No connection for the AI");
+      if(!r) throw new Error(navigator.onLine?"Couldn't reach Gemini just now: send it again in a moment":"No internet connection: the AI needs one");
       if(r.ok){
         const j=await r.json(),txt=(j.candidates?.[0]?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||"").join("");
         if(!txt){errs.push(`${model}: empty answer (${j.candidates?.[0]?.finishReason||j.promptFeedback?.blockReason||"?"})`);break;}
