@@ -70,26 +70,35 @@ function setTab(t){
 }
 // go straight to a page of a tab (used by the search sheet and by links inside the app)
 function goPage(tab,pg){
-  closeSheet();
+  closeSheet(); if(pg) pg=aliasPage(tab,pg);
   if(tab==="food"){TAB="athlete";ATH_SUB="food";PG.athlete=pg||"diary";foodSel=todayISO();}
   else{TAB=tab;if(tab==="athlete"){ATH_SUB="profile";PG.athlete="profile";}else if(pg) PG[tab]=pg;}
   if(tab==="today"){const i=DATA.days.findIndex(d=>d.date===todayISO());if(i>=0&&sel!==i){sel=i;draft={...(DATA.days[i].answers||{})};}}
-  render(); scrollTo(0,0); animIn("enter");
+  render(); if(!afterRender()) scrollTo(0,0); animIn("enter");
 }
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
-const PAGES={today:[["overview","Overview"],["day","Your day"],["journal","Journal"]],
-  training:[["week","Week"],["month","Month"],["volume","Hours"],["fitness","Fitness"]],
-  athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"],["balance","Balance"]]};
+const PAGES={today:[["overview","Overview"],["day","Day"]],
+  training:[["week","Week"],["month","Month"],["fitness","Fitness"]],
+  athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"]]};
+// pages that were folded into another one: old links and saved positions still land in the right place
+const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"profile"}};
+let SCROLL_TO=null;      // element id to bring into view after the next render (journal, balance)
+let MORE_OPEN=false,BAL_OPEN=false;   // the collapsible "more" blocks keep their state across redraws
+function aliasPage(tab,k){ const a=PG_ALIAS[tab]&&PG_ALIAS[tab][k]; if(!a) return k;
+  if(k==="journal") SCROLL_TO="journal"; if(k==="balance"){SCROLL_TO="balance";BAL_OPEN=true;} return a; }
 function pageBar(tab){
   const list=PAGES[tab].filter(p=>tab!=="athlete"||(FOOD_TAB?ATH_SUB==="food"&&foodOn()&&p[0]!=="profile":p[0]==="profile"||foodOn()));
   if(list.length<2) return "";
   return `<nav class="pbar" role="tablist">${list.map(([k,n])=>`<button role="tab" data-pg="${k}" class="${PG[tab]===k?"on":""}" aria-selected="${PG[tab]===k}">${n}</button>`).join("")}</nav>`;
 }
+function afterRender(){ const id=SCROLL_TO; SCROLL_TO=null; if(!id) return false;
+  requestAnimationFrame(()=>{const e=$(id); if(e) e.scrollIntoView({block:"start",behavior:"smooth"});}); return true; }
 function setPage(tab,k){
-  if(PG[tab]===k) return scrollTo({top:0,behavior:"smooth"});
+  k=aliasPage(tab,k);
+  if(PG[tab]===k&&!SCROLL_TO) return scrollTo({top:0,behavior:"smooth"});
   PG[tab]=k; if(tab==="athlete"){ATH_SUB=k==="profile"?"profile":"food";if(k!=="profile"&&!foodSel) foodSel=todayISO();}
-  buzz(5); render(); scrollTo(0,0); animIn("enter");
+  buzz(5); render(); if(!afterRender()) scrollTo(0,0); animIn("enter");
 }
 document.addEventListener("click",e=>{const b=e.target.closest(".pbar [data-pg]");if(b) setPage(TAB,b.dataset.pg);});
 function tabbar(){
@@ -104,6 +113,7 @@ function tabbar(){
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
 function render(){
+  for(const t in PAGES) PG[t]=aliasPage(t,PG[t]);
   for(const t in PAGES) if(!PAGES[t].some(p=>p[0]===PG[t])) PG[t]=PAGES[t][0][0];   // a page that no longer exists → the first one
   bootDone(); tabbar(); setTimeout(saveNav,0);
   if(TAB==="training") return renderTraining();
@@ -138,16 +148,17 @@ function renderToday(){
   ${isToday?keyNotice():""}
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
-  ${isToday&&foodOn()?fuelCard(raw.date,foodDay(raw.date)):""}
+  ${sessions(raw)}
   ${isToday?feelNudge()+remindNudge():""}
-  ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
-  <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
-    <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
-    ${isToday?tonightCard():""}</section>
-  ${isToday?checkin(raw):""}
-  ${sessions(raw)}`:""}
-  ${PG.today==="day"?`${isToday?yourDay():""}${dayFlowSection(raw)||(isToday?"":`<p class="notice">No hour-by-hour data for this day.</p>`)}`:""}
-  ${PG.today==="journal"?(isToday?journalCard():`<p class="notice">The journal is for today and yesterday: go back to today to fill it in.</p>`):""}
+  <details class="more" id="more" ${MORE_OPEN?"open":""}><summary><span>Signals, check-in &amp; more</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+    <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
+      <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
+      ${isToday?tonightCard():""}</section>
+    ${isToday?checkin(raw):""}
+    ${isToday&&foodOn()?fuelCard(raw.date,foodDay(raw.date)):""}
+    ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
+  </details>`:""}
+  ${PG.today==="day"?`${isToday?yourDay():""}${dayFlowSection(raw)||(isToday?"":`<p class="notice">No hour-by-hour data for this day.</p>`)}${isToday?journalCard():""}`:""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 
   if(has&&$("gauge")){animateGauge(prevScore,day.score); prevScore=day.score;}
@@ -170,6 +181,7 @@ function bind(raw){
     if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";PG.athlete="diary";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
     enKey=b.dataset.en;openEnergy();});
   bindJournal(); bindDayFlow(raw);
+  const mo=$("more"); if(mo) mo.addEventListener("toggle",()=>{MORE_OPEN=mo.open;});
   const tn=$("tonight"); if(tn) tn.onclick=()=>{ if(DATA.days[sel].sleep_score) openSleepCoach(); else if(DATA.days[sel].comp?.sleep) openSignal("sleep"); };
   document.querySelectorAll(".sig[data-sig]").forEach(b=>b.onclick=()=>openSignal(b.dataset.sig));
   document.querySelectorAll(".trend rect[data-i]").forEach(r=>r.onclick=()=>go(+r.dataset.i));
@@ -335,7 +347,7 @@ function openSettings(){
   openSheet(`<div class="sh-top"><h2>Settings</h2>${X}</div>
     <div class="field"><label for="s-pw">Passphrase</label><div style="display:flex;gap:8px"><input id="s-pw" type="password" value="${esc(LS.get("rd_pass")||"")}"><button class="btn quiet" id="s-show" type="button">Show</button></div></div>
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
-      <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.`:""}</p>
+      <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.${DATA.push_last?` Last one sent: ${esc(DATA.push_last.what)} at ${new Date(DATA.push_last.ts*1000).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"})}. If it never showed up on this phone, tap “Send a test” and check Android Settings → Apps → Readiness → Notifications.`:""}`:""}</p>
     ${remindRow()}
     <div class="tog"><div><label>Food</label><p>Inside Athlete: diary, meal plan, daily target and energy balance.</p></div>
       <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>

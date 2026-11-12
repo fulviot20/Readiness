@@ -23,3 +23,8 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 13. Promemoria intelligenti: notifica serale se il journal è vuoto, peso settimanale, check-in del mattino (ognuno solo se manca davvero, una volta sola, disattivabile in Settings)
 - [x] 14. Sincronizzare anche piano alimentare e note tra telefono e computer: piano, alternative scelte e impostazioni (fuel, promemoria) seguono tutti i dispositivi
 - [x] 15. Diario alimentare meno faticoso e più affidabile: range fisso per tipo di giornata al posto del target mobile, giornata tipo registrata in un tocco, correzione settimanale dalla bilancia
+
+## Semplificazione (12/11/2026)
+- [x] 16. Today a due pagine (Overview · Day): segnali, check-in, carburante e "score non torna?" stanno in un blocco "Signals, check-in & more" che si apre con un tocco; il journal è in fondo a Day
+- [x] 17. Training a tre pagine (Week · Month · Fitness; le ore per sport sono dentro Month); Athlete a tre (Profile · Diary · Plan; bilancio e obiettivo peso sono in un blocco dentro Profile)
+- [x] 18. Notifiche: icona piccola trasparente al posto del quadrato bianco; in Settings si vede quando è partita l'ultima notifica

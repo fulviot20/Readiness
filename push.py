@@ -153,6 +153,7 @@ def run(data, cache, pw, encrypt, decrypt, now):
         if old and old.get("endpoint"):
             subs.setdefault(sub_id(old), old)
     data["push_devices"] = len(subs)
+    data["push_last"] = cache.get("push_last")      # what went out last, shown in Settings to tell "not sent" from "sent but not shown"
     if not subs:
         return False
     sent = cache.setdefault("push_sent", [])
@@ -163,7 +164,7 @@ def run(data, cache, pw, encrypt, decrypt, now):
     if test and f"test:{test}" not in sent:
         todo.append((f"test:{test}", {"title": "Test notification",
                                       "body": "Notifications from Readiness reach this device.", "tag": "test"}))
-    delivered = set()
+    delivered, accepted = set(), {}
     for sid, sub in list(subs.items()):
         if sid not in hello:                 # new device: confirm it works
             todo_dev = [("hello", {"title": "Notifications are on",
@@ -177,12 +178,18 @@ def run(data, cache, pw, encrypt, decrypt, now):
                 print("push: removed a device that no longer accepts notifications")
                 break
             if r == "ok":
+                accepted[key] = accepted.get(key, 0) + 1
                 if key == "hello":
                     hello.add(sid)
                 else:
                     delivered.add(key)
                 print("push sent:", key.split(":")[0])
     sent.extend(k for k, _ in todo if k in delivered)
+    real = [k for k in accepted if k != "hello"]
+    if real:
+        k = real[-1]
+        cache["push_last"] = {"what": k.split(":")[0], "ts": int(now.timestamp()), "devices": accepted[k]}
+        data["push_last"] = cache["push_last"]
     today = now.date().isoformat()
     for k in delivered:
         if k.startswith("score:"):

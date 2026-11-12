@@ -140,7 +140,18 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (lsJSON("rd_plan_sel", {}).b0 !== 2) throw new Error("newer server value not taken");
       if (fuelCfg().max !== 90) throw new Error("older server value overwrote the local one"); }],
     ["reminders", () => { localStorage.setItem("rd_push", "1"); remindRow(); remindNudge(); GO_PENDING = "journal"; applyGo();
-      if (PG.today !== "journal") throw new Error("notification link did not open the journal"); PG.today = "overview"; }],
+      if (PG.today !== "day" || !document.getElementById("journal")) throw new Error("notification link did not open the journal"); PG.today = "overview"; }],
+    // slimmer navigation: two pages on Today, three on Training and Athlete; the old page names still land somewhere sensible
+    ["slim", () => { setTab("today"); PG.today = "overview"; render();
+      if (document.querySelectorAll(".pbar [data-pg]").length !== 2) throw new Error("Today should have two pages");
+      if (!document.querySelector("details#more .signals") || !document.querySelector("details#more .checkin")) throw new Error("signals and check-in belong in the More block");
+      if (document.querySelector("#app > .signals, #app > .sec .signals")) throw new Error("signals should not sit outside the More block");
+      setPage("today", "journal"); if (PG.today !== "day" || !document.getElementById("journal")) throw new Error("journal not on the Day page");
+      setTab("training"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Training should have three pages");
+      setPage("training", "volume"); if (PG.training !== "month") throw new Error("Hours should live on the Month page");
+      setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Athlete should have three pages");
+      setPage("athlete", "balance"); if (PG.athlete !== "profile" || !document.querySelector("details#balance[open] #bal-r")) throw new Error("balance not reachable from Profile");
+      setTab("today"); }],
     // food search: a plain "ciambella" is the baked ring cake; foods found by the AI lookup are kept and found again locally,
     // and rows whose energy disagrees with the macros are dropped (from the AI and from Open Food Facts)
     ["food-db", () => { if (!/^Ring cake/.test(localSearch("ciambella")[0].name) || !/^Ring cake/.test(bestMatch("ciambella").name)) throw new Error("ciambella should be the ring cake");

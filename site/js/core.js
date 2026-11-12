@@ -123,9 +123,9 @@ function useData(d,quiet,keepY){
 function applyGo(){
   const g=GO_PENDING; if(!g) return; GO_PENDING=null;
   const t=DATA.days.findIndex(d=>d.date===todayISO()); if(t>=0&&sel!==t){sel=t;draft={...(DATA.days[t].answers||{})};}
-  if(g==="journal"){TAB="today";PG.today="journal";jDay=todayISO();render();scrollTo(0,0);}
+  if(g==="journal"){TAB="today";PG.today="day";SCROLL_TO="journal";jDay=todayISO();render();afterRender();}
   else if(g==="weight"){TAB="athlete";ATH_SUB="profile";PG.athlete="profile";render();scrollTo(0,0);setTimeout(()=>openAth("weight"),350);}
-  else if(g==="checkin"){TAB="today";PG.today="overview";render();requestAnimationFrame(()=>document.querySelector(".checkin")?.scrollIntoView({block:"center"}));}
+  else if(g==="checkin"){TAB="today";PG.today="overview";MORE_OPEN=true;render();requestAnimationFrame(()=>document.querySelector(".checkin")?.scrollIntoView({block:"center"}));}
 }
 let swDone=false;
 // ENV_IV names the published file that is on screen. A tiny "stamp" file says which one is current,
