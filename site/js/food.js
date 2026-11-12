@@ -859,7 +859,10 @@ function trendCard(){
   const W=weightTrend(),B=trimBand(),T=trimGet(),kgw=v=>Math.abs(v)<.05?"Stable":`${v>0?"+":"−"}${Math.abs(v).toFixed(2)}`;
   const verdict=!W.ok?`${W.n} of 4 weigh-ins in the last three weeks: weigh in every 3–4 days and the range starts correcting itself.`:
     `${B.want?`Goal ${kgw(B.want)} kg a week. `:""}${T.held==="more"?"Range unchanged: you ate over the plan, come back inside it.":T.held==="less"?"Range unchanged: eat the full plan.":T.v?`Range ${T.v>0?"raised":"lowered"} by ${fmtK(Math.abs(T.v))} kcal a day.`:"Range unchanged: you're on course."}`;
-  return `<button class="wk-c" id="wt-c"><div class="wk-h"><small>WEIGHT TREND · 3 WEEKS</small><b>${W.ok?kgw(W.slope):"–"}<u>${W.ok&&Math.abs(W.slope)>=.05?"kg/week":""}</u></b></div><span>${esc(verdict)}</span></button>`;
+  // a change of the range, said as portions: what to put on the plate now, not just a number of kcal
+  const sh=T.step&&T.at>=isoAdd(todayISO(),-10)&&typeof planShift==="function"?planShift(T.step):[];
+  const shTxt=sh.length?`<span class="wt-sh">${T.step>0?"More":"Less"} on the plate from now: ${sh.slice(0,3).map(x=>`${esc(x.name)} ${x.a} → ${x.b} g`).join(" · ")}</span>`:"";
+  return `<button class="wk-c" id="wt-c"><div class="wk-h"><small>WEIGHT TREND · 3 WEEKS</small><b>${W.ok?kgw(W.slope):"–"}<u>${W.ok&&Math.abs(W.slope)>=.05?"kg/week":""}</u></b></div><span>${esc(verdict)}</span>${shTxt}</button>`;
 }
 // where what you ate sits against the day's range
 function rangeState(eaten,tg){
@@ -904,7 +907,7 @@ function renderFood(){
     <p class="f-sub">${tg?esc(targetLine(tg,isToday)):"Waiting for today's burn from Garmin."}</p>
   </button>
   <div class="macros">${["p","c","f"].map(mac).join("")}</div>
-  ${isToday?weekCard(true):""}${fuelCard(d,items)}
+  ${planCheckCard(d)}${isToday?weekCard(true):""}${fuelCard(d,items)}
   <button class="coach-bar" id="f-coach">${SPARK}<span>Tell me what you ate, or ask your food coach…</span></button>
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
     ${!real.length&&usual.length?`<div class="ud"><small>USUAL DAY · ONE TAP, THEN FIX ONLY WHAT WAS DIFFERENT</small>${usual.map(e=>`<button class="ml-copy mine" data-libd="${e.id}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join("")}</div>`:""}
@@ -936,6 +939,7 @@ function renderFood(){
   on("goal-c",openGoal); on("wk-c",()=>setPage("athlete","balance")); on("wt-c",()=>openAth("weight"));
   if($("bal-r")) bindBalance();
   if(pg==="plan") bindPlan();
+  if(pg==="diary") bindPlanCheck(d);
 }
 // The week as a budget: one big day is balanced by the others, so a single "over" day isn't a failure
 function weekStats(){

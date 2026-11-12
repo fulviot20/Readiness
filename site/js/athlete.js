@@ -329,6 +329,8 @@ function openAth(key,days=90,keep=false){
 // one tap after a weigh-in, instead of a food diary
 function adhAsk(date){
   const box=$("w-adh");if(!box) return;
+  // the plan check-offs already say how closely the plan was followed: no need to ask
+  const P=lsJSON("rd_pck",{});if([0,1,2,3].some(k=>Object.keys(P[isoAdd(date,-k)]||{}).length)) return;
   box.innerHTML=`<div class="note-card" style="margin:4px 0 14px"><b>One tap, instead of a food diary</b><p style="margin:6px 0 10px">Since your last weigh-in, compared with your plan you ate:</p>
     <div class="seg three" id="adh-s"><button data-a="-1"><b>Less</b><span>Skipped, smaller</span></button><button data-a="0"><b>About that</b><span>Close to it</span></button><button data-a="1"><b>More</b><span>Extras, bigger</span></button></div></div>`;
   box.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{adhSet(date,+b.dataset.a);buzz();try{trimCheck();}catch(e){}

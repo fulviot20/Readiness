@@ -709,3 +709,15 @@ details.more>summary::-webkit-details-marker{display:none}
 details.more>summary svg{flex:none;color:var(--muted);transition:transform .2s}
 details.more[open]>summary svg{transform:rotate(180deg)}
 details.more[open]>summary{margin-bottom:4px}
+
+/* plan check-off */
+.pck-r{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:16px;padding:10px 12px;margin-top:8px}
+.pck-r.set{border-color:rgba(95,199,149,.25)}
+.pck-h{display:flex;align-items:center;gap:10px}.pck-h b{font-size:14.5px;font-weight:600}.pck-h span{margin-left:auto;font-size:13px;color:var(--faint);white-space:nowrap}
+.pck-s{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px;margin-top:9px}
+.pck-s button{background:var(--surface2);border:1px solid transparent;border-radius:10px;padding:9px 4px;color:var(--muted);font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+.pck-s button.on{color:var(--text);background:rgba(95,199,149,.14);border-color:rgba(95,199,149,.55)}
+.pck-s button[data-st=less].on,.pck-s button[data-st=more].on{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.55)}
+.pck-s button[data-st=other].on{background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.5)}
+.pck-f{font-size:12.5px;color:var(--faint);margin:8px 2px 0;line-height:1.4}
+.wt-sh{display:block;margin-top:6px;font-size:13px;color:var(--glacier)}

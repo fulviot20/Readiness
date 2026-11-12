@@ -28,3 +28,8 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 16. Today a due pagine (Overview · Day): segnali, check-in, carburante e "score non torna?" stanno in un blocco "Signals, check-in & more" che si apre con un tocco; il journal è in fondo a Day
 - [x] 17. Training a tre pagine (Week · Month · Fitness; le ore per sport sono dentro Month); Athlete a tre (Profile · Diary · Plan; bilancio e obiettivo peso sono in un blocco dentro Profile)
 - [x] 18. Notifiche: icona piccola trasparente al posto del quadrato bianco; in Settings si vede quando è partita l'ultima notifica
+
+## Cibo: il piano è il diario (12/11/2026)
+- [x] 19. Spunta dei pasti dal piano nel Diary: per ogni pasto un tocco su As planned / Less / More / Other; le porzioni del piano vanno nel diario da sole (×1, ×0,75, ×1,3), "Other" apre l'aggiunta normale. Le spunte dicono anche quanto è stato seguito il piano, quindi alla pesata non serve più chiederlo
+- [x] 20. Quando la bilancia sposta il range, la scheda del peso dice cosa cambia nel piatto (es. "Rice 80 → 70 g") invece di un numero di kcal
+- [ ] 21. AI: calorie prese dal database (l'AI legge solo cibo, grammi e pasto), prompt più leggero, coach separato dal registratore

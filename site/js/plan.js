@@ -56,8 +56,8 @@ function planTarget(dt){
     if((m>=180?"long":m>=30?"train":"rest")===dt) fu.push(foodDay(d.date).filter(x=>x.fuel).reduce((a,x)=>a+x.kcal,0));}
   return {kcal:Math.round(k/50)*50,fuel:fu.length?Math.round(median(fu)):0};
 }
-function planFactor(P,dt){
-  const sel=lsJSON("rd_plan_sel",{}),T=planTarget(dt),f0=+(P.day_types?.[dt]?.carb_factor)||1,wk=new Date().getDay()%6!==0;let fix=0,carb=0;
+function planFactor(P,dt,off=0){
+  const sel=lsJSON("rd_plan_sel",{}),T0=planTarget(dt),T=T0&&{...T0,kcal:T0.kcal+off},f0=+(P.day_types?.[dt]?.carb_factor)||1,wk=new Date().getDay()%6!==0;let fix=0,carb=0;
   for(const m of P.meals||[]){
     if(wk&&P.canteen&&(P.canteen.picks||[]).length&&m.meal===P.canteen.meal){const ks=P.canteen.picks.map(p=>+p.kcal||0);fix+=ks.reduce((a,b)=>a+b,0)/ks.length;continue;}
     (m.components||[]).forEach((c,ci)=>{const o=(c.options||[])[sel[m.meal+ci]??0];if(o) c.carb?carb+=+o.kcal||0:fix+=+o.kcal||0;});}
@@ -177,13 +177,75 @@ function bindPlan(){
     foodSave({...aiFood({name:p.name,grams:p.grams,kcal:p.kcal,protein:p.protein,carbs:p.carbs,fat:p.fat,note:"canteen, estimated"},P.canteen.meal),id:uid(),date:todayISO(),meal:P.canteen.meal,at:now,ts:now});
     buzz(12);toast(`Canteen lunch logged · ~${fmtK(Math.round(+p.kcal||0))} kcal`);});
 }
-function logPlanMeal(meal){
-  const P=planGet(),m=(P.meals||[]).find(x=>x.meal===meal);if(!m) return;
-  const dt=PLAN_DT||dayTypeToday(),f=planFactor(P,dt).f,sel=lsJSON("rd_plan_sel",{}),now=Date.now();let n=0,k=0;
-  (m.components||[]).forEach((c,ci)=>{const o=(c.options||[])[sel[meal+ci]??0];if(!o) return;const s=c.carb?f:1;
-    const it=aiFood({name:o.name,grams:(+o.grams||0)*s||null,kcal:(+o.kcal||0)*s,protein:(+o.protein||0)*s,carbs:(+o.carbs||0)*s,fat:(+o.fat||0)*s,note:o.portion||null},meal);
-    foodSave({...it,src:"plan",id:uid(),date:todayISO(),meal,at:now+n,ts:now+n});n++;k+=it.kcal;});
-  buzz(12);toast(`${MEAL_NAME[meal]} logged · ${fmtK(Math.round(k))} kcal — adjust anything in the Diary`);
+function logPlanMeal(meal,o={}){
+  const P=planGet(),m=(P.meals||[]).find(x=>x.meal===meal);if(!m) return 0;
+  const dt=o.dt||PLAN_DT||dayTypeToday(),f=planFactor(P,dt).f,sel=lsJSON("rd_plan_sel",{}),now=Date.now(),q=o.k||1,date=o.date||todayISO();let n=0,k=0;
+  (m.components||[]).forEach((c,ci)=>{const op=(c.options||[])[sel[meal+ci]??0];if(!op) return;const s=(c.carb?f:1)*q;
+    const it=aiFood({name:op.name,grams:(+op.grams||0)*s||null,kcal:(+op.kcal||0)*s,protein:(+op.protein||0)*s,carbs:(+op.carbs||0)*s,fat:(+op.fat||0)*s,note:op.portion||null},meal);
+    foodSave({...it,src:"plan",id:uid(),date,meal,at:now+n,ts:now+n});n++;k+=it.kcal;});
+  if(!o.quiet){buzz(12);toast(`${MEAL_NAME[meal]} logged · ${fmtK(Math.round(k))} kcal — adjust anything in the Diary`);}
+  return k;
+}
+/* ------------------------------------------------------------ plan check-off: the plan is the diary */
+// Instead of logging every food, each meal of the plan gets one tap: as planned, less, more, or something else.
+// "As planned / less / more" put the plan's portions in the diary (×1, ×0.75, ×1.3) so the day's total and the range
+// still work; "Something else" opens the normal add sheet. The taps also tell the scale correction how closely the
+// plan was followed, so the weigh-in no longer needs to ask.
+const PCK_K={ok:[1,"As planned",0],less:[.75,"Less",-1],more:[1.3,"More",1],other:[0,"Other",0]};
+const pckAll=()=>lsJSON("rd_pck",{});
+const pckDay=d=>pckAll()[d]||{};
+function planMealsFor(date){
+  const P=planGet();if(!P) return [];
+  const wk=new Date(date+"T12:00").getDay()%6!==0,cant=wk&&P.canteen&&(P.canteen.picks||[]).length?P.canteen.meal:null;
+  return (P.meals||[]).map((m,i)=>({key:m.meal==="s"?"s"+i:m.meal,meal:m.meal,title:m.title||MEAL_NAME[m.meal],canteen:m.meal===cant,m}));
+}
+function pckMealKcal(x){
+  const P=planGet(),dt=dayTypeToday(),f=planFactor(P,dt).f,sel=lsJSON("rd_plan_sel",{});
+  if(x.canteen){const ks=P.canteen.picks.map(p=>+p.kcal||0);return ks.reduce((a,b)=>a+b,0)/ks.length;}
+  return (x.m.components||[]).reduce((a,c,ci)=>{const o=(c.options||[])[sel[x.meal+ci]??0];return a+(o?(+o.kcal||0)*(c.carb?f:1):0);},0);
+}
+function pckSet(date,x,state){
+  const A=pckAll(),D={...(A[date]||{})},prev=D[x.key];
+  // what this meal put in the diary before goes, whatever the new answer
+  foodDay(date).filter(it=>it.pck===x.key).forEach(it=>foodSave({id:it.id,date,del:true,ts:Date.now()}));
+  if(prev===state||!state) delete D[x.key]; else D[x.key]=state;
+  const st=D[x.key];
+  if(st&&st!=="other"){
+    const q=PCK_K[st][0],now=Date.now();
+    if(x.canteen){const P=planGet(),ps=P.canteen.picks,avg=k=>ps.reduce((a,p)=>a+(+p[k]||0),0)/ps.length;
+      foodSave({...aiFood({name:"Canteen lunch",grams:avg("grams")*q||null,kcal:avg("kcal")*q,protein:avg("protein")*q,carbs:avg("carbs")*q,fat:avg("fat")*q,note:"typical plate, estimated"},x.meal),src:"plan",pck:x.key,id:uid(),date,meal:x.meal,at:now,ts:now});}
+    else{const before=new Set(foodDay(date).map(i=>i.id));logPlanMeal(x.meal,{k:q,date,dt:dayTypeToday(),quiet:true});
+      foodDay(date).filter(i=>!before.has(i.id)).forEach(i=>foodSave({...i,pck:x.key,ts:Date.now()}));}
+  }
+  A[date]=D;const lim=isoAdd(todayISO(),-60);for(const d of Object.keys(A)) if(d<lim) delete A[d];
+  syncSet("rd_pck",A);
+  const v=Object.values(D);if(v.length) adhSet(date,Math.round(v.reduce((a,s)=>a+PCK_K[s][2],0)/v.length*100)/100);
+  buzz(st?10:5);
+  if(st==="other") openAddFood(x.meal,date);
+}
+function planCheckCard(date){
+  const L=planMealsFor(date);if(!L.length||date<isoAdd(todayISO(),-3)) return "";
+  const D=pckDay(date),done=L.filter(x=>D[x.key]).length;
+  return `<section class="sec pck"><div class="sec-h"><h2>From your plan</h2><span>${done?`${done} of ${L.length} done`:"One tap per meal"}</span></div>
+    ${L.map(x=>`<div class="pck-r${D[x.key]?" set":""}"><div class="pck-h"><i class="ml-i ml-${x.meal}">${MEAL_ICON[x.meal]||""}</i><b>${esc(x.title)}${x.canteen?" · canteen":""}</b><span>~${fmtK(Math.round(pckMealKcal(x)))} kcal</span></div>
+      <div class="pck-s">${Object.entries(PCK_K).map(([k,[,n]])=>`<button data-pck="${x.key}" data-st="${k}" class="${D[x.key]===k?"on":""}">${n}</button>`).join("")}</div></div>`).join("")}
+    <p class="pck-f">Less and more count as about a quarter less or a third more than the plan. Extras like a slice of cake: + on that meal below.</p></section>`;
+}
+function bindPlanCheck(date){
+  const L=planMealsFor(date);
+  document.querySelectorAll("[data-pck]").forEach(b=>b.onclick=()=>{const x=L.find(y=>y.key===b.dataset.pck);if(!x) return;
+    const y=scrollY;pckSet(date,x,b.dataset.st);if(b.dataset.st!=="other"||pckDay(date)[x.key]!=="other"){renderFood();scrollTo(0,y);}});
+}
+// What a change of the range means at the table: the portions of the foods you picked, before and after
+function planShift(step){
+  const P=planGet();if(!P||!step) return [];
+  const dt=dayTypeToday(),now=planFactor(P,dt),was=planFactor(P,dt,-step),sel=lsJSON("rd_plan_sel",{}),out=[];
+  if(!now.T) return [];
+  const cant=new Date().getDay()%6!==0&&P.canteen&&(P.canteen.picks||[]).length?P.canteen.meal:null;
+  for(const m of P.meals||[]) if(m.meal!==cant) (m.components||[]).forEach((c,ci)=>{if(!c.carb) return;const o=(c.options||[])[sel[m.meal+ci]??0];if(!o||!o.grams) return;
+    const a=Math.round(o.grams*was.f/5)*5,b=Math.round(o.grams*now.f/5)*5;
+    if(a!==b) out.push({meal:m.meal,name:o.name,a,b});});
+  return out;
 }
 function openPlanQuiz(){
   const A={...planPrefs()};
