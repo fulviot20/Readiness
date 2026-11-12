@@ -274,7 +274,7 @@ function renderTraining(){
   <div class="top"><div class="ttl">Training</div>
     <span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
   ${pageBar("training")}
-  ${PG.training==="week"?weekReviewSection()+streakCard()+weekSection():""}
+  ${PG.training==="week"?(()=>{const t=(DATA.days||[]).find(d=>d.date===todayISO());return t?sessions(t):"";})()+weekReviewSection()+streakCard()+weekSection():""}
   ${PG.training==="month"?monthPage()+intensitySection()+volumeSection():""}
   ${PG.training==="fitness"?powerSection()+durabilitySection()+markersSection()+fitnessSection():""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}</p>`;

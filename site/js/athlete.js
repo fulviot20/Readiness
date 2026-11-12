@@ -204,12 +204,10 @@ function renderAthlete(){
     <div class="amks">${amkCard("ftp",wk?`${wk.v.toFixed(2)} W/kg`:"")}${amkCard("wkg")}</div></section>
   <section class="sec"><div class="sec-h"><h2>Running</h2><span>Tap for history</span></div>
     <div class="amks">${amkCard("lthr",lsub)}${amkCard("thr_pace",L?`at ${Math.round(L.v)} bpm`:"")}${amkCard("easy_pace",DATA.fitness?.easy_hr?`at ${DATA.fitness.easy_hr} bpm`:"")}</div></section>
-  ${foodOn()?`<button class="lib-c" id="ath-wt"><span><b>Weight &amp; aim</b><small>Log today's weight, lose · maintain · gain, what to change</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>`:""}
   <p class="foot">Age and fitness age update by themselves. Log your weight every 3–4 days, same conditions: the calorie range follows its trend.</p>`;
   $("gear").onclick=openSettings;
   $("ath-edit").onclick=openProfile; bindSwitch();
   const f=$("ath-fit"); if(f) f.onclick=()=>openAth("fitage");
-  const aw=$("ath-wt"); if(aw) aw.onclick=()=>setPage("athlete","weight");
   document.querySelectorAll(".amk[data-am]").forEach(b=>b.onclick=()=>openAth(b.dataset.am));
   document.querySelectorAll(".amk[disabled]").forEach(b=>{if(b.textContent.includes("Tap to log")){b.disabled=false;b.onclick=()=>openAth("weight");}});
 }
@@ -280,11 +278,11 @@ function openAth(key,days=90,keep=false){
   if(key==="weight"){
     const ent=Object.entries(athEntries("weight")).sort().reverse().slice(0,8);
     const gs=goalState();
-    extra=`<button class="goal-c" id="w-goal" style="margin:14px 0 4px">${gs?`<b style="font-size:15px">Goal ${gs.g.target.toFixed(1)} kg</b><span>${gs.dir===0?"Reached · maintaining":`${gs.g.pace} kg a week · around ${fmtDay(gs.eta,{day:"numeric",month:"short"})}`} · tap to edit</span>`:`<b style="font-size:15px">Set a weight goal</b><span>Your daily calorie target in Food then follows it.</span>`}</button>
-      <h3 class="sh-sub">Log weight</h3>
+    extra=`      <h3 class="sh-sub">Log weight</h3>
       <div class="ath-log"><div class="field"><label for="w-d">Date</label><input id="w-d" type="date" value="${todayISO()}" max="${todayISO()}"></div>
         <div class="field"><label for="w-v">Kg</label><input id="w-v" type="number" inputmode="decimal" step="0.1" min="30" max="200" placeholder="${l?l.v.toFixed(1):"70.0"}"></div>
         <button class="btn" id="w-save">Save</button></div><p class="st" id="w-st" style="font-size:13px;color:var(--muted);margin:-6px 0 10px"></p><div id="w-adh"></div>
+      ${foodOn()?wStatusHTML()+wAimHTML():""}<h3 class="sh-sub">Weigh-ins</h3>
       ${ent.length?ent.map(([d,v])=>`<div class="ent"><span>${esc(fmtDay(d,{weekday:"short",day:"numeric",month:"short",year:"numeric"}))}</span><b>${(+v).toFixed(1)} kg</b><button data-del="${d}" aria-label="Delete">Delete</button></div>`).join(""):""}`;
   } else if(key==="lthr"){
     const own=Object.keys(athEntries("lthr")).length,src=DATA.athlete?.lthr_src;
@@ -311,7 +309,7 @@ function openAth(key,days=90,keep=false){
     ${athChart(key,days)}${extra}`);
   if(keep) $("sheet").scrollTop=y;
   athBindChart(key,days);
-  const wg=$("w-goal"); if(wg) wg.onclick=openGoal;
+  if(key==="weight") bindWAim(()=>openAth("weight",days,true));
   $("sheet").querySelectorAll(".range button").forEach(b=>b.onclick=()=>openAth(key,+b.dataset.n));
   const sv=$("w-save");
   if(sv) sv.onclick=async()=>{

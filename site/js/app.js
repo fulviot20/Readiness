@@ -78,11 +78,11 @@ function goPage(tab,pg){
 }
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
-const PAGES={today:[["overview","Overview"],["day","Day"]],
+const PAGES={today:[["overview","Score"],["day","Day"]],
   training:[["week","Week"],["month","Month"],["fitness","Fitness"]],
-  athlete:[["profile","Profile"],["weight","Weight"],["diary","Diary"],["plan","Plan"]]};
+  athlete:[["profile","Profile"],["plan","Plan"],["diary","Diary"]]};
 // pages that were folded into another one: old links and saved positions still land in the right place
-const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"weight"}};
+const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"profile",weight:"profile"}};
 let SCROLL_TO=null;      // element id to bring into view after the next render (journal, balance)
 let MORE_OPEN=false,BAL_OPEN=false;   // the collapsible "more" blocks keep their state across redraws
 function aliasPage(tab,k){ const a=PG_ALIAS[tab]&&PG_ALIAS[tab][k]; if(!a) return k;
@@ -148,16 +148,12 @@ function renderToday(){
   ${isToday?keyNotice():""}
   ${has&&day.alarm?alertCard(day):""}
   ${duo(raw,isToday)}
-  ${sessions(raw)}
+  <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
+    <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
+    ${isToday?tonightCard():""}</section>
+  ${isToday?checkin(raw):""}
   ${isToday?feelNudge()+remindNudge():""}
-  <details class="more" id="more" ${MORE_OPEN?"open":""}><summary><span>Signals, check-in &amp; more</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
-    <section class="sec"><div class="sec-h"><h2>Signals</h2><span>Tap for history</span></div>
-      <div class="signals">${SIG_KEYS().map(k=>signalRow(k,c[k])).join("")}</div>
-      ${isToday?tonightCard():""}</section>
-    ${isToday?checkin(raw):""}
-    ${isToday&&foodOn()?fuelCard(raw.date,foodDay(raw.date)):""}
-    ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}
-  </details>`:""}
+  ${has?`<button class="off" id="off">Score doesn't feel right?</button>`:""}`:""}
   ${PG.today==="day"?`${isToday?yourDay():""}${dayFlowSection(raw)||(isToday?"":`<p class="notice">No hour-by-hour data for this day.</p>`)}${isToday?journalCard():""}`:""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}<br>Calibrated on ${DATA.calibration.n} days of your data</p>`;
 

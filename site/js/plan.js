@@ -57,8 +57,11 @@ function planTarget(dt){
   return {kcal:Math.round(k/50)*50,fuel:fu.length?Math.round(median(fu)):0};
 }
 function planFactor(P,dt,off=0){
-  const sel=lsJSON("rd_plan_sel",{}),T0=planTarget(dt),T=T0&&{...T0,kcal:T0.kcal+off},f0=+(P.day_types?.[dt]?.carb_factor)||1,wk=new Date().getDay()%6!==0;let fix=0,carb=0;
-  for(const m of P.meals||[]){
+  const mm=[],sel=lsJSON("rd_plan_sel",{}),T0=planTarget(dt),T=T0&&{...T0,kcal:T0.kcal+off},f0=+(P.day_types?.[dt]?.carb_factor)||1,wk=new Date().getDay()%6!==0;let fix=0,carb=0;
+  const FX=typeof fixAll==="function"?fixAll():{};
+  (P.meals||[]).forEach((m,mi)=>{const key=m.meal==="s"?"s"+mi:m.meal,fx=FX[key]&&libAll().find(e=>e.id===FX[key]&&e.items&&e.items.length);if(fx) m=Object.assign({},m,{_fx:fx});mm.push(m);});
+  for(const m of mm){
+    if(m._fx){fix+=ftot(m._fx.items).kcal;continue;}
     if(wk&&P.canteen&&(P.canteen.picks||[]).length&&m.meal===P.canteen.meal){const ks=P.canteen.picks.map(p=>+p.kcal||0);fix+=ks.reduce((a,b)=>a+b,0)/ks.length;continue;}
     (m.components||[]).forEach((c,ci)=>{const o=(c.options||[])[sel[m.meal+ci]??0];if(o) c.carb?carb+=+o.kcal||0:fix+=+o.kcal||0;});}
   const f=T&&carb?clip(Math.round((T.kcal-T.fuel-fix)/carb*20)/20,.5,2.5):f0;
@@ -123,32 +126,40 @@ function planView(){
       <button class="pl-q" id="pl-quiz">Prefer quick questions? Answer a short questionnaire</button>
       ${N.length?`<button class="pl-q" id="pl-notes">What I already know about you · ${N.length} notes</button>`:""}`
       :`<button class="btn" id="pl-key" style="width:100%">Add your Gemini key in Settings first</button>`}</div></section>`;
-  const dt=PLAN_DT||dayTypeToday(),D=P.day_types?.[dt]||{},PF=planFactor(P,dt),f=PF.f,wk=new Date().getDay()%6!==0;
-  const sel=lsJSON("rd_plan_sel",{});
+  const t=todayISO(),dtT=dayTypeToday(),dt=PLAN_DT||dtT,isT=dt===dtT,PF=planFactor(P,dt),f=PF.f,D=P.day_types?.[dt]||{};
+  const sel=lsJSON("rd_plan_sel",{}),pk=pckDay(t),L=planMealsFor(t);
   const comp=(m,ci,c)=>{const pick=sel[m.meal+ci]??0;
     return `<div class="pl-c"><small>${esc(c.role)}</small><div class="pl-o">${(c.options||[]).map((o,oi)=>{const k=c.carb?f:1;
       return `<button data-pk="${m.meal+ci}" data-oi="${oi}" class="${oi===pick?"on":""}"><b>${esc(o.name)}</b><span>${o.grams?Math.round(o.grams*k)+" g":""}${o.portion?` · ${esc(o.portion)}`:""}</span></button>`;}).join("")}</div></div>`;};
-  const mealKcal=m=>(m.components||[]).reduce((a,c,ci)=>{const o=(c.options||[])[sel[m.meal+ci]??0];return a+(o?(+o.kcal||0)*(c.carb?f:1):0);},0);
-  const canteen=P.canteen&&(P.canteen.picks||[]).length;
+  const checks=x=>isT?`<div class="pck-s">${Object.entries(PCK_K).map(([k,[,n]])=>`<button data-pck="${x.key}" data-st="${k}" class="${pk[x.key]===k?"on":""}">${n}</button>`).join("")}</div>`:"";
+  const day=dayOf(t),tr=(day?.plan||[]).filter(p=>!p.done).map(p=>p.name).join(", ");
+  const fuel=isT?fuelCard(t,foodDay(t)):dt!=="rest"?`<div class="fuel-c static"><i>${FUEL_IC}</i><div><p><b>On the bike</b>At least 70 g of carbs an hour from the first half hour (80–90 g/h on hard or long rides), plus a normal meal with protein within an hour or two of getting home.</p></div></div>`:"";
+  const mealCardP=x=>{const m=x.m,fx=planFix(x.key);
+    if(x.canteen) return `<div class="pl-m${pk[x.key]?" set":""}"><div class="pl-mh"><i class="ml-i ml-${m.meal}">${MEAL_ICON[m.meal]||""}</i><b>${esc(MEAL_NAME[m.meal]||m.title)} · canteen</b><span>~${fmtK(Math.round(pckMealKcal(x)))} kcal</span></div>
+        <ul class="pl-rules">${(P.canteen.rules||[]).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
+        <details class="pl-cp"><summary>Typical plates</summary>${(P.canteen.picks||[]).map(p=>`<div class="pl-pick"><span>${esc(p.name)}</span><b>~${fmtK(Math.round(+p.kcal||0))} kcal</b></div>`).join("")}</details>
+        ${checks(x)}</div>`;
+    const lib=libAll().filter(e=>e.kind==="meal"&&e.for===m.meal&&(!fx||e.id!==fx.id));
+    return `<div class="pl-m${pk[x.key]?" set":""}"><div class="pl-mh"><i class="ml-i ml-${m.meal}">${MEAL_ICON[m.meal]||""}</i><b>${esc(fx?fx.name:x.title)}</b><span>~${fmtK(Math.round(pckMealKcal(x,dt)))} kcal</span></div>
+      ${fx?`<div class="pl-fx">${fx.items.map(it=>`<div><span>${esc(it.name)}</span><b>${it.g?`${Math.round(it.g)} g`:"1 portion"}</b></div>`).join("")}</div>
+        <div class="pl-act"><button data-fxe="${x.key}">Edit quantities</button><button data-fxu="${x.key}">Back to suggestions</button></div>`
+      :`${(m.components||[]).map((c,ci)=>comp(m,ci,c)).join("")}${m.note?`<p class="pl-n">${esc(m.note)}</p>`:""}
+        <div class="pl-act"><button data-fxs="${x.key}">Make this my usual ${esc((MEAL_NAME[m.meal]||"meal").toLowerCase().replace(/s$/,""))}</button>${lib.map(e=>`<button data-fxp="${x.key}|${e.id}">Use “${esc(e.name)}”</button>`).join("")}</div>`}
+      ${checks(x)}</div>`;};
+  const before=L.filter(x=>x.meal!=="d"),dinner=L.filter(x=>x.meal==="d");
   return `<section class="sec first">
-    <div class="pl-top"><div class="range" id="pl-dt">${[["rest","Rest"],["train","Training"],["long","Long ride"]].map(([k,n])=>`<button data-dt="${k}" class="${dt===k?"on":""}">${n}</button>`).join("")}</div>
-      <div class="pl-k"><b${PF.T?' style="font-size:21px;white-space:nowrap"':""}>${PF.T?`${fmtK(PF.T.kcal-100)}–${fmtK(PF.T.kcal+100)}`:D.kcal?fmtK(D.kcal):"–"}</b><span>kcal ${PF.T?"range":"target"}</span></div></div>
-    ${PF.T?`<p class="pl-fit">These portions are sized for this range: about ${fmtK(PF.meals)} kcal at the table${PF.T.fuel?` plus ${fmtK(PF.T.fuel)} on the bike`:""}. Eat like this and you're in range, with nothing to log.</p>`:""}
+    <div class="pl-top"><div class="range" id="pl-dt">${[["rest","Rest"],["train","Training"],["long","Long"]].map(([k,n])=>`<button data-dt="${k}" class="${dt===k?"on":""}${k===dtT?" tday":""}">${n}</button>`).join("")}</div>
+      <div class="pl-k"><b${PF.T?' style="font-size:21px;white-space:nowrap"':""}>${PF.T?`${fmtK(PF.T.kcal-100)}–${fmtK(PF.T.kcal+100)}`:D.kcal?fmtK(D.kcal):"–"}</b><span>kcal a day</span></div></div>
+    <p class="pl-fit">${isT?`<b>Today</b>${tr?` · ${esc(tr)}`:" · rest day"}. Tick each meal as you eat it: one tap, nothing to weigh.`:`What a ${dt==="rest"?"rest":dt==="long"?"long-ride":"training"} day looks like. Today is underlined.`}</p>
+    ${before.map(mealCardP).join("")}
+    ${fuel?`<div class="pl-fuel">${fuel}</div>`:""}
+    ${dinner.map(mealCardP).join("")}
+    ${isT?`<p class="pck-f">Less and more mean about a quarter less or a third more than shown. Extras (a slice of cake, an aperitivo) go in the Diary.</p>`:""}
     ${trendCard()}
     <div class="pl-tell"><input id="pl-new" type="text" placeholder="Tell me something new… e.g. no spicy food" enterkeyhint="send">${SR?`<button class="as-b" id="pl-mic2" aria-label="Speak"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>`:""}<button class="as-b send" id="pl-send" aria-label="Update the plan"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
     <button class="pl-q" id="pl-notes" style="margin-top:6px">What I know about how you eat · ${N.length} note${N.length===1?"":"s"} →</button>
-    ${P.summary?`<p class="pl-sum">${esc(P.summary)}</p>`:""}
-    ${(P.meals||[]).map(m=>canteen&&m.meal===P.canteen.meal&&wk?`
-      <div class="pl-m"><div class="pl-mh"><i class="ml-i ml-${m.meal}">${MEAL_ICON[m.meal]||""}</i><b>${esc(MEAL_NAME[m.meal]||m.title)} · canteen</b></div>
-        <ul class="pl-rules">${(P.canteen.rules||[]).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>
-        ${(P.canteen.picks||[]).map((p,i)=>`<button class="pl-pick" data-cp="${i}"><span>${esc(p.name)}</span><b>~${fmtK(Math.round(+p.kcal||0))} kcal</b></button>`).join("")}
-        <p class="pl-n">Tap the plate closest to what you took: it goes into the diary as an estimate.</p></div>`:`
-      <div class="pl-m"><div class="pl-mh"><i class="ml-i ml-${m.meal}">${MEAL_ICON[m.meal]||""}</i><b>${esc(m.title||MEAL_NAME[m.meal])}</b><span>~${fmtK(Math.round(mealKcal(m)))} kcal</span></div>
-        ${(m.components||[]).map((c,ci)=>comp(m,ci,c)).join("")}
-        ${m.note?`<p class="pl-n">${esc(m.note)}</p>`:""}
-        <button class="btn quiet pl-log" data-log="${m.meal}">Log this ${esc((MEAL_NAME[m.meal]||"meal").toLowerCase().replace(/s$/,""))}</button></div>`).join("")}
-    ${(P.tips||[]).length?`<details class="pl-tips"><summary>Tips for your situation</summary><ul>${P.tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></details>`:""}
-    <p class="foot">Updated ${fmtDay(P.made||todayISO(),{day:"numeric",month:"short"})} for ${fmtK(P.kcal_ref||0)} kcal on training days. Change your goal or tell me something new and it updates.</p></section>`;
+    ${(P.tips||[]).length?`<details class="pl-tips"><summary>Tips for your situation</summary><ul>${P.tips.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></details>`:""}
+    <p class="foot">Portions follow the kind of day and your weight trend: when the scale says so, they change by themselves.</p></section>`;
 }
 function bindPlan(){
   const on=(id,f)=>{const e=$(id);if(e) e.onclick=f;};
@@ -172,7 +183,12 @@ function bindPlan(){
   }
   document.querySelectorAll("#pl-dt [data-dt]").forEach(b=>b.onclick=()=>{PLAN_DT=b.dataset.dt;buzz(5);renderFood();});
   document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{const s=lsJSON("rd_plan_sel",{});s[b.dataset.pk]=+b.dataset.oi;syncSet("rd_plan_sel",s);buzz(4);const y=scrollY;renderFood();scrollTo(0,y);});
-  document.querySelectorAll("[data-log]").forEach(b=>b.onclick=()=>logPlanMeal(b.dataset.log));
+  bindPlanCheck(todayISO());
+  const LL=planMealsFor(todayISO()),rr=()=>{const y=scrollY;renderFood();scrollTo(0,y);};
+  document.querySelectorAll("[data-fxs]").forEach(b=>b.onclick=()=>{const x=LL.find(y=>y.key===b.dataset.fxs);if(!x) return;fixFromPlan(x);buzz(10);rr();openFixMeal(x.key);});
+  document.querySelectorAll("[data-fxp]").forEach(b=>b.onclick=()=>{const [k,id]=b.dataset.fxp.split("|");fixSet(k,id);buzz(8);rr();});
+  document.querySelectorAll("[data-fxu]").forEach(b=>b.onclick=()=>{fixSet(b.dataset.fxu,null);buzz(5);rr();});
+  document.querySelectorAll("[data-fxe]").forEach(b=>b.onclick=()=>openFixMeal(b.dataset.fxe));
   document.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>{const P=planGet(),p=P.canteen.picks[+b.dataset.cp],now=Date.now();
     foodSave({...aiFood({name:p.name,grams:p.grams,kcal:p.kcal,protein:p.protein,carbs:p.carbs,fat:p.fat,note:"canteen, estimated"},P.canteen.meal),id:uid(),date:todayISO(),meal:P.canteen.meal,at:now,ts:now});
     buzz(12);toast(`Canteen lunch logged · ~${fmtK(Math.round(+p.kcal||0))} kcal`);});
@@ -185,6 +201,44 @@ function logPlanMeal(meal,o={}){
     foodSave({...it,src:"plan",id:uid(),date,meal,at:now+n,ts:now+n});n++;k+=it.kcal;});
   if(!o.quiet){buzz(12);toast(`${MEAL_NAME[meal]} logged · ${fmtK(Math.round(k))} kcal — adjust anything in the Diary`);}
   return k;
+}
+/* ------------------------------------------------------------ plan: your usual meals */
+// A slot of the plan (e.g. breakfast) can be pinned to one of your saved meals: you eat the same thing,
+// with the quantities you choose, and the rest of the day's portions make room for it.
+const fixAll=()=>lsJSON("rd_plan_fix",{});
+function planFix(key){const id=fixAll()[key];return id?libAll().find(e=>e.id===id&&e.items&&e.items.length)||null:null;}
+function fixSet(key,id){const F={...fixAll()};if(id) F[key]=id; else delete F[key];syncSet("rd_plan_fix",F);}
+function fixFromPlan(x){
+  const P=planGet(),dt=PLAN_DT||dayTypeToday(),f=planFactor(P,dt).f,sel=lsJSON("rd_plan_sel",{});
+  const items=(x.m.components||[]).map((c,ci)=>{const o=(c.options||[])[sel[x.meal+ci]??0];if(!o) return null;const s=c.carb?f:1;
+    return aiFood({name:o.name,grams:(+o.grams||0)*s||null,kcal:(+o.kcal||0)*s,protein:(+o.protein||0)*s,carbs:(+o.carbs||0)*s,fat:(+o.fat||0)*s,note:o.portion||null},x.meal);}).filter(Boolean);
+  const e={id:uid(),kind:"meal",for:x.meal,name:`My ${(MEAL_NAME[x.meal]||"meal").toLowerCase().replace(/s$/,"")}`,items};
+  libSave(e);fixSet(x.key,e.id);return e;
+}
+// edit the grams of a usual meal, remove a food, add one by name and grams (values from the tables)
+function openFixMeal(key){
+  const e0=planFix(key);if(!e0) return;const e=JSON.parse(JSON.stringify(e0));
+  const per=it=>{const g=+it.g||0;return it.k100!=null?{k:it.k100,p:it.p100||0,c:it.c100||0,f:it.f100||0}:g?{k:it.kcal/g*100,p:it.p/g*100,c:it.c/g*100,f:it.f/g*100}:null;};
+  const regram=(it,g)=>{const q=per(it);if(!q||!(g>0)) return it;return {...it,g:Math.round(g),kcal:Math.round(q.k*g/100),p:r1(q.p*g/100),c:r1(q.c*g/100),f:r1(q.f*g/100),k100:Math.round(q.k),p100:r1(q.p),c100:r1(q.c),f100:r1(q.f)};};
+  const draw=()=>{
+    openSheet(`<div class="sh-top"><h2>${esc(e.name)}</h2>${X}</div>
+      <p class="sh-desc">Change the grams and the kcal follow. The other meals of the day make room for it.</p>
+      <div class="field"><label for="fx-n">Name</label><input id="fx-n" type="text" maxlength="40" value="${esc(e.name)}"></div>
+      ${e.items.map((it,i)=>`<div class="fx-r"><span>${esc(it.name)}<small>${fmtK(Math.round(it.kcal))} kcal</small></span><input data-g="${i}" type="number" inputmode="decimal" min="0" step="5" value="${it.g||""}" aria-label="grams of ${esc(it.name)}"><u>g</u><button data-rm="${i}" aria-label="Remove">✕</button></div>`).join("")}
+      <h3 class="sh-sub">${fmtK(Math.round(ftot(e.items).kcal))} kcal · P ${Math.round(ftot(e.items).p)} · C ${Math.round(ftot(e.items).c)} · F ${Math.round(ftot(e.items).f)} g</h3>
+      <div class="fx-add"><input id="fx-a" type="text" placeholder="Add a food, e.g. miele" maxlength="40"><input id="fx-ag" type="number" inputmode="decimal" placeholder="g"><button class="btn quiet" id="fx-ab">Add</button></div><p class="st" id="fx-st"></p>
+      <div class="savebar" style="margin-top:18px"><span></span><button class="btn" id="fx-s">Save</button></div>`);
+    const keepName=()=>{e.name=$("fx-n").value.trim()||e.name;};
+    $("sheet").querySelectorAll("[data-g]").forEach(inp=>inp.onchange=()=>{keepName();const i=+inp.dataset.g;e.items[i]=regram(e.items[i],+String(inp.value).replace(",","."));const y=$("sheet").scrollTop;draw();$("sheet").scrollTop=y;});
+    $("sheet").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{keepName();e.items.splice(+b.dataset.rm,1);draw();});
+    $("fx-ab").onclick=async()=>{keepName();const q=$("fx-a").value.trim(),g=+String($("fx-ag").value).replace(",",".");if(!q||!(g>0)){$("fx-st").textContent="Name and grams";return;}
+      let fd=groundFood(q)||localSearch(q,1)[0];
+      if(!fd&&aiKey()){$("fx-st").textContent="Looking it up…";try{fd=(await aiSearch(q))[0];}catch(err){}}
+      if(!fd){$("fx-st").textContent="Not found: try another name";return;}
+      e.items.push(fromFood(fd,g,e.for));draw();};
+    $("fx-s").onclick=()=>{keepName();if(!e.items.length) return;libSave(e);buzz(10);closeSheet();render();toast("Saved");};
+  };
+  draw();
 }
 /* ------------------------------------------------------------ plan check-off: the plan is the diary */
 // Instead of logging every food, each meal of the plan gets one tap: as planned, less, more, or something else.
@@ -199,8 +253,9 @@ function planMealsFor(date){
   const wk=new Date(date+"T12:00").getDay()%6!==0,cant=wk&&P.canteen&&(P.canteen.picks||[]).length?P.canteen.meal:null;
   return (P.meals||[]).map((m,i)=>({key:m.meal==="s"?"s"+i:m.meal,meal:m.meal,title:m.title||MEAL_NAME[m.meal],canteen:m.meal===cant,m}));
 }
-function pckMealKcal(x){
-  const P=planGet(),dt=dayTypeToday(),f=planFactor(P,dt).f,sel=lsJSON("rd_plan_sel",{});
+function pckMealKcal(x,dt0){
+  const P=planGet(),dt=dt0||dayTypeToday(),f=planFactor(P,dt).f,sel=lsJSON("rd_plan_sel",{}),fx=planFix(x.key);
+  if(fx) return ftot(fx.items).kcal;
   if(x.canteen){const ks=P.canteen.picks.map(p=>+p.kcal||0);return ks.reduce((a,b)=>a+b,0)/ks.length;}
   return (x.m.components||[]).reduce((a,c,ci)=>{const o=(c.options||[])[sel[x.meal+ci]??0];return a+(o?(+o.kcal||0)*(c.carb?f:1):0);},0);
 }
@@ -214,6 +269,7 @@ function pckSet(date,x,state){
     const q=PCK_K[st][0],now=Date.now();
     if(x.canteen){const P=planGet(),ps=P.canteen.picks,avg=k=>ps.reduce((a,p)=>a+(+p[k]||0),0)/ps.length;
       foodSave({...aiFood({name:"Canteen lunch",grams:avg("grams")*q||null,kcal:avg("kcal")*q,protein:avg("protein")*q,carbs:avg("carbs")*q,fat:avg("fat")*q,note:"typical plate, estimated"},x.meal),src:"plan",pck:x.key,id:uid(),date,meal:x.meal,at:now,ts:now});}
+    else if(planFix(x.key)){const fx=planFix(x.key);fx.items.forEach((it,i)=>foodSave({...it,g:it.g?Math.round(it.g*q):it.g,kcal:Math.round(it.kcal*q),p:r1(it.p*q),c:r1(it.c*q),f:r1(it.f*q),n:it.n?scaleN(it.n,q):null,src:"plan",pck:x.key,id:uid(),date,meal:x.meal,at:now+i,ts:now+i}));}
     else{const before=new Set(foodDay(date).map(i=>i.id));logPlanMeal(x.meal,{k:q,date,dt:dayTypeToday(),quiet:true});
       foodDay(date).filter(i=>!before.has(i.id)).forEach(i=>foodSave({...i,pck:x.key,ts:Date.now()}));}
   }
@@ -242,9 +298,10 @@ function planShift(step){
   const dt=dayTypeToday(),now=planFactor(P,dt),was=planFactor(P,dt,-step),sel=lsJSON("rd_plan_sel",{}),out=[];
   if(!now.T) return [];
   const cant=new Date().getDay()%6!==0&&P.canteen&&(P.canteen.picks||[]).length?P.canteen.meal:null;
-  for(const m of P.meals||[]) if(m.meal!==cant) (m.components||[]).forEach((c,ci)=>{if(!c.carb) return;const o=(c.options||[])[sel[m.meal+ci]??0];if(!o||!o.grams) return;
+  const FX=fixAll();
+  (P.meals||[]).forEach((m,mi)=>{if(m.meal===cant||FX[m.meal==="s"?"s"+mi:m.meal]) return;(m.components||[]).forEach((c,ci)=>{if(!c.carb) return;const o=(c.options||[])[sel[m.meal+ci]??0];if(!o||!o.grams) return;
     const a=Math.round(o.grams*was.f/5)*5,b=Math.round(o.grams*now.f/5)*5;
-    if(a!==b) out.push({meal:m.meal,name:o.name,a,b});});
+    if(a!==b) out.push({meal:m.meal,name:o.name,a,b});});});
   return out;
 }
 function openPlanQuiz(){

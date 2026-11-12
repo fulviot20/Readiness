@@ -39,4 +39,6 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 23. Power (Training → Fitness): CP e W′ stimati dalle uscite (best 3–20′ degli ultimi 90 giorni), andamento della CP, curva potenza-durata contro i 90 giorni prima, W/kg
 - [x] 24. Durability (Training → Fitness): miglior 5′ e 20′ dopo 1000–4000 kJ, in % della potenza fresca
 - [x] 25. Intensity (Training → Month): ore settimanali per fascia in % della CP, con l'intensive endurance (70–80%) in evidenza, 12 settimane
-- [x] 26. Pagina Weight (Athlete → Weight): peso di tendenza e inserimento di oggi in un tocco, grafico 8 settimane, obiettivo Lose / Maintain / Gain con ritmo, "cosa sta succedendo" con le correzioni in grammi, range kcal per tipo di giornata e link al piano
+- [x] 26. Peso: toccando il riquadro Weight in Athlete si apre il foglio con grafico, inserimento, "cosa sta succedendo" (con le correzioni in grammi) e obiettivo Lose / Maintain / Gain con ritmo (la pagina Weight separata è stata tolta)
+- [x] 27. Plan come centro del cibo: per oggi colazione, spuntini, pranzo (mensa), ride fuel e recupero, cena; spunte As planned / Less / More / Other su ogni pasto; "Make this my usual …" fissa un pasto (es. la colazione) con quantità modificabili, e gli altri pasti fanno spazio. Pagine: Profile · Plan · Diary
+- [x] 28. Today → Score: segnali e check-in sempre visibili sotto i punteggi; l'allenamento del giorno (Full / Short) si vede in Training → Week

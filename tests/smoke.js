@@ -116,9 +116,9 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       localStorage.removeItem("rd_adh"); adhSet(isoAdd(t, -3), 1);
       localStorage.setItem("rd_trim", JSON.stringify({v: 0, at: isoAdd(t, -8)})); trimCheck();
       if (trimGet().v !== 0 || trimGet().held !== "more") throw new Error("gaining after eating over the plan shouldn't lower the range");
-      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "weight"; render();
-      if (!document.querySelector(".wt-st") || !/coming back inside/.test(document.querySelector(".wt-st").textContent)) throw new Error("weight status missing");
       openAth("weight");
+      if (!document.querySelector("#sheet .wt-st") || !/coming back to the plan/.test(document.querySelector("#sheet .wt-st").textContent)) throw new Error("weight status missing");
+      if (!document.querySelector("#sheet #wt-m")) throw new Error("aim missing from the weight sheet");
       if (!document.querySelector('#ath-svg line[stroke="#f59e0b"]')) throw new Error("no trend line on the weight chart");
       document.getElementById("w-v").value = "63.2"; document.getElementById("w-save").click(); }],
     ["weigh-in-answer", () => { const b = document.querySelector('#adh-s [data-a="0"]'); if (!b) throw new Error("no question after the weigh-in");
@@ -144,13 +144,13 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     // slimmer navigation: two pages on Today, three on Training and Athlete; the old page names still land somewhere sensible
     ["slim", () => { setTab("today"); PG.today = "overview"; render();
       if (document.querySelectorAll(".pbar [data-pg]").length !== 2) throw new Error("Today should have two pages");
-      if (!document.querySelector("details#more .signals") || !document.querySelector("details#more .checkin")) throw new Error("signals and check-in belong in the More block");
-      if (document.querySelector("#app > .signals, #app > .sec .signals")) throw new Error("signals should not sit outside the More block");
+      if (!document.querySelector("#app > .sec .signals") || !document.querySelector("#app .checkin")) throw new Error("signals and check-in should be visible on Score");
+      if (document.querySelector("details#more")) throw new Error("nothing should be hidden in a More block");
       setPage("today", "journal"); if (PG.today !== "day" || !document.getElementById("journal")) throw new Error("journal not on the Day page");
       setTab("training"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Training should have three pages");
       setPage("training", "volume"); if (PG.training !== "month") throw new Error("Hours should live on the Month page");
-      setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 4) throw new Error("Athlete should have four pages");
-      setPage("athlete", "balance"); if (PG.athlete !== "weight" || !document.querySelector("#wt-save")) throw new Error("old balance link should open Weight");
+      setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Athlete should have three pages");
+      setPage("athlete", "balance"); if (PG.athlete !== "profile") throw new Error("old balance link should open Profile");
       setTab("today"); }],
     // food search: a plain "ciambella" is the baked ring cake; foods found by the AI lookup are kept and found again locally,
     // and rows whose energy disagrees with the macros are dropped (from the AI and from Open Food Facts)
@@ -214,9 +214,9 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (!/^3×8 min/.test(l.short.txt) || l.short.min !== 68 || v.short.min > 60 || e.short.min !== 90) throw new Error("short version wrong: " + l.short.txt + " " + l.short.min);
       if (adaptPlan({...p, race: true}, "Low") !== null) throw new Error("a race has no short version");
       const d = DATA.days.find(x => x.date === todayISO()); d.workouts = []; (d.plan || []).forEach(q => { q.done = false; });
-      setTab("today"); render(); if (!document.querySelector(".adapt")) throw new Error("the two versions are not on Today");
+      setTab("training"); PG.training = "week"; render(); if (!document.querySelector(".adapt")) throw new Error("the two versions are not on Training");
       if (insightCard() !== "") throw new Error("no AI key: the insight card should stay hidden");
-      localStorage.setItem("rd_gemini", "x"); syncSet("rd_insight", {date: todayISO(), text: "Test insight."}); render();
+      localStorage.setItem("rd_gemini", "x"); syncSet("rd_insight", {date: todayISO(), text: "Test insight."}); setTab("today"); render();
       if (document.getElementById("ins-t")?.textContent !== "Test insight.") throw new Error("saved insight not shown");
       if (!insightFacts().today_plan.length) throw new Error("insight facts miss today's plan");
       localStorage.removeItem("rd_gemini"); }],

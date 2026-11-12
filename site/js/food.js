@@ -853,7 +853,7 @@ function renderFood(){
     <p class="f-sub">${tg?esc(targetLine(tg,isToday)):"Waiting for today's burn from Garmin."}</p>
   </button>
   <div class="macros">${["p","c","f"].map(mac).join("")}</div>
-  ${planCheckCard(d)}${fuelCard(d,items)}
+  ${fuelCard(d,items)}
   <button class="coach-bar" id="f-coach">${SPARK}<span>Tell me what you ate, or ask your food coach…</span></button>
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
     ${!real.length&&usual.length?`<div class="ud"><small>USUAL DAY · ONE TAP, THEN FIX ONLY WHAT WAS DIFFERENT</small>${usual.map(e=>`<button class="ml-copy mine" data-libd="${e.id}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join("")}</div>`:""}
@@ -862,7 +862,6 @@ function renderFood(){
     <button class="lib-c" id="lib-c"><span><b>My days, meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save a usual day or breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
   <p class="foot">Swipe sideways to change day.</p>`;
   else if(pg==="plan") body=planView();
-  else if(pg==="weight") body=weightView();
   else {PG.athlete="diary";return renderFood();}
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
@@ -881,8 +880,6 @@ function renderFood(){
   on("f-coach",()=>openAssistant("food")); on("fuel-c",openFuelSettings);
   on("goal-c",openGoal); on("wt-c",()=>openAth("weight"));
   if(pg==="plan") bindPlan();
-  if(pg==="diary") bindPlanCheck(d);
-  if(pg==="weight") bindWeight();
 }
 function foodGo(k){
   const t=todayISO(),n=isoAdd(foodSel,k); if(n>t||n<isoAdd(t,-120)) return;
