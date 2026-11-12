@@ -204,13 +204,12 @@ function renderAthlete(){
     <div class="amks">${amkCard("ftp",wk?`${wk.v.toFixed(2)} W/kg`:"")}${amkCard("wkg")}</div></section>
   <section class="sec"><div class="sec-h"><h2>Running</h2><span>Tap for history</span></div>
     <div class="amks">${amkCard("lthr",lsub)}${amkCard("thr_pace",L?`at ${Math.round(L.v)} bpm`:"")}${amkCard("easy_pace",DATA.fitness?.easy_hr?`at ${DATA.fitness.easy_hr} bpm`:"")}</div></section>
-  ${foodOn()?`<details class="more" id="balance" ${BAL_OPEN?"open":""}><summary><span>Weight trend &amp; goal</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>${trendCard()}${goalCard()}</details>`:""}
+  ${foodOn()?`<button class="lib-c" id="ath-wt"><span><b>Weight &amp; aim</b><small>Log today's weight, lose · maintain · gain, what to change</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>`:""}
   <p class="foot">Age and fitness age update by themselves. Log your weight every 3–4 days, same conditions: the calorie range follows its trend.</p>`;
   $("gear").onclick=openSettings;
   $("ath-edit").onclick=openProfile; bindSwitch();
   const f=$("ath-fit"); if(f) f.onclick=()=>openAth("fitage");
-  const bd=$("balance"); if(bd){ bd.addEventListener("toggle",()=>{BAL_OPEN=bd.open;});
-    const bon=(id,fn)=>{const e=$(id); if(e) e.onclick=fn;}; bon("goal-c",openGoal); bon("wt-c",()=>openAth("weight")); }
+  const aw=$("ath-wt"); if(aw) aw.onclick=()=>setPage("athlete","weight");
   document.querySelectorAll(".amk[data-am]").forEach(b=>b.onclick=()=>openAth(b.dataset.am));
   document.querySelectorAll(".amk[disabled]").forEach(b=>{if(b.textContent.includes("Tap to log")){b.disabled=false;b.onclick=()=>openAth("weight");}});
 }

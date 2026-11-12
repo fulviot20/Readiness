@@ -48,7 +48,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     ["training", () => setTab("training")],
     ["training-pages", () => { for (const k of ["month", "volume", "fitness", "week"]) setPage("training", k); }],
     ["athlete", () => setTab("athlete")],
-    ["food-pages", () => { for (const k of ["diary", "plan", "balance", "profile"]) setPage("athlete", k); }],
+    ["food-pages", () => { for (const k of ["diary", "plan", "weight", "balance", "profile"]) setPage("athlete", k); }],
     ["months", () => { if (typeof openMonths === "function") openMonths(); }],
     // ride fuel: every ride long enough adds one diary line by itself, and it can be corrected
     ["fuel", () => { syncSet("rd_fuel", {on: true, max: 90, since: "2000-01-01"}); foodReset();
@@ -116,8 +116,8 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       localStorage.removeItem("rd_adh"); adhSet(isoAdd(t, -3), 1);
       localStorage.setItem("rd_trim", JSON.stringify({v: 0, at: isoAdd(t, -8)})); trimCheck();
       if (trimGet().v !== 0 || trimGet().held !== "more") throw new Error("gaining after eating over the plan shouldn't lower the range");
-      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "balance"; render();
-      if (!document.getElementById("wt-c") || !/come back inside/.test(document.getElementById("wt-c").textContent)) throw new Error("trend card missing");
+      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "weight"; render();
+      if (!document.querySelector(".wt-st") || !/coming back inside/.test(document.querySelector(".wt-st").textContent)) throw new Error("weight status missing");
       openAth("weight");
       if (!document.querySelector('#ath-svg line[stroke="#f59e0b"]')) throw new Error("no trend line on the weight chart");
       document.getElementById("w-v").value = "63.2"; document.getElementById("w-save").click(); }],
@@ -149,8 +149,8 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       setPage("today", "journal"); if (PG.today !== "day" || !document.getElementById("journal")) throw new Error("journal not on the Day page");
       setTab("training"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Training should have three pages");
       setPage("training", "volume"); if (PG.training !== "month") throw new Error("Hours should live on the Month page");
-      setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Athlete should have three pages");
-      setPage("athlete", "balance"); if (PG.athlete !== "profile" || !document.querySelector("details#balance[open] #wt-c")) throw new Error("balance not reachable from Profile");
+      setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 4) throw new Error("Athlete should have four pages");
+      setPage("athlete", "balance"); if (PG.athlete !== "weight" || !document.querySelector("#wt-save")) throw new Error("old balance link should open Weight");
       setTab("today"); }],
     // food search: a plain "ciambella" is the baked ring cake; foods found by the AI lookup are kept and found again locally,
     // and rows whose energy disagrees with the macros are dropped (from the AI and from Open Food Facts)

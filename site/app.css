@@ -747,3 +747,20 @@ details.more[open]>summary{margin-bottom:4px}
 .in-l{margin-top:12px;display:grid;gap:6px}.in-l div{display:flex;align-items:center;gap:8px;font-size:13.5px}
 .in-l i{width:9px;height:9px;border-radius:3px;flex:none}.in-l span{flex:1;color:var(--muted)}.in-l small{color:var(--faint);font-size:11.5px}.in-l b{font-weight:600}
 .in-l .in-t{border-top:1px solid var(--line);padding-top:7px;margin-top:2px}
+
+/* weight page */
+.wt-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.wt-top small{display:block;font-size:11px;letter-spacing:.12em;color:var(--faint);font-weight:600}
+.wt-top b{font-family:var(--cond);font-size:46px;font-weight:500;line-height:1.05}.wt-top b u{text-decoration:none;font-size:17px;color:var(--muted);margin-left:3px}
+.wt-top span{display:block;font-size:13px;color:var(--muted)}
+.wt-goal{text-align:right}.wt-goal b{font-size:30px;color:#5fc795}
+.wt-svg{width:100%;height:120px;display:block}.wt-hero .ax{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:4px;gap:6px}
+.wt-log{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:14px}
+.wt-log input{background:var(--surface2);border:1px solid var(--line);border-radius:12px;color:var(--text);font:inherit;font-size:18px;padding:10px 12px;min-width:0}
+.wt-tip,.wt-n{font-size:12.5px;color:var(--faint);margin:8px 0 0;line-height:1.45}
+.wt-st p{margin:0;font-size:15px;line-height:1.5;color:var(--muted)}.wt-st p b{color:var(--text)}
+.wt-st .wt-sh2{margin-top:10px;font-size:14px;color:var(--glacier)}.wt-st .wt-sh2 b{color:var(--glacier)}
+.wt-aim{display:grid;grid-template-columns:1fr 1.3fr;gap:10px;margin-top:12px}
+.wt-r{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.wt-r div{background:var(--surface);border-radius:14px;padding:10px 12px}.wt-r small{display:block;font-size:11px;letter-spacing:.1em;color:var(--faint);font-weight:600}
+.wt-r div{min-width:0}.wt-r b{font-family:var(--cond);font-size:16.5px;font-weight:500;white-space:nowrap;letter-spacing:-.01em}

@@ -80,13 +80,13 @@ function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
 const PAGES={today:[["overview","Overview"],["day","Day"]],
   training:[["week","Week"],["month","Month"],["fitness","Fitness"]],
-  athlete:[["profile","Profile"],["diary","Diary"],["plan","Plan"]]};
+  athlete:[["profile","Profile"],["weight","Weight"],["diary","Diary"],["plan","Plan"]]};
 // pages that were folded into another one: old links and saved positions still land in the right place
-const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"profile"}};
+const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"weight"}};
 let SCROLL_TO=null;      // element id to bring into view after the next render (journal, balance)
 let MORE_OPEN=false,BAL_OPEN=false;   // the collapsible "more" blocks keep their state across redraws
 function aliasPage(tab,k){ const a=PG_ALIAS[tab]&&PG_ALIAS[tab][k]; if(!a) return k;
-  if(k==="journal") SCROLL_TO="journal"; if(k==="balance"){SCROLL_TO="balance";BAL_OPEN=true;} return a; }
+  if(k==="journal") SCROLL_TO="journal"; return a; }
 function pageBar(tab){
   const list=PAGES[tab].filter(p=>tab!=="athlete"||(FOOD_TAB?ATH_SUB==="food"&&foodOn()&&p[0]!=="profile":p[0]==="profile"||foodOn()));
   if(list.length<2) return "";

@@ -862,6 +862,7 @@ function renderFood(){
     <button class="lib-c" id="lib-c"><span><b>My days, meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save a usual day or breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
   <p class="foot">Swipe sideways to change day.</p>`;
   else if(pg==="plan") body=planView();
+  else if(pg==="weight") body=weightView();
   else {PG.athlete="diary";return renderFood();}
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
@@ -881,6 +882,7 @@ function renderFood(){
   on("goal-c",openGoal); on("wt-c",()=>openAth("weight"));
   if(pg==="plan") bindPlan();
   if(pg==="diary") bindPlanCheck(d);
+  if(pg==="weight") bindWeight();
 }
 function foodGo(k){
   const t=todayISO(),n=isoAdd(foodSel,k); if(n>t||n<isoAdd(t,-120)) return;
