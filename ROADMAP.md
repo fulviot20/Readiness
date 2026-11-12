@@ -33,3 +33,9 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 19. Spunta dei pasti dal piano nel Diary: per ogni pasto un tocco su As planned / Less / More / Other; le porzioni del piano vanno nel diario da sole (×1, ×0,75, ×1,3), "Other" apre l'aggiunta normale. Le spunte dicono anche quanto è stato seguito il piano, quindi alla pesata non serve più chiederlo
 - [x] 20. Quando la bilancia sposta il range, la scheda del peso dice cosa cambia nel piatto (es. "Rice 80 → 70 g") invece di un numero di kcal
 - [x] 21. AI: calorie prese dalle tabelle quando il cibo c'è (l'AI legge cibo, grammi e pasto; nella conferma compare "table"), contesto ridotto a ciò che serve alla domanda, niente micronutrienti nella registrazione (più veloce), modalità coach per le domande (ragiona un po', risponde con i tuoi numeri e i tuoi valori abituali), modelli stabili prima delle anteprime
+
+## Cibo all'essenziale e Training potenziato (12/11/2026)
+- [x] 22. Cibo sfoltito: tolti micronutrienti (e le richieste AI automatiche per calcolarli), bilancio settimanale e grafico del bilancio energetico; restano piano con spunte, diario, range, fueling, andamento del peso e obiettivo
+- [x] 23. Power (Training → Fitness): CP e W′ stimati dalle uscite (best 3–20′ degli ultimi 90 giorni), andamento della CP, curva potenza-durata contro i 90 giorni prima, W/kg
+- [x] 24. Durability (Training → Fitness): miglior 5′ e 20′ dopo 1000–4000 kJ, in % della potenza fresca
+- [x] 25. Intensity (Training → Month): ore settimanali per fascia in % della CP, con l'intensive endurance (70–80%) in evidenza, 12 settimane

@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 import dayflow
 import energy
 import engine
+import power
 import fitness
 import fuel
 import garmin
@@ -902,6 +903,16 @@ def main():
         gdays = cache.get("days", {})
         cache["garmin_auth_error"] = any(" 401" in e or " 403" in e or "token" in e.lower() for e in errors)
         print(f"garmin: {len(gdays)} days cached, {sum(1 for v in gdays.values() if v.get('detail'))} with detail")
+    # power summaries of the rides (best efforts, CP, durability, time by intensity), read once per ride
+    if not os.environ.get("FIXTURE_DIR"):
+        aid = os.environ.get("INTERVALS_ATHLETE_ID") or "0"
+        try:
+            n = power.refresh(cache, activities, today,
+                              lambda i: fetch(f"activity/{i}/streams.json", {"types": "watts"}), streams)
+            if n:
+                print(f"power: {n} new ride(s) analysed")
+        except Exception as e:
+            print("power skipped:", type(e).__name__)
     mail = cache.get("mail", {})
     answers = {**load_answers(pw), **mail.get("answers", {})}
     notes = {**load_notes(pw), **mail.get("notes", {})}
@@ -910,6 +921,11 @@ def main():
     prof = mail.get("profile") or {}             # height and sex sharpen the distance estimate
     data["energy"] = energy.build(gdays, data["days"], today, prof.get("height"), prof.get("sex"))
     data["nutrition"] = nutrition(mail, today)
+    try:
+        data["power"] = power.build(cache.get("power"), activities, today)
+    except Exception as e:
+        data["power"] = None
+        print("power summary skipped:", type(e).__name__)
     try:
         data["monthly"] = months.build(wellness, activities, gdays, data["days"], data["fitness"], today)
     except Exception as e:

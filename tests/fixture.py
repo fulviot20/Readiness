@@ -16,7 +16,8 @@ sys.path.insert(0, ROOT)
 import dayflow  # noqa: E402
 import energy  # noqa: E402
 import engine  # noqa: E402
-import months  # noqa: E402
+import months
+import power  # noqa: E402
 import readiness  # noqa: E402
 
 TODAY = dt.date(2026, 11, 9)
@@ -108,7 +109,26 @@ def build_data(today=TODAY):
     data["garmin_key"] = {"expires": "2027-11-03", "error": False}
     data["dayflow"] = dayflow.build(gdays, data["days"], today, 186)
     data["monthly"] = months.build(wellness, activities, gdays, data["days"], data["fitness"], today)
+    data["power"] = power.build(power_store(activities), activities, today)
     return data
+
+
+def power_store(activities, cp=285, wp=22000):
+    """Synthetic power for the fixture rides: steady endurance with a few hard efforts that follow CP and W'."""
+    rnd = random.Random(7)
+    store = {}
+    for a in activities:
+        if a["type"] != "Ride":
+            continue
+        n = a["moving_time"]
+        w = [round(cp * rnd.uniform(.62, .78)) for _ in range(n)]
+        for d in rnd.sample([180, 300, 600, 1200, 30, 60], 2):
+            if d + 600 < n:
+                at = rnd.randint(300, n - d - 1)
+                pw = round((cp + wp / d) * rnd.uniform(.86, .99))
+                w[at:at + d] = [pw] * d
+        store[a["id"]] = dict(power.analyse(w, a["icu_ftp"]), d=a["start_date_local"][:10], name=a["name"])
+    return store
 
 
 if __name__ == "__main__":

@@ -470,7 +470,7 @@ const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const r1=v=>Math.round(v*10)/10;
 const isoAdd=(iso,k)=>{const d=new Date(iso+"T12:00");d.setDate(d.getDate()+k);return d.toLocaleDateString("sv-SE");};
-let foodSel=null,balN=30,balPick=null;
+let foodSel=null;
 
 /* ------------------------------------------------------------ food: diary storage */
 // Each entry travels on its own (add, edit, delete as a tombstone) and the newest copy wins,
@@ -662,34 +662,6 @@ function ntot(items){const sum={},have={};let known=0;
   for(const x of items){if(!x.n) continue;known++;for(const k of NUT_KEYS) if(x.n[k]!=null){sum[k]=(sum[k]||0)+x.n[k];have[k]=(have[k]||0)+1;}}
   return {sum,have,known};}
 
-/* ------------------------------------------------------------ food: the day's nutrients */
-let NUT_OPEN=false;
-document.addEventListener("toggle",e=>{if(e.target.classList?.contains("nut-more")) NUT_OPEN=e.target.open;},true);
-function nutrientSection(d){
-  const items=foodDay(d);if(!items.length) return "";
-  const T=ftot(items),N=ntot(items),tg=targetOf(d),missing=items.filter(x=>!x.n&&x.kcal).length;
-  const fmt=(v,u)=>v==null?"–":`${u==="g"?(v>=10?Math.round(v):r1(v)):fmtK(Math.round(v))} ${u}`;
-  const row=(label,v,u,ref,kind,sub)=>{const pc=ref&&v!=null?v/ref*100:null;
-    const col=pc==null?"var(--muted)":kind==="limit"?(pc>100?"#f0798a":pc>80?"#f2a65a":"#5fc795"):kind==="target"?(pc>=100?"#5fc795":"#6fd3e6"):"var(--muted)";
-    return `<div class="nr${sub?" sub":""}"><span>${label}</span><b>${fmt(v,u)}</b><div class="nr-bar">${pc!=null?`<i style="width:${Math.min(100,pc)}%;background:${col}"></i>`:""}</div><em>${pc!=null?Math.round(pc)+"%":""}${pc!=null&&kind==="limit"?" of limit":""}</em></div>`;};
-  const nv=k=>N.have[k]?N.sum[k]:null,ref=x=>x[0]==="satfat"&&tg?Math.round(tg.kcal*.1/9):x[3];
-  const group=g=>NUT.filter(x=>x[5]===g).map(x=>row(x[1],nv(x[0]),x[2],ref(x),x[4],g==="c"||g==="f")).join("");
-  const salt=nv("sodium")!=null?` <small>(${r1(nv("sodium")*2.5/1000)} g salt)</small>`:"";
-  return `<section class="sec" id="nut"><div class="sec-h"><h2>Nutrients</h2><span>${d===todayISO()?"Today so far":fmtDay(d,{weekday:"short",day:"numeric",month:"short"})}</span></div>
-    <div class="nut">
-      ${row("Energy",T.kcal,"kcal",tg?.kcal,"target")}
-      ${row("Protein",T.p,"g",tg?.p,"target")}
-      ${row("Carbohydrates",T.c,"g",tg?.c,"target")}${group("c")}
-      ${row("Fat",T.f,"g",tg?.f,"target")}${group("f")}
-      <details class="nut-more"${NUT_OPEN?" open":""}><summary>Minerals and vitamins</summary>
-      <h4>Minerals</h4>${group("m").replace("Sodium</span>","Sodium"+salt+"</span>")}
-      <h4>Vitamins</h4>${group("v")}</details>
-      ${FILL.busy?`<p class="af-wait"><i class="spin"></i>Working out sugars, fibre, fats, minerals and vitamins…</p>`:""}
-      <p class="nut-f">${missing?`Detailed values known for ${N.known} of ${items.length} foods: the others count only for energy and macros${aiKey()?"":". Add your Gemini key in Settings and they're filled in by themselves"}.`:"Detailed values known for every food."} References: EU/EFSA daily values for an adult man; saturated fat under 10% of your energy target.</p>
-      ${FILL.err?`<p class="nut-f" style="color:#f2a65a">${esc(FILL.err)}</p>`:""}
-      ${missing&&aiKey()&&!FILL.busy?`<button class="coach-bar" id="nut-ai">${SPARK}<span>${FILL.err?"Try again":"Fill in now with AI"}</span></button>`:""}
-    </div></section>`;
-}
 // Nutrient names as the AI may write them
 const N_ALIAS={sugars:["sugars","sugar","zuccheri","of_which_sugars"],fiber:["fiber","fibre","fibers","fibres","fibra","dietary_fiber"],
   satfat:["satfat","saturated","saturated_fat","sat_fat","saturatedfat","saturated_fats"],monofat:["monofat","monounsaturated","monounsaturated_fat","mufa","mono_fat"],
@@ -709,32 +681,6 @@ function normN(o){
 const nCacheAll=()=>lsJSON("rd_ncache",{});
 const nCache=name=>nCacheAll()[norm(name)]||null;
 function nCacheSet(name,n100){if(!n100) return;const c=nCacheAll();c[norm(name)]=n100;const ks=Object.keys(c);if(ks.length>400) delete c[ks[0]];LS.set("rd_ncache",JSON.stringify(c));}
-// Fill in the detailed nutrients of the day's foods by themselves: first from what's already known, then one AI request
-const FILL={busy:false,tried:{},err:""};
-async function autoFill(d,manual){
-  if(FILL.busy) return;
-  let items=foodDay(d).filter(x=>!x.n&&!x.fuel&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
-  if(!items.length) return;
-  const now=Date.now();let done=0;
-  for(const x of items){const c=x.g?nCache(x.name):null;if(c){foodSave({...x,n100:c,n:scaleN(c,x.g/100),ts:now+done});done++;}}
-  items=foodDay(d).filter(x=>!x.n&&!x.fuel&&x.kcal&&(manual||(FILL.tried[x.id]||0)<2));
-  if(!items.length||!aiKey()){if(done) refreshNut(d);return;}
-  FILL.busy=true;FILL.err="";refreshNut(d);
-  items.forEach(x=>FILL.tried[x.id]=(FILL.tried[x.id]||0)+1);
-  try{
-    const list=items.map((x,i)=>`${i}. ${x.name}${x.brand?` (${x.brand})`:""}: ${x.g?x.g+" g":"1 portion"}, ${x.kcal} kcal, protein ${x.p} g, carbs ${x.c} g, fat ${x.f} g`).join("\n");
-    const {json}=await aiCall([{role:"user",parts:[{text:`For each food portion below give its detailed nutrients for that exact portion, with realistic values (Italian CREA tables, USDA, typical labels). Never leave a field out: estimate it.
-Reply with JSON only: {"items":[{"i":0,${NUT_JSON}}]}
-${list}`}]}]);
-    const arr=Array.isArray(json)?json:json.items||json.foods||[];let n=0;const t=Date.now();
-    arr.forEach((r,k)=>{const idx=r.i??r.index??r.id??k,it=items[+idx]||items.find(x=>norm(x.name)===norm(r.name||""));const nn=normN(r.nutrients||r);
-      if(!it||!nn) return;const n100=it.g?scaleN(nn,100/it.g):null;foodSave({...it,n:nn,n100,ts:t+n});if(n100) nCacheSet(it.name,n100);n++;});
-    if(!n) FILL.err="The AI answered without nutrients: tap to try again.";
-  }catch(e){FILL.err=e.message;}
-  FILL.busy=false;refreshNut(d);
-}
-function refreshNut(d){const el=$("nut");if(!el||TAB!=="athlete"||ATH_SUB!=="food"||foodSel!==d) return;el.outerHTML=nutrientSection(d);bindNut(d);}
-function bindNut(d){const na=$("nut-ai");if(na) na.onclick=()=>autoFill(d,true);}
 function recents(){
   const m=new Map(),lim=isoAdd(todayISO(),-90);
   for(const d of foodDates()) if(d>=lim) for(const it of foodDay(d)){
@@ -907,17 +853,15 @@ function renderFood(){
     <p class="f-sub">${tg?esc(targetLine(tg,isToday)):"Waiting for today's burn from Garmin."}</p>
   </button>
   <div class="macros">${["p","c","f"].map(mac).join("")}</div>
-  ${planCheckCard(d)}${isToday?weekCard(true):""}${fuelCard(d,items)}
+  ${planCheckCard(d)}${fuelCard(d,items)}
   <button class="coach-bar" id="f-coach">${SPARK}<span>Tell me what you ate, or ask your food coach…</span></button>
   <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
     ${!real.length&&usual.length?`<div class="ud"><small>USUAL DAY · ONE TAP, THEN FIX ONLY WHAT WAS DIFFERENT</small>${usual.map(e=>`<button class="ml-copy mine" data-libd="${e.id}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join("")}</div>`:""}
     ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}
     ${real.length>=3?`<button class="ml-save day" id="day-save">Save this day as a usual day</button>`:""}
     <button class="lib-c" id="lib-c"><span><b>My days, meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save a usual day or breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
-  ${nutrientSection(d)}
   <p class="foot">Swipe sideways to change day.</p>`;
   else if(pg==="plan") body=planView();
-  else if(pg==="balance") body=`${trendCard()}${weekCard(false)}${goalCard()}${balanceSection()}<p class="foot">Food values from Open Food Facts and the CREA / USDA reference tables.</p>`;
   else {PG.athlete="diary";return renderFood();}
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
@@ -933,33 +877,10 @@ function renderFood(){
   document.querySelectorAll("[data-libd]").forEach(b=>b.onclick=()=>{const e=libAll().find(x=>x.id===b.dataset.libd);if(e) logLibDay(e,d);});
   on("day-save",()=>openSaveDay(d));
   on("lib-c",openLibrary); bindSwipeDelete();
-  if($("nut")) bindNut(d);
-  if(pg==="diary") setTimeout(()=>autoFill(d),500);
   on("f-coach",()=>openAssistant("food")); on("fuel-c",openFuelSettings);
-  on("goal-c",openGoal); on("wk-c",()=>setPage("athlete","balance")); on("wt-c",()=>openAth("weight"));
-  if($("bal-r")) bindBalance();
+  on("goal-c",openGoal); on("wt-c",()=>openAth("weight"));
   if(pg==="plan") bindPlan();
   if(pg==="diary") bindPlanCheck(d);
-}
-// The week as a budget: one big day is balanced by the others, so a single "over" day isn't a failure
-function weekStats(){
-  const t=todayISO(),dow=(new Date(t+"T12:00").getDay()+6)%7,mon=isoAdd(t,-dow),gs=goalState(),adj=gs?gs.adj:0;
-  let done=0,logged=0;
-  for(let k=0;k<dow;k++){const d=isoAdd(mon,k),its=foodDay(d),b=burnOf(d);if(its.length&&b){done+=ftot(its).kcal-b.v;logged++;}}
-  const left=7-dow,delta=Math.round(done-adj*logged);         // > 0: less deficit than planned so far
-  const spread=logged?clip(Math.round(-delta/left/10)*10,-300,300):0;
-  return {mon,dow,adj,done:Math.round(done),logged,left,delta,spread,weekTarget:adj*7};
-}
-function weekCard(compact){
-  const W=weekStats();if(!W.logged&&compact) return "";
-  const msg=!W.logged?"Log full days and the week's balance appears here.":
-    !W.adj?(W.done<0?`So far ${fmtK(Math.abs(W.done))} kcal under what you burned this week.`:`So far ${fmtK(W.done)} kcal over what you burned this week.`):
-    Math.abs(W.delta)<150?"On track for the week: carry on like this.":
-    W.delta>0?`${fmtK(W.delta)} kcal behind plan. About ${fmtK(Math.abs(W.spread))} kcal less a day for the rest of the week evens it out — or just let it go: one big day changes little.`:
-    `${fmtK(-W.delta)} kcal ahead of plan: you can eat up to ${fmtK(Math.abs(W.spread))} kcal more a day this week.`;
-  const pc=W.weekTarget<0?clip(W.done/W.weekTarget*100,0,100):0;
-  return `<button class="wk-c${compact?" compact":""}" id="wk-c"><div class="wk-h"><small>THIS WEEK</small><b style="color:${W.logged?balCol(W.done):"var(--muted)"}">${W.logged?balTxt(W.done):"–"}<u>kcal</u></b>${W.adj<0?`<em>of ${balTxt(W.weekTarget)} planned</em>`:""}</div>
-    ${W.adj<0?`<div class="en-bar"><i style="width:${pc}%;background:#5fc795"></i></div>`:""}<span>${esc(msg)}</span>${compact?"":`<span class="wk-n">${W.logged} of ${W.dow} past days logged · today not counted until it's over</span>`}</button>`;
 }
 function foodGo(k){
   const t=todayISO(),n=isoAdd(foodSel,k); if(n>t||n<isoAdd(t,-120)) return;
@@ -1026,46 +947,6 @@ function goalCard(){
   return `<section class="sec"><div class="sec-h"><h2>Goal</h2><span>Tap to edit</span></div><button class="goal-c" id="goal-c">
     <div class="gc-row"><div><small>NOW</small><b>${from}<u>kg</u></b></div><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg><div style="text-align:right"><small>GOAL</small><b>${g.target.toFixed(1)}<u>kg</u></b></div></div>
     <div class="en-bar"><i style="width:${pc}%;background:linear-gradient(90deg,#d9c46a,#5fc795)"></i></div><span>${esc(sub)}</span></button></section>`;
-}
-
-/* ------------------------------------------------------------ food: energy balance */
-function balDays(n){
-  const t=todayISO(),out=[];
-  for(let k=n-1;k>=0;k--){const d=isoAdd(t,-k),its=foodDay(d),b=burnOf(d);
-    out.push({date:d,eat:ftot(its).kcal,n:its.length,burn:b?.v??null,today:d===t,bal:its.length&&b?Math.round(ftot(its).kcal-b.v):null});}
-  return out;
-}
-function balSummary(n){
-  const ds=balDays(n).filter(x=>x.bal!=null&&!x.today);
-  if(!ds.length) return null;
-  const sum=ds.reduce((a,x)=>a+x.bal,0);
-  return {avg:Math.round(sum/ds.length),sum,kg:sum/KCAL_KG,n:ds.length};
-}
-const balTxt=v=>v==null?"–":`${v>0?"+":v<0?"−":""}${fmtK(Math.abs(v))}`;
-const balCol=v=>v<-50?"#5fc795":v>50?"#f59e0b":"var(--text)";
-function balanceSection(){
-  const w=balSummary(7),m=balSummary(30);
-  const tile=(t,s,days)=>`<div class="bt"><small>${t}</small>${s?`<b style="color:${balCol(s.avg)}">${balTxt(s.avg)}<u>kcal/day</u></b><span>${s.avg<-50?"Deficit":s.avg>50?"Surplus":"Balanced"} · ≈ ${s.kg>0?"+":"−"}${Math.abs(s.kg*7/s.n).toFixed(2)} kg/week</span><span>${s.n} of ${days} days logged</span>`:`<b>–</b><span>Log a few full days to see it</span>`}</div>`;
-  return `<section class="sec"><div class="sec-h"><h2>Balance</h2><span>Eaten minus burned</span></div>
-    <div class="bts">${tile("THIS WEEK",w,7)}${tile("THIS MONTH",m,30)}</div>
-    <div class="bal-card"><div class="range" id="bal-r">${[[7,"7 days"],[30,"30 days"],[90,"90 days"]].map(([k,t])=>`<button data-bn="${k}" class="${balN===k?"on":""}">${t}</button>`).join("")}</div>
-    <div id="bal-chart">${balChart()}</div></div></section>`;
-}
-function balChart(){
-  const ds=balDays(balN),W=320,H=140,mid=H/2,bw=W/ds.length,mx=Math.max(400,...ds.map(x=>Math.abs(x.bal||0)));
-  const pick=balPick==null||balPick>=ds.length?ds.length-1:balPick,pd=ds[pick];
-  const bars=ds.map((x,i)=>{const v=x.bal,h=v==null?0:Math.max(2,Math.abs(v)/mx*(mid-6)),y=v>0?mid-h:mid;
-    return `${v==null?`<rect x="${(i*bw+bw/2-1).toFixed(1)}" y="${mid-1}" width="2" height="2" rx="1" fill="var(--line)"/>`:`<rect x="${(i*bw+Math.min(1.2,bw*.15)).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1,bw-Math.min(2.4,bw*.3)).toFixed(1)}" height="${h.toFixed(1)}" rx="${bw>6?2:1}" fill="${v>0?"#f59e0b":"#5fc795"}" opacity="${i===pick?1:x.today?.25:.45}"/>`}
-      <rect data-bp="${i}" x="${(i*bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer"/>`;}).join("");
-  const det=pd.n?`${fmtK(Math.round(pd.eat))} eaten · ${pd.burn!=null?fmtK(pd.burn)+(pd.today?" expected":" burned"):"burn unknown"}`:"Nothing logged";
-  return `<div class="readout"><span>${fmtDay(pd.date,{weekday:"short",day:"numeric",month:"short"})}${pd.today?" · in progress":""}</span><b style="color:${pd.bal!=null?balCol(pd.bal):"var(--faint)"}">${pd.bal!=null?balTxt(pd.bal):"–"}</b><em style="color:var(--muted)">${pd.bal!=null?"kcal":""}</em><span style="margin-left:auto">${esc(det)}</span></div>
-    <div class="sh-chart bars30"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--line)"/>${bars}</svg>
-    <div class="ax"><span>${fmtDay(ds[0].date,{day:"numeric",month:"short"})}</span><span>Green: deficit · Amber: surplus</span><span>${fmtDay(ds[ds.length-1].date,{day:"numeric",month:"short"})}</span></div></div>`;
-}
-function bindBalance(){
-  document.querySelectorAll("#bal-r button").forEach(b=>b.onclick=()=>{balN=+b.dataset.bn;balPick=null;
-    document.querySelectorAll("#bal-r button").forEach(x=>x.classList.toggle("on",x===b));$("bal-chart").innerHTML=balChart();bindBalance();});
-  document.querySelectorAll("#bal-chart rect[data-bp]").forEach(r=>r.onclick=()=>{balPick=+r.dataset.bp;$("bal-chart").innerHTML=balChart();bindBalance();});
 }
 
 /* ------------------------------------------------------------ food: target and goal sheets */

@@ -150,7 +150,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       setTab("training"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Training should have three pages");
       setPage("training", "volume"); if (PG.training !== "month") throw new Error("Hours should live on the Month page");
       setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Athlete should have three pages");
-      setPage("athlete", "balance"); if (PG.athlete !== "profile" || !document.querySelector("details#balance[open] #bal-r")) throw new Error("balance not reachable from Profile");
+      setPage("athlete", "balance"); if (PG.athlete !== "profile" || !document.querySelector("details#balance[open] #wt-c")) throw new Error("balance not reachable from Profile");
       setTab("today"); }],
     // food search: a plain "ciambella" is the baked ring cake; foods found by the AI lookup are kept and found again locally,
     // and rows whose energy disagrees with the macros are dropped (from the AI and from Open Food Facts)
