@@ -1263,6 +1263,24 @@ function bestMatch(q){
   let best=null,bs=0; for(const f of pool){const s=scoreFood(q,f); if(s>bs){bs=s;best=f;}}
   return bs>=1?best:null;
 }
+// The AI reads what you ate (food, grams, meal); the numbers come from the tables whenever a food is there.
+// Each AI item carries "db", the plain name a nutrition table would use for that food in that state (raw, dry, cooked).
+// When the table, your recipes or the food database the app has built find it with every word matching, its values per
+// 100 g replace the AI's guess; a match that disagrees wildly with the AI (cooked vs dry pasta) is not trusted.
+function groundFood(q){
+  if(!q) return null;
+  let best=null,bs=0;
+  for(const f of [...myFoods(),...FOOD_REF,...fdbAll()]){const s=scoreFood(q,f);if(s>bs){bs=s;best=f;}}
+  return bs>=2?best:null;
+}
+function groundAI(x){
+  const g=+x.grams;if(!(g>0)) return x;
+  const f=groundFood(x.db)||groundFood(x.name);if(!f||!(f.k>0)) return x;
+  const k=f.k*g/100,ai=+x.kcal||0;
+  if(ai>0&&(k>ai*2||k<ai/2)) return x;
+  const N=f.n100?scaleN(f.n100,g/100):null;
+  return {...x,kcal:Math.round(k),protein:r1(f.p*g/100),carbs:r1(f.c*g/100),fat:r1(f.f*g/100),n:N||x.n,nutrients:N?null:x.nutrients,ground:f.src==="ref"?"table":f.src==="ai"?"saved estimate":"your recipe"};
+}
 // Foods the built-in table doesn't have are looked up with the AI (generic foods and dishes, per 100 g, with their
 // natural unit) and remembered on the phone: the second time a food is there at once, also offline and in Speak / Paste list.
 let FDB=null;const FDB_MAX=1200,fdbBusy=new Map();
@@ -1707,7 +1725,7 @@ async function aiModels(){
       m=(j.models||[]).filter(x=>(x.supportedGenerationMethods||[]).includes("generateContent")).map(x=>x.name.replace(/^models\//,""))
         .filter(n=>/flash/.test(n)&&!/(image|tts|audio|live|thinking|exp|embedding|8b)/.test(n));
       const ver=n=>parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/)||[])[1]||0);
-      const rank=n=>(/latest/.test(n)?100:0)+ver(n)*10-(/lite/.test(n)?3:0)-(/preview/.test(n)?2:0)-(/\d{3}$/.test(n)?1:0);
+      const rank=n=>(/latest/.test(n)?100:0)+ver(n)*10-(/lite/.test(n)?3:0)-(/preview/.test(n)?12:0)-(/\d{3}$/.test(n)?1:0);
       m.sort((a,b)=>rank(b)-rank(a));
     }else if(r.status===400||r.status===403){const t=await r.text();if(/API key|API_KEY|PERMISSION/i.test(t)) throw new Error("The Gemini key isn't valid: check it in Settings");}
   }catch(e){if(/key/.test(e.message)) throw e;}
@@ -1717,11 +1735,12 @@ async function aiModels(){
 }
 // one call to Gemini that must answer with JSON. Each try has a time limit, "thinking" is kept low
 // (it can make a Flash model take a minute or more), and a slow or failing model hands over to the next one.
-const thinkCfg=m=>/gemini-2\.5/.test(m)?{thinkingBudget:0}:/gemini-[3-9]|latest/.test(m)?{thinkingLevel:"low"}:null;
-async function aiCall(contents,limitMs=35000){
+// "deep" (the coach answering a question) lets the model reason a little; logging food stays fast
+const thinkCfg=(m,deep)=>/gemini-2\.5/.test(m)?{thinkingBudget:deep?1536:0}:/gemini-[3-9]|latest/.test(m)?{thinkingLevel:"low"}:null;
+async function aiCall(contents,limitMs=35000,deep=false){
   const errs=[];let netRetry=false;
   for(const model of await aiModels()){
-    let think=thinkCfg(model);
+    let think=thinkCfg(model,deep);
     for(let attempt=0;attempt<3;attempt++){
       const cfg={responseMimeType:"application/json",temperature:0.2};if(think) cfg.thinkingConfig=think;
       const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),limitMs);
@@ -1755,6 +1774,7 @@ const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0,n=x.n||normN(x.nutrie
   return {meal:["b","l","d","s"].includes(x.meal)?x.meal:def,name:String(x.name||"Food").slice(0,60),brand:"",g:g?Math.round(g):null,kcal:Math.round(k),
     p:r1(+x.protein||+x.p||0),c:r1(+x.carbs||+x.c||0),f:r1(+x.fat||+x.f||0),k100:g?Math.round(k/g*100):null,p100:g?r1((+x.protein||+x.p||0)/g*100):null,c100:g?r1((+x.carbs||+x.c||0)/g*100):null,f100:g?r1((+x.fat||+x.f||0)/g*100):null,
     n,n100:n&&g?scaleN(n,100/g):null,note:x.note?String(x.note).slice(0,90):null,src:"ai"};};
+const AI_DB=`"db": the plain generic name a nutrition table would use for that food in the SAME state as the grams, in Italian (e.g. "avena fiocchi", "yogurt greco 0%", "pasta secca" for dry weight, "pasta cotta" for cooked, "petto di pollo cotto", "olio extravergine"); for a mixed dish the dish name. The app looks it up in its tables, so keep it simple.`;
 // How to estimate when the user can't weigh things (homemade food, "a full plate", "a small slice", unknown oil)
 const AI_ESTIMATE=`When quantities are vague, never refuse and never ask: estimate like an Italian dietitian and say what you assumed in "note" (max 12 words, user's language).
 Portions: "piatto pieno/fondo" of soup or minestra ≈ 350–400 g, of pasta ≈ 100 g dry (≈ 250 g cooked); a slice of bread ≈ 25–30 g ("piccola" ≈ 20 g); a slice of homemade pizza ≈ 80–100 g ("piccola" ≈ 60–70 g); a slice of cake or tart ≈ 70–80 g ("mini/piccola" ≈ 35–40 g); a small pear ≈ 120 g.
@@ -1763,12 +1783,13 @@ Branded items: use the real product (e.g. one Baci Perugina ≈ 12.5 g, 67 kcal)
 If the user gives a weight, use it even if it seems unusual.`;
 async function aiItems(parts){
   const def=ADD?.meal||"b";
-  const rules=`You fill in a food diary. Reply with JSON only, no prose: {"items":[{"meal":"b","name":"","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":"",${NUT_JSON}}]}.
+  const rules=`You fill in a food diary. Reply with JSON only, no prose: {"items":[{"meal":"b","name":"","db":"","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":""}]}.
+${AI_DB}
 meal: "b" breakfast/colazione, "l" lunch/pranzo, "d" dinner/cena, "s" snack/spuntino/merenda; when not stated use "${def}".
 One entry per distinct food or drink. grams = weight as eaten (cooked dishes cooked, drinks in ml). When the amount isn't given, assume a typical Italian portion.
 Use realistic nutrition values (Italian CREA tables, USDA, typical product labels). Keep names short, in the language the user used.
 ${AI_ESTIMATE}`;
   const {json}=await aiCall([{role:"user",parts:[{text:rules},...parts]}]);
-  return (json.items||[]).filter(x=>x&&x.name&&x.kcal>=0).map(x=>aiFood(x,def));
+  return (json.items||[]).filter(x=>x&&x.name&&x.kcal>=0).map(groundAI).map(x=>aiFood(x,def));
 }
 

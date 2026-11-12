@@ -32,4 +32,4 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 ## Cibo: il piano è il diario (12/11/2026)
 - [x] 19. Spunta dei pasti dal piano nel Diary: per ogni pasto un tocco su As planned / Less / More / Other; le porzioni del piano vanno nel diario da sole (×1, ×0,75, ×1,3), "Other" apre l'aggiunta normale. Le spunte dicono anche quanto è stato seguito il piano, quindi alla pesata non serve più chiederlo
 - [x] 20. Quando la bilancia sposta il range, la scheda del peso dice cosa cambia nel piatto (es. "Rice 80 → 70 g") invece di un numero di kcal
-- [ ] 21. AI: calorie prese dal database (l'AI legge solo cibo, grammi e pasto), prompt più leggero, coach separato dal registratore
+- [x] 21. AI: calorie prese dalle tabelle quando il cibo c'è (l'AI legge cibo, grammi e pasto; nella conferma compare "table"), contesto ridotto a ciò che serve alla domanda, niente micronutrienti nella registrazione (più veloce), modalità coach per le domande (ragiona un po', risponde con i tuoi numeri e i tuoi valori abituali), modelli stabili prima delle anteprime

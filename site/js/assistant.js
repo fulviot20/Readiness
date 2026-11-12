@@ -26,33 +26,43 @@ let AS={msgs:[],pending:null,busy:false,draft:(()=>{try{return sessionStorage.ge
 const SPARK=`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.5l2.1 6.4 6.4 2.1-6.4 2.1L12 19.5l-2.1-6.4L3.5 11l6.4-2.1z"/><path d="M19 15.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg>`;
 const ASK=`<button class="ask-p" id="ask" aria-label="Ask AI">${SPARK}<span>Ask AI</span></button><button class="gear" id="find" aria-label="Find in the app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>`;
 document.addEventListener("click",e=>{if(e.target.closest("#ask")) openAssistant();});
-function aiContext(){
+// What the message is about decides what goes in the context: a short, relevant context makes answers faster,
+// spares the free quota and keeps a Flash model from getting lost in data that has nothing to do with the question.
+const RX_FOOD=/mangi|cib|colazion|pranz|cen[ae]\b|spuntin|merend|kcal|calori|protein|carbo|grass|pasto|pasti|ricett|salva|registr|aggiung|togli|elimin|cancell|\d+\s*(g|gr|grammi|ml)\b|piano aliment|dieta|fame|peso|kg\b|obiettiv/i;
+const RX_HAB=/abitudin|journal|diario|alcol|vino|birr|caff|schermo|telefono|stress|correla/i;
+function aiTopics(text,section){
+  const t=String(text||"");
+  return {food:section==="food"||RX_FOOD.test(t),habits:RX_HAB.test(t)};
+}
+function aiContext(TP={food:true,habits:true}){
   const t=todayISO(),raw=(DATA.days||[]).find(x=>x.date===t)||{},d=raw.score!=null?applyAnswers(raw,raw.answers):raw,c=d.comp||{},E=DATA.energy?.today;
   const fo=foodOn(),items=fo?foodDay(t):[],T=ftot(items),tg=fo?targetOf(t):null,gs=goalState();
   const sig=k=>c[k]?.value!=null?Math.round(c[k].value*10)/10:null;
   return {now:new Date().toLocaleString("en-GB",{timeZone:"Europe/Rome",weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}),today:t,
     readiness:d.score??null,readiness_band:d.score!=null?bandOf(d.score)[1]:null,advice:d.advice||null,
     signals:{hrv_ms:sig("hrv"),sleeping_hr:sig("rhr"),sleep_h:sig("sleep"),load_pct:sig("load")},
+    his_usual:{hrv_ms:c.hrv?.base??null,sleeping_hr:c.rhr?.base??null,sleep_need_h:c.sleep?.base??null},
     sleep_score:raw.sleep_score?.score??null,strain:raw.strain?.score??null,
     planned_today:(raw.plan||[]).map(p=>p.name),done_today:(raw.workouts||[]).filter(w=>w.type).map(w=>`${w.name} ${w.minutes} min`),
     energy:E?{burned_so_far:E.kcal_now,expected_today:E.projected,steps:E.steps,km:E.km,stress:E.stress}:null,
-    food_diary_on:fo,food_today:items.map(x=>({id:x.id,meal:x.meal,name:x.name,grams:x.g,kcal:x.kcal})),
+    ...(TP.food?{food_diary_on:fo,food_today:items.map(x=>({id:x.id,meal:x.meal,name:x.name,grams:x.g,kcal:x.kcal})),
     eaten:{kcal:Math.round(T.kcal),protein:Math.round(T.p),carbs:Math.round(T.c),fat:Math.round(T.f)},
     target:tg?{kcal_range:[tg.lo,tg.hi],day:tg.tr?dayKind(tg.tr):null,protein:tg.p,carbs:tg.c,fat:tg.f}:null,
     weight_kg:weightNow(),goal:gs?{target_kg:gs.g.target,pace_kg_week:gs.g.pace,eta:gs.eta}:null,
     my_meals:libAll().map(e=>({id:e.id,kind:e.kind,name:e.name,for:e.for||null})),
-    food_notes:fnAll().map(n=>({id:n.id,text:n.text})),has_meal_plan:!!planGet(),
+    food_notes:fnAll().map(n=>({id:n.id,text:n.text})),has_meal_plan:!!planGet()}:{food_diary_on:fo}),
     page:AS.section||"today",
-    journal_last_14_days:Object.entries(jAll()).filter(([d])=>d>=isoAdd(t,-14)).map(([d,o])=>({date:d,habits:(o.tags||[]).map(id=>jTags().find(x=>x.id===id)?.label||id)})),
-    habit_impact:habitImpact().filter(x=>!x.need).map(x=>({habit:x.tag.label,days:x.n,next_morning_recovery_diff:x.rec!=null?Math.round(x.rec):null,next_morning_sleep_diff:x.sl!=null?Math.round(x.sl):null})),
+    ...(TP.habits?{journal_last_14_days:Object.entries(jAll()).filter(([d])=>d>=isoAdd(t,-14)).map(([d,o])=>({date:d,habits:(o.tags||[]).map(id=>jTags().find(x=>x.id===id)?.label||id)})),
+    habit_impact:habitImpact().filter(x=>!x.need).map(x=>({habit:x.tag.label,days:x.n,next_morning_recovery_diff:x.rec!=null?Math.round(x.rec):null,next_morning_sleep_diff:x.sl!=null?Math.round(x.sl):null}))}:{}),
     last_7_days:(DATA.days||[]).slice(-8,-1).map(x=>({date:x.date,readiness:x.score??null,sleep:x.sleep_score?.score??null,strain:x.strain?.score??null,
       workouts:(x.workouts||[]).filter(w=>w.type).map(w=>({name:w.name,type:w.type,min:w.minutes,load:w.load,feel:w.feel??null}))})),
     next_days:Object.entries(DATA.upcoming||{}).filter(([d])=>d>t).slice(0,4).map(([d,ps])=>({date:d,plan:ps.map(p=>`${p.name}${p.minutes?` ${p.minutes} min`:""}`)})),
-    fitness:{ftp:athLast("ftp")?.v??null,vo2max:athLast("vo2max")?r1(athLast("vo2max").v):null,lthr:athLast("lthr")?.v??null}};
+    weight_kg:weightNow(),fitness:{ftp:athLast("ftp")?.v??null,vo2max:athLast("vo2max")?r1(athLast("vo2max").v):null,lthr:athLast("lthr")?.v??null}};
 }
-const AS_RULES=()=>`You are the assistant inside Readiness, a personal app for an endurance athlete (cyclist who also runs). The user writes or speaks, usually in Italian.
+const AS_RULES=(T,deep)=>`You are the assistant inside Readiness, a personal app for an endurance athlete (cyclist who also runs). The user writes or speaks, usually in Italian.
 Reply with JSON only: {"reply":"...","actions":[...]}.
-"reply": short, friendly, in the user's language; say what you are about to do, or answer the question using the context (numbers from it, not invented). No medical diagnoses.
+"reply": in the user's language, friendly and direct. ${deep?`This is a question: answer it like a good sports scientist and coach who knows this athlete: lead with the answer, then the 2–4 reasons that matter, each tied to his actual numbers from the context (compare with his own recent values, not textbook norms), then one concrete thing to do. 60–160 words, no filler, no generic advice that would fit anyone. If the context doesn't hold what's needed, say what's missing instead of guessing.`:`Short: say what you are about to do, or answer briefly using the context (numbers from it, not invented).`} No medical diagnoses.
+Ground rules for this athlete: protein about 1.7–1.8 g/kg (not more), fat at the healthy minimum, carbohydrates first and they follow training; on the bike he takes at least 70 g/h of carbohydrate.
 The score is a companion, not a judge: the user decides whether to train and adapts by feel (e.g. fewer intervals); never call sessions "missed" or sound alarming.
 "actions" (empty when it's only a question). Allowed:
 {"type":"log_food","date":"YYYY-MM-DD","items":[ITEM]}
@@ -63,7 +73,8 @@ The score is a companion, not a judge: the user decides whether to train and ada
 {"type":"food_notes","add":["..."],"edit":[{"id":"...","text":"..."}],"remove":["id"],"rebuild_plan":true}   the user's food memory (food_notes): use it whenever they tell you how they eat, what they like/avoid, where they eat, or ask to remember/change something about their diet; one short fact per note, edit instead of duplicating; rebuild_plan true when has_meal_plan
 {"type":"set_goal","target_kg":71,"pace_kg_week":0.5}   pace 0.25, 0.5 or 0.75
 {"type":"log_weight","date":"YYYY-MM-DD","kg":72.4}
-ITEM = {"meal":"b|l|d|s","name":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":"",${NUT_JSON}}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
+ITEM = {"meal":"b|l|d|s","name":"...","db":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":""}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
+${AI_DB}
 ${AI_ESTIMATE}
 When you estimate, the reply lists each food with its kcal and says the user can adjust the grams after saving.
 meal: b breakfast/colazione, l lunch/pranzo, d dinner/cena, s snack/spuntino/merenda; if not said, pick from the time of day.
@@ -71,9 +82,9 @@ When the user wants to save something they always eat (e.g. "la mia colazione"),
 Never log a food twice: when a food the user tells you is already in food_today (same or similar name, or clearly the same thing), put its id in a delete_food in the same answer so the new entry replaces the old one, and say so in the reply. A corrected amount ("erano 80 g, non 50") is a replacement too.
 To log a saved meal, copy its foods into log_food only if you know them; otherwise tell the user to tap its button.
 Dates: "ieri" = the day before today; never in the future. Keep names short, in the user's language.
-Context (JSON): ${JSON.stringify(aiContext())}`;
+Context (JSON): ${JSON.stringify(aiContext(T))}`;
 function actText(a){
-  const L=it=>`${esc(it.name)}${it.grams?` ${Math.round(it.grams)} g`:""} · ${Math.round(+it.kcal||0)} kcal${it.note?`<i class="as-note">${esc(it.note)}</i>`:""}`;
+  const L=it=>`${esc(it.name)}${it.grams?` ${Math.round(it.grams)} g`:""} · ${Math.round(+it.kcal||0)} kcal${it.ground?` <small class="as-src">${esc(it.ground)}</small>`:""}${it.note?`<i class="as-note">${esc(it.note)}</i>`:""}`;
   const sum=its=>Math.round((its||[]).reduce((s,x)=>s+(+x.kcal||0),0));
   const day=d=>d===todayISO()?"today":fmtDay(d,{weekday:"short",day:"numeric",month:"short"});
   if(a.type==="log_food") return `<b>Log ${(a.items||[]).length} food${(a.items||[]).length>1?"s":""} · ${day(a.date)} · ${fmtK(sum(a.items))} kcal</b>${(a.items||[]).map(it=>`<span>${MEAL_TAG[it.meal]||""} · ${L(it)}</span>`).join("")}`;
@@ -157,11 +168,16 @@ function openAssistant(section){
     AS.busy=true;redraw();
     const t0=Date.now(),tick=setInterval(()=>{const el=$("as-el");if(!el) return;const s=Math.round((Date.now()-t0)/1000);
       el.textContent=s<8?"Thinking…":s<20?`Working on it… ${s} s`:`Still working… ${s} s (trying a faster model if needed)`;},1000);
-    const contents=[{role:"user",parts:[{text:AS_RULES()}]},{role:"model",parts:[{text:'{"reply":"Ok.","actions":[]}'}]},
+    // a request to log or change something wants speed; a question wants a thought-through answer
+    const T=aiTopics(AS.msgs.filter(m=>m.role==="user").slice(-3).map(m=>m.text).join(" "),AS.section);
+    const deep=/\?\s*$|^(perch|come |cosa |quant|qual|dovrei|conviene|ha senso|why|how|what|should)/i.test(text)&&!/^(salva|registra|aggiungi|togli|elimina|cancella|ho mangiato|peso di)/i.test(text);
+    const contents=[{role:"user",parts:[{text:AS_RULES(T,deep)}]},{role:"model",parts:[{text:'{"reply":"Ok.","actions":[]}'}]},
       ...AS.msgs.filter(m=>!m.busy).slice(-10).map(m=>m.role==="user"?{role:"user",parts:[{text:m.text}]}:{role:"model",parts:[{text:m.raw||JSON.stringify({reply:m.text,actions:[]})}]})];
     try{
-      const {json,raw}=await aiCall(contents);
+      const {json,raw}=await aiCall(contents,deep?50000:35000,deep);
       const acts=(json.actions||[]).filter(validAct);
+      // the numbers of each food come from the tables when the food is there, not from the AI's memory
+      for(const a of acts) if(a.items) a.items=a.items.map(groundAI);
       // safety net: foods being logged that are already in that day and that the AI didn't mark for replacement
       for(const a of acts.filter(x=>x.type==="log_food")){
         const gone=new Set(acts.filter(x=>x.type==="delete_food"&&x.date===a.date).flatMap(x=>x.ids));
