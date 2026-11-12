@@ -1717,7 +1717,7 @@ function dictation(ta,onText,onState){
 }
 // Which Gemini models this key can use: asked once a day, newest Flash first (names change over time)
 async function aiModels(){
-  const c=lsJSON("rd_gm",null);if(c&&Date.now()-c.t<864e5&&c.k===aiKey().slice(-6)&&c.m.length) return c.m;
+  const c=lsJSON("rd_gm",null);if(c&&c.v2&&Date.now()-c.t<864e5&&c.k===aiKey().slice(-6)&&c.m.length) return c.m;
   let m=[];
   try{
     const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",{headers:{"x-goog-api-key":aiKey()}});
@@ -1727,11 +1727,18 @@ async function aiModels(){
       const ver=n=>parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/)||[])[1]||0);
       const rank=n=>(/latest/.test(n)?100:0)+ver(n)*10-(/lite/.test(n)?3:0)-(/preview/.test(n)?12:0)-(/\d{3}$/.test(n)?1:0);
       m.sort((a,b)=>rank(b)-rank(a));
+      // the fallbacks must not all be the same model under other names: when one generation is overloaded (503)
+      // they all are, so the list keeps the two best of the newest generation, then the best of each older one
+      const gen=n=>Math.floor(ver(n))||0,out=[],seen={};
+      const top=m.length?gen(m.find(n=>!/latest/.test(n))||m[0]):0;
+      for(const n of m){if(/latest/.test(n)) continue;const g=gen(n);seen[g]=(seen[g]||0)+1;if(seen[g]<=(g===top?2:1)) out.push(n);}
+      m=out;
     }else if(r.status===400||r.status===403){const t=await r.text();if(/API key|API_KEY|PERMISSION/i.test(t)) throw new Error("The Gemini key isn't valid: check it in Settings");}
   }catch(e){if(/key/.test(e.message)) throw e;}
   if(!m.length) m=["gemini-flash-latest","gemini-2.5-flash","gemini-2.5-flash-lite"];
-  LS.set("rd_gm",JSON.stringify({t:Date.now(),k:aiKey().slice(-6),m:m.slice(0,4)}));
-  return m.slice(0,4);
+  if(!m.some(n=>/2\.5-flash$/.test(n))) m.push("gemini-2.5-flash");      // a steady older model always closes the list
+  LS.set("rd_gm",JSON.stringify({v2:1,t:Date.now(),k:aiKey().slice(-6),m:m.slice(0,5)}));
+  return m.slice(0,5);
 }
 // one call to Gemini that must answer with JSON. Each try has a time limit, "thinking" is kept low
 // (it can make a Flash model take a minute or more), and a slow or failing model hands over to the next one.
@@ -1763,12 +1770,14 @@ async function aiCall(contents,limitMs=35000,deep=false){
       if(r.status===400&&think&&/think/i.test(msg)){think=null;continue;}      // this model doesn't take that setting
       errs.push(`${model}: ${r.status} ${String(msg).slice(0,90)}`);
       if(r.status===404){LS.del("rd_gm");break;}
-      if((r.status===429||r.status>=500)&&attempt===0){await new Promise(z=>setTimeout(z,1500));continue;}
+      if(r.status>=500&&attempt<2){await new Promise(z=>setTimeout(z,attempt?5000:2000));continue;}   // overloaded: usually gone in seconds
+      if(r.status===429&&attempt===0){await new Promise(z=>setTimeout(z,1500));continue;}
       break;
     }
   }
   const quota=errs.length&&errs.every(e=>/ 429 /.test(e));
-  throw new Error(quota?"Gemini's free limit is used up for now: try again in a while":"The AI didn't answer. "+(errs[errs.length-1]||""));
+  const busy=errs.length&&errs.every(e=>/ 50[0-9] | 429 /.test(e));
+  throw new Error(quota?"Gemini's free limit is used up for now: try again in a while":busy?"Gemini is overloaded right now (it happens at peak times and passes quickly): try again in a minute":"The AI didn't answer. "+(errs[errs.length-1]||""));
 }
 const aiFood=(x,def)=>{const g=+x.grams||null,k=+x.kcal||0,n=x.n||normN(x.nutrients);
   return {meal:["b","l","d","s"].includes(x.meal)?x.meal:def,name:String(x.name||"Food").slice(0,60),brand:"",g:g?Math.round(g):null,kcal:Math.round(k),
