@@ -60,7 +60,7 @@ const GEAR=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wi
 // Three tabs at the bottom. Food lives inside Athlete (pills Profile · Diary · Plan · Balance): it is reached from
 // there, from the Calories tile on Today, or from Find. FOOD_TAB would show it as a fourth tab; it stays off.
 const FOOD_TAB=false;
-let FOOD_PG="diary";
+let FOOD_PG="plan";
 const curTab=()=>FOOD_TAB&&TAB==="athlete"&&ATH_SUB==="food"&&foodOn()?"food":TAB;
 function setTab(t){
   if(t===curTab()){scrollTo({top:0,behavior:"smooth"});return;}
@@ -71,7 +71,7 @@ function setTab(t){
 // go straight to a page of a tab (used by the search sheet and by links inside the app)
 function goPage(tab,pg){
   closeSheet(); if(pg) pg=aliasPage(tab,pg);
-  if(tab==="food"){TAB="athlete";ATH_SUB="food";PG.athlete=pg||"diary";foodSel=todayISO();}
+  if(tab==="food"){TAB="athlete";ATH_SUB="food";PG.athlete="plan";foodSel=todayISO();}
   else{TAB=tab;if(tab==="athlete"){ATH_SUB="profile";PG.athlete="profile";}else if(pg) PG[tab]=pg;}
   if(tab==="today"){const i=DATA.days.findIndex(d=>d.date===todayISO());if(i>=0&&sel!==i){sel=i;draft={...(DATA.days[i].answers||{})};}}
   render(); if(!afterRender()) scrollTo(0,0); animIn("enter");
@@ -80,9 +80,9 @@ function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
 const PAGES={today:[["overview","Score"],["day","Day"]],
   training:[["week","Week"],["month","Month"],["fitness","Fitness"]],
-  athlete:[["profile","Profile"],["plan","Plan"],["diary","Diary"]]};
+  athlete:[["profile","Profile"],["plan","Plan"]]};
 // pages that were folded into another one: old links and saved positions still land in the right place
-const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"profile",weight:"profile"}};
+const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"profile",weight:"profile",diary:"plan"}};
 let SCROLL_TO=null;      // element id to bring into view after the next render (journal, balance)
 let MORE_OPEN=false,BAL_OPEN=false;   // the collapsible "more" blocks keep their state across redraws
 function aliasPage(tab,k){ const a=PG_ALIAS[tab]&&PG_ALIAS[tab][k]; if(!a) return k;
@@ -108,7 +108,7 @@ function tabbar(){
     athlete:`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/></svg>`};
   let bar=$("tabbar");
   if(!bar){bar=document.createElement("nav");bar.id="tabbar";bar.className="tabbar";document.body.appendChild(bar);}
-  const cur=curTab(); if(cur==="food") FOOD_PG=PG.athlete==="profile"?"diary":PG.athlete;
+  const cur=curTab(); if(cur==="food") FOOD_PG="plan";
   bar.innerHTML=["today","training",...(FOOD_TAB&&foodOn()?["food"]:[]),"athlete"].map(t=>`<button data-tab="${t}" class="${cur===t?"on":""}" aria-current="${cur===t?"page":"false"}">${ic[t]}<span>${t[0].toUpperCase()+t.slice(1)}</span></button>`).join("");
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 }
@@ -174,7 +174,7 @@ function bind(raw){
   on("fuel-c",openFuelSettings); on("nd-w",()=>openAth("weight")); on("nd-j",()=>{jDay=todayISO();setPage("today","journal");});
   // Calories opens the food diary (when it's on); the other tiles open their history
   document.querySelectorAll(".day4 [data-en]").forEach(b=>b.onclick=()=>{
-    if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";PG.athlete="diary";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
+    if(b.dataset.en==="kcal"&&foodOn()){TAB="athlete";ATH_SUB="food";PG.athlete="plan";foodSel=todayISO();buzz(5);render();scrollTo(0,0);animIn("enter");return;}
     enKey=b.dataset.en;openEnergy();});
   bindJournal(); bindDayFlow(raw);
   const mo=$("more"); if(mo) mo.addEventListener("toggle",()=>{MORE_OPEN=mo.open;});
@@ -345,9 +345,9 @@ function openSettings(){
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.${DATA.push_last?` Last one sent: ${esc(DATA.push_last.what)} at ${new Date(DATA.push_last.ts*1000).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"})}. If it never showed up on this phone, tap “Send a test” and check Android Settings → Apps → Readiness → Notifications.`:""}`:""}</p>
     ${remindRow()}
-    <div class="tog"><div><label>Food</label><p>Inside Athlete: diary, meal plan, daily target and energy balance.</p></div>
+    <div class="tog"><div><label>Food</label><p>Inside Athlete: today&#39;s need, meals with alternatives, ride fuel. No diary: the weight trend corrects it.</p></div>
       <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>
-    ${foodOn()?`<div class="tog"><div><label>Fuelling</label><p>${fuelCfg().on?"What each session burns, what to take while riding and what to eat after.":"Off: rides don't add anything to the diary."}</p></div>
+    ${foodOn()?`<div class="tog"><div><label>Fuelling</label><p>${fuelCfg().on?"What each session burns, what to take while riding and what to eat after.":"Off."}</p></div>
       <button class="btn quiet" id="s-fuel">Open</button></div>`:""}
     <div class="field"><label for="s-ai">AI key (Google Gemini, free)</label><div style="display:flex;gap:8px"><input id="s-ai" type="password" autocomplete="off" placeholder="Paste your key" value="${esc(aiKey())}"><button class="btn quiet" id="s-ai-t" type="button">Test</button></div>
       <p>For food photos, speaking and free-text logging. Create it at aistudio.google.com → Get API key. It stays on this phone; on the free tier Google may use what you send to improve its models.</p><p id="s-ai-st"></p></div>
@@ -405,13 +405,9 @@ const FIND=[
   ["Training","Monthly report and long trends","mese report trend mensile",()=>goPage("training","month")],
   ["Training","Hours by sport","ore volume sport anno",()=>goPage("training","volume")],
   ["Training","Fitness: VO₂max, FTP, easy pace","vo2max ftp passo forma fitness",()=>goPage("training","fitness")],
-  ["Food","Diary: log what you ate","diario cibo mangiato pasto colazione pranzo cena aggiungi",()=>goPage("food","diary")],
-  ["Food","Fuelling: on the bike and after","fuel carboidrati borraccia bici recupero rifornimento integrare",sheetOn("food","diary",()=>openFuelSettings())],
-  ["Food","Meal plan","piano alimentare menu dieta",()=>goPage("food","plan")],
-  ["Food","What I know about how you eat","note cibo memoria abitudini alimentari",sheetOn("food","plan",()=>openNotes())],
-  ["Food","Balance: eaten minus burned","bilancio deficit surplus calorie",()=>goPage("food","balance")],
-  ["Food","Weight goal","obiettivo peso dimagrire target",sheetOn("food","balance",()=>openGoal())],
-  ["Food","My meals and recipes","pasti salvati ricette colazione classica",sheetOn("food","diary",()=>openLibrary())],
+  ["Food","Today's plan: need and meals","piano alimentare menu dieta fabbisogno pasti colazione pranzo cena",()=>goPage("food","plan")],
+  ["Food","Fuelling: on the bike and after","fuel carboidrati borraccia bici recupero rifornimento integrare",sheetOn("food","plan",()=>openFuelSettings())],
+  ["Food","Weight aim","obiettivo peso dimagrire target",sheetOn("athlete",null,()=>openAth("weight"))],
   ["Athlete","Profile: age, height, fitness age","profilo eta altezza",()=>goPage("athlete")],
   ["Athlete","Weight: log and history","peso pesata bilancia",sheetOn("athlete",null,()=>openAth("weight"))],
   ["Athlete","FTP and power to weight","ftp watt w/kg potenza",sheetOn("athlete",null,()=>openAth("ftp"))],

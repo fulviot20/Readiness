@@ -15,7 +15,7 @@ function yourDay(){
   <div class="day4">
     <button class="en-c" data-en="kcal"><small>CALORIES</small><b>${fmtK(E.kcal_now)}<u>kcal</u></b>
       <div class="en-bar">${["basal","active_so_far","rest_of_day","planned"].map(seg).join("")}</div>
-      <span>${(()=>{const e=foodOn()?ftot(foodDay(todayISO())).kcal:0,t=e?targetOf(todayISO()):null;const st=rangeState(e,t);return e?`Eaten ${fmtK(Math.round(e))}${st?` · ${st.k==="in"?"":fmtK(Math.round(st.n))+" "}${st.txt}`:""}`:`On track for ~${fmtK(E.projected)}`;})()}</span></button>
+      <span>${(()=>{const t=foodOn()?targetOf(todayISO()):null;return t?`Need ${fmtK(t.lo)}–${fmtK(t.hi)} · tap for the plan`:`On track for ~${fmtK(E.projected)}`;})()}</span></button>
     <button class="en-c" data-en="steps"><small>STEPS</small><b>${fmtK(E.steps)}</b>
       <div class="en-bar"><i style="width:${sp}%;background:#34d399"></i></div>
       <span>${E.goal?(E.steps>=E.goal?"Goal reached":`${fmtK(E.goal-E.steps)} to ${fmtK(E.goal)}`):`~${fmtK(E.steps_projected)} by tonight`}</span></button>
@@ -626,10 +626,8 @@ function openFuelSettings(){
       <li><b>If the session changes.</b> Longer or harder than planned means more burned than what you carried: the difference is added to recovery and refilled straight away, in two doses when it is large.</li>
     </ul>
     <p class="sh-note">It is an estimate: without a lab test the share of fat and carbohydrate can be off by a quarter either way. Sources: Rothschild 2022, Podlogar &amp; Wallis 2022, Jeukendrup 2014, Burke 2017, Thomas 2016.</p>
-    <div class="field"><label>Ride fuel in the diary</label><div class="seg two" id="fs-on"><button data-v="1" class="${on?"on":""}">On</button><button data-v="0" class="${on?"":"on"}">Off</button></div><p>Each ride adds what you took: the grams you record on Intervals, or the planned amount until you correct it.</p></div>
     <div class="field"><label for="fs-r">Most you take in an hour (g)</label><input id="fs-r" type="number" inputmode="numeric" min="30" max="120" step="5" value="${cfg.max}"><p>The plan never asks for more than this. Above 60 g an hour use a glucose + fructose mix; above 90 only if your gut is trained for it.</p></div>
     <div class="savebar" style="margin-top:22px"><span class="st"></span><button class="btn" id="fs-save">Save</button></div>`);
-  $("fs-on").querySelectorAll("button").forEach(b=>b.onclick=()=>{on=b.dataset.v==="1";$("fs-on").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));});
   $("fs-save").onclick=()=>{syncSet("rd_fuel",{on,max:clip(r5(+$("fs-r").value||90),30,120),since:cfg.since});
     foodReset();CAL=null;buzz();closeSheet();render();toast("Saved");};
 }
@@ -647,7 +645,7 @@ function fuelCard(d,items){
   if(last&&end<=Date.now()){
     const f=fuelDone(last,d),rec=f.rec,what=isRide(last)?"ride":/Run/.test(last.type)?"run":"session";
     const after=items.filter(x=>!x.fuel&&(x.at||x.ts)>=end),got=ftot(after),ok=rec.carbs&&got.c>=(rec.carbs+rec.more)*.9&&got.p>=rec.protein*.9;
-    rows.push(`<p><b>After your ${what}${ok?" · covered":""}</b>Burned about ${r5(f.used)} g of carbs, took ${f.it.g} g${f.it.guess?" (assumed: tap Ride fuel in Snacks to correct)":""}: about ${r5(rec.deficit)} g to refill.
+    rows.push(`<p><b>After your ${what}${ok?" · covered":""}</b>Burned about ${r5(f.used)} g of carbs, took ${f.it.g} g${f.it.guess?" (assumed: record what you took on Intervals to correct it)":""}: about ${r5(rec.deficit)} g to refill.
       ${ok?`You've logged ${Math.round(got.c)} g of carbs and ${Math.round(got.p)} g of protein since: recovery is taken care of.`
         :rec.carbs?`Aim for ${rec.carbs} g of carbs and ${rec.protein} g of protein ${rec.window}${rec.more?`, then another ${rec.more} g of carbs in the two hours after`:""}.${after.length?` Logged since: ${Math.round(got.c)} g carbs, ${Math.round(got.p)} g protein.`:""}`
         :`A normal meal with about ${rec.protein} g of protein is enough.`}
@@ -786,9 +784,7 @@ function trimCheck(){
   if(!foodOn()) return;
   const T=trimGet(),t=todayISO(); if(T.at&&T.at>isoAdd(t,-7)) return;
   const tr=weightTrend(); if(!tr.ok) return;
-  const B=trimBand(),a=adhRecent();let step=tr.slope<B.lo-.25?150:tr.slope<B.lo?100:tr.slope>B.hi?-100:0,held=null;
-  if(step<0&&a!=null&&a>=.5){step=0;held="more";}             // gaining while eating over the plan: the plan isn't the problem
-  if(step>0&&a!=null&&a<=-.5){step=0;held="less";}            // losing fast while eating under it: same
+  const B=trimBand();let step=tr.slope<B.lo-.25?150:tr.slope<B.lo?100:tr.slope>B.hi?-100:0,held=null;
   syncSet("rd_trim",{v:clip((T.v||0)+step,-300,400),at:t,step,held,slope:Math.round(tr.slope*100)/100,want:B.want});
 }
 function targetOf(date){
@@ -797,7 +793,7 @@ function targetOf(date){
   else{burn=burnOf(date); if(!burn) return null;}
   const gs=goalState(),goal=gs?gs.adj:0,trim=burn.fixed?trimGet().v||0:0,floor=Math.max(1200,DATA.energy?.bmr||0);
   const kcal=Math.round(Math.max(floor,burn.v+goal+trim)/50)*50,w=weightNow()||70;
-  const p=Math.round(1.8*w),f=Math.round(kcal*.27/9),c=Math.max(0,Math.round((kcal-p*4-f*9)/4));
+  const p=Math.round(1.75*w),f=Math.round(Math.max(.9*w,.2*kcal/9)),c=Math.max(0,Math.round((kcal-p*4-f*9)/4));   // carbs first: fat at the hormone floor
   return {kcal,lo:kcal-100,hi:kcal+100,burn,tr,goal,trim,adj:kcal-burn.v,p,c,f,floored:burn.v+goal+trim<floor};
 }
 // weight trend in one card: what the scale says, what the goal wants, what happened to the range
@@ -830,56 +826,13 @@ function foodRing(eaten,tg){
     <text x="100" y="130" text-anchor="middle" class="fr-l">${!st?"KCAL EATEN":st.k==="in"?"IN YOUR RANGE":`KCAL ${st.txt.toUpperCase()}`}</text></svg>`;
 }
 function renderFood(){
-  const today=todayISO(); if(!foodSel||foodSel>today) foodSel=today;
-  const pg=PG.athlete,d=foodSel,items=foodDay(d),T=ftot(items),tg=targetOf(d),isToday=d===today,minD=isoAdd(today,-120);
-  const label=isToday?"Today":d===isoAdd(today,-1)?"Yesterday":fmtDay(d,{weekday:"short",day:"numeric",month:"short"});
-  const chev=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${p}"/></svg>`;
-  const mac=k=>{const v=T[k],t=tg?.[k],pc=t?Math.min(100,v/t*100):0;
-    return `<div class="mc"><small>${MAC[k][0].toUpperCase()}</small><b>${Math.round(v)}<u>${t?` / ${t} g`:" g"}</u></b><div class="en-bar"><i style="width:${pc}%;background:${MAC[k][1]}"></i></div></div>`;};
-  const LIB=libAll(),nLib=LIB.length,real=items.filter(x=>!x.fuel),usual=LIB.filter(e=>e.kind==="day");
-  const dayPick=`<div class="daypick f-day">
-    <button class="chev" id="fprev" aria-label="Previous day" ${d<=minD?"disabled":""}>${chev("M15 18l-6-6 6-6")}</button>
-    <span class="d">${esc(label)}</span>
-    <button class="chev" id="fnext" aria-label="Next day" ${isToday?"disabled":""}>${chev("M9 18l6-6-6-6")}</button></div>`;
-  let body="";
-  if(pg==="diary") body=`${dayPick}
-  <button class="f-hero" id="f-hero" aria-label="How the target works">
-    ${foodRing(T.kcal,tg)}
-    <div class="f-stats">
-      <div><small>EATEN</small><b>${fmtK(Math.round(T.kcal))}</b></div>
-      <div class="rg"><small>YOUR RANGE</small><b>${tg?rangeTxt(tg):"–"}</b></div>
-      <div><small>${tg?.burn.proj?"BURN (EXP.)":"BURN"}</small><b>${tg?fmtK(tg.burn.v):"–"}</b></div>
-    </div>
-    <p class="f-sub">${tg?esc(targetLine(tg,isToday)):"Waiting for today's burn from Garmin."}</p>
-  </button>
-  <div class="macros">${["p","c","f"].map(mac).join("")}</div>
-  ${fuelCard(d,items)}
-  <button class="coach-bar" id="f-coach">${SPARK}<span>Tell me what you ate, or ask your food coach…</span></button>
-  <section class="sec"><div class="sec-h"><h2>Diary</h2><span>${items.length?`${items.length} item${items.length>1?"s":""}`:"Tap + to log"}</span></div>
-    ${!real.length&&usual.length?`<div class="ud"><small>USUAL DAY · ONE TAP, THEN FIX ONLY WHAT WAS DIFFERENT</small>${usual.map(e=>`<button class="ml-copy mine" data-libd="${e.id}">+ ${esc(e.name)} · ${fmtK(Math.round(ftot(e.items).kcal))} kcal</button>`).join("")}</div>`:""}
-    ${MEALS.map(([m,n])=>mealCard(m,n,items.filter(x=>x.meal===m),d)).join("")}
-    ${real.length>=3?`<button class="ml-save day" id="day-save">Save this day as a usual day</button>`:""}
-    <button class="lib-c" id="lib-c"><span><b>My days, meals &amp; recipes</b><small>${nLib?`${nLib} saved`:"Save a usual day or breakfast, build recipes"}</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></section>
-  <p class="foot">Swipe sideways to change day.</p>`;
-  else if(pg==="plan") body=planView();
-  else {PG.athlete="diary";return renderFood();}
+  PG.athlete="plan";
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
-  ${pageBar("athlete")}${body}`;
+  ${pageBar("athlete")}${planView()}`;
   const on=(id,f)=>{const e=$(id);if(e) e.onclick=f;};
-  $("gear").onclick=openSettings; on("f-hero",()=>openTarget(d));
-  on("fprev",()=>foodGo(-1)); on("fnext",()=>foodGo(1));
-  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openAddFood(b.dataset.add,d));
-  document.querySelectorAll("[data-fi]").forEach(b=>b.onclick=()=>{const it=items.find(x=>x.id===b.dataset.fi); if(!it) return; if(it.fuel) return openFuel(it); openPortion(itemFood(it),{meal:it.meal,date:d,item:it});});
-  document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copyMeal(b.dataset.copy,d));
-  document.querySelectorAll("[data-libm]").forEach(b=>b.onclick=()=>{const [id,m]=b.dataset.libm.split("|"),e=libAll().find(x=>x.id===id);if(e) logLibMeal(e,m,d);});
-  document.querySelectorAll("[data-savem]").forEach(b=>b.onclick=()=>openSaveMeal(b.dataset.savem,d));
-  document.querySelectorAll("[data-libd]").forEach(b=>b.onclick=()=>{const e=libAll().find(x=>x.id===b.dataset.libd);if(e) logLibDay(e,d);});
-  on("day-save",()=>openSaveDay(d));
-  on("lib-c",openLibrary); bindSwipeDelete();
-  on("f-coach",()=>openAssistant("food")); on("fuel-c",openFuelSettings);
-  on("goal-c",openGoal); on("wt-c",()=>openAth("weight"));
-  if(pg==="plan") bindPlan();
+  $("gear").onclick=openSettings; on("fuel-c",openFuelSettings); on("wt-c",()=>openAth("weight"));
+  bindPlan();
 }
 function foodGo(k){
   const t=todayISO(),n=isoAdd(foodSel,k); if(n>t||n<isoAdd(t,-120)) return;
@@ -963,7 +916,7 @@ function openTarget(d){
       ${tg.goal?`<span>Goal ${tg.goal<0?"deficit":"surplus"} (${gs.g.pace} kg/week)</span><b>${sg(tg.goal)}</b>`:""}
       ${tg.trim?`<span>Correction from your weight</span><b>${sg(tg.trim)}</b>`:""}
       <span>Range</span><b>${rangeTxt(tg)}</b>
-      <span>Protein · 1.8 g per kg</span><b>${tg.p} g</b><span>Fat · 27% of energy</span><b>${tg.f} g</b><span>Carbs · the rest</span><b>${tg.c} g</b></div>
+      <span>Protein · 1.75 g per kg</span><b>${tg.p} g</b><span>Fat · 20% of energy, at least 0.9 g per kg</span><b>${tg.f} g</b><span>Carbs · the rest</span><b>${tg.c} g</b></div>
     ${tg.burn.fixed?`<p class="sh-note">Everyday burn is the middle value of your last ${M.n} days once training is taken out${tg.tr.names.length?`; ${isToday?"today's":"that day's"} training is ${esc(tg.tr.names.join(", "))}`:""}.</p>
     <h3 class="sh-h3">The scale has the last word</h3>
     <p class="sh-note">${scale}</p>

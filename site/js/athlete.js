@@ -319,7 +319,7 @@ function openAth(key,days=90,keep=false){
     sv.disabled=true;const sent=await logMetric(key,d,key==="weight"?Math.round(v*10)/10:Math.round(v));
     openAth(key,days);renderIfAthlete();
     $("w-st").textContent=sent?"Saved.":"Saved on this phone: it goes out as soon as you're back online.";
-    if(key==="weight"&&foodOn()&&d>=isoAdd(todayISO(),-2)) adhAsk(d);
+    if(key==="weight"&&foodOn()){try{trimCheck();}catch(e){}}
   };
   $("sheet").querySelectorAll("button[data-del]").forEach(b=>b.onclick=async()=>{await logMetric(key,b.dataset.del,null);openAth(key,days);renderIfAthlete();});
 }

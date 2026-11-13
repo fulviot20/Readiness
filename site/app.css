@@ -780,3 +780,11 @@ details.more[open]>summary{margin-bottom:4px}
 .fx-r u{text-decoration:none;color:var(--faint);font-size:13px}.fx-r button{background:none;border:0;color:var(--faint);font-size:15px;cursor:pointer;padding:6px}
 .fx-add{display:grid;grid-template-columns:1fr 70px auto;gap:8px;margin-top:6px}
 #pl-dt button.tday{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
+/* today's plan */
+.pl-head{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:18px;padding:14px 16px;color:var(--text);font:inherit;cursor:pointer}
+.pl-head small{display:block;font-size:11.5px;font-weight:700;letter-spacing:.14em;color:var(--faint)}
+.pl-head b{display:block;font-family:var(--cond);font-size:40px;font-weight:500;line-height:1.05;color:#f59e0b;white-space:nowrap}.pl-head b u{text-decoration:none;font-size:15px;color:var(--faint);margin-left:6px}
+.pl-head span{display:block;font-size:13.5px;color:var(--muted);margin-top:2px}
+.pl-lw{margin:2px -14px 4px!important}.pl-lw button{padding:6px 12px!important}
+.fuel-c.static{cursor:default}
+.pl-mh span{white-space:nowrap}

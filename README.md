@@ -101,3 +101,6 @@ Diario, journal, note sul cibo, profilo e obiettivo viaggiano già una voce alla
 - `tests/fixture.py` costruisce dati finti (nessun dato personale) con la stessa pipeline del calcolo vero.
 - `tests/test_engine.py` (pytest) controlla motore, score, allarmi, energia e cifratura; `tests/smoke.js` apre l'app in Chrome headless con i dati finti, passa da tutte le schede e i fogli principali e fallisce a qualsiasi errore.
 - Il workflow *Tests* li esegue a ogni modifica del codice (non sui commit orari dei dati).
+
+## Plan (food)
+Niente diario. In *Athlete → Plan* il fabbisogno del giorno (consumo di base + allenamento di oggi, obiettivo di peso, correzione settimanale dal trend della bilancia) diventa grammi: proteine 1,75 g/kg, grassi al minimo per gli ormoni (20% dell'energia, almeno 0,9 g/kg), carboidrati il resto, meno quelli della borraccia. I grammi sono divisi tra colazione, spuntino di metà mattina, pranzo (mensa o casa), spuntino pre-uscita facoltativo e cena; ogni pasto ha parti con alternative e i grammi seguono la scelta. La cena chiude la giornata sul totale. Nel weekend l'uscita è al mattino: il pranzo diventa il pasto di recupero.
