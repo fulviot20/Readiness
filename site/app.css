@@ -788,3 +788,9 @@ details.more[open]>summary{margin-bottom:4px}
 .pl-lw{margin:2px -14px 4px!important}.pl-lw button{padding:6px 12px!important}
 .fuel-c.static{cursor:default}
 .pl-mh span{white-space:nowrap}
+.pl-m.set{border-color:rgba(95,199,149,.25)}
+.pl-ate{font-style:normal;font-family:var(--sans,inherit);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5fc795;margin-right:6px}
+.pl-o button.ate{border-color:rgba(95,199,149,.6);background:rgba(95,199,149,.12)}
+.pl-x{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0;color:var(--muted)}.pl-x b{color:var(--text);font-weight:600}
+.at-row{display:grid;grid-template-columns:1fr 84px auto;gap:8px;align-items:center;margin:0 0 8px}.at-row span{font-size:14.5px}
+.at-row input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:11px 12px;font:inherit}

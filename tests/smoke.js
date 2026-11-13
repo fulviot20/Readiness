@@ -116,6 +116,22 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (!document.querySelector(".pl-head") || document.querySelectorAll(".pl-m").length < 4 || !document.querySelector(".fuel-c")) throw new Error("plan page incomplete");
       document.querySelector('[data-pk="d.0"][data-oi="1"]').click(); if (PSEL()["d.0"] !== 1) throw new Error("pick not kept");
       d.plan.pop(); PB = null; render(); }],
+    // a meal that went differently: details on tap, grams as eaten, extras, skipped; dinner takes up the difference
+    ["plan-ate", () => { const t = todayISO(); localStorage.removeItem("rd_ate"); localStorage.removeItem("rd_plan_sel");
+      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "plan"; render();
+      const D0 = dayPlan(t), din0 = D0.meals.find(m => m.slot === "d").tot.kcal;
+      document.querySelector('[data-pk="b.0"].on').click(); if (!document.getElementById("fp-g")) throw new Error("no details on tap");
+      document.getElementById("fp-g").value = "100"; document.getElementById("fp-s").click();
+      const D1 = dayPlan(t), b = D1.meals.find(m => m.slot === "b");
+      if (b.parts[0].g !== 100 || !b.ate) throw new Error("eaten grams not kept");
+      if (!(D1.meals.find(m => m.slot === "d").tot.kcal < din0 - 100) || Math.abs(D1.sum.kcal - D1.kcal) > 150) throw new Error("dinner didn't make room");
+      document.querySelector('[data-ate="b"]').click(); const q = document.getElementById("at-q"); q.value = "mozza"; q.oninput();
+      document.querySelector('[data-ha="mozz"]').click(); document.getElementById("at-s").click();
+      if (dayPlan(t).meals.find(m => m.slot === "b").extra.length !== 1) throw new Error("extra not kept");
+      document.querySelector('[data-ate="b"]').click(); document.getElementById("at-sk").click();
+      if (dayPlan(t).meals.find(m => m.slot === "b").tot.kcal !== 0) throw new Error("skip not kept");
+      document.querySelector('[data-ate="b"]').click(); document.getElementById("at-r").click();
+      if (dayPlan(t).meals.find(m => m.slot === "b").ate) throw new Error("reset failed"); }],
     // synced values: a newer copy from the server replaces the local one, an older one doesn't
     ["sync", () => { syncSet("rd_fuel", {on: true, max: 90, since: "2000-01-01"}); const ts = Date.now() + 5000; DATA.sync = {rd_plan_sel: {ts, v: {b0: 2}}, rd_fuel: {ts: 5, v: {max: 40}}}; syncPull();
       if (lsJSON("rd_plan_sel", {}).b0 !== 2) throw new Error("newer server value not taken");
