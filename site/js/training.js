@@ -295,6 +295,64 @@ function bindVolume(){
 }
 function redrawVol(){$("volsec").outerHTML=volumeSection();bindVolume();}
 
+/* distance: km by sport (bike, run, hike, walk kept apart) over a chosen period, and gear counters */
+const KM_SPORTS=["Cycling","Running","Hiking","Walking"],KM_NAME={Cycling:"Bike",Running:"Run",Hiking:"Hike",Walking:"Walk"};
+let kmMode=(()=>LS.get("rd_kmv")||"month")();
+function kmRange(from,to){const out={};for(const [d,v] of Object.entries(DATA.km||{})) if(d>=from&&(!to||d<=to)) for(const [k,x] of Object.entries(v)) out[k]=(out[k]||0)+x;return out;}
+const kmTxt=v=>v>=1000?fmtK(Math.round(v)):v>=100?String(Math.round(v)):(Math.round(v*10)/10).toFixed(1);
+function kmPeriod(mode){const t=todayISO(),n=new Date(t+"T12:00");
+  if(mode==="week") return [mondayOf(t),t,"This week",[isoAdd(mondayOf(t),-7),isoAdd(mondayOf(t),-1),"last week"]];
+  if(mode==="month"){const m0=isoD(new Date(n.getFullYear(),n.getMonth(),1,12)),p0=isoD(new Date(n.getFullYear(),n.getMonth()-1,1,12)),p1=isoD(new Date(n.getFullYear(),n.getMonth(),0,12));
+    return [m0,t,n.toLocaleDateString("en-GB",{month:"long"}),[p0,p1,"last month"]];}
+  if(mode==="year") return [`${t.slice(0,4)}-01-01`,t,t.slice(0,4)+" so far",[`${+t.slice(0,4)-1}-01-01`,`${+t.slice(0,4)-1}-12-31`,"last year"]];
+  const all=Object.keys(DATA.km||{}).sort();return [all[0]||t,t,all.length?`Since ${fmtDay(all[0],{day:"numeric",month:"short",year:"numeric"})}`:"All",null];}
+const gearAll=()=>lsJSON("rd_gear",[]);
+const gearKm=g=>(g.base||0)+(kmRange(g.from,g.to||null)[g.sport]||0);
+function distanceSection(){
+  if(!DATA.km) return "";
+  const [a,b,label,prev]=kmPeriod(kmMode),o=kmRange(a,b),po=prev?kmRange(prev[0],prev[1]):null;
+  const ks=[...KM_SPORTS.filter(k=>o[k]||(po&&po[k])),...Object.keys(o).filter(k=>!KM_SPORTS.includes(k)&&o[k]>=1)];
+  const max=Math.max(1,...ks.map(k=>o[k]||0));
+  const G=gearAll();
+  return `<section class="sec" id="kmsec"><div class="sec-h"><h2>Distance</h2><span>Bike and on foot</span></div>
+    <div class="card vol">
+      <div class="range">${[["week","Week"],["month","Month"],["year","Year"],["all","All"]].map(([k,n])=>`<button data-km="${k}" class="${kmMode===k?"on":""}">${n}</button>`).join("")}</div>
+      <div class="vol-read"><span>${esc(label)}</span></div>
+      ${ks.length?ks.map(k=>{const v=o[k]||0,pv=po?po[k]||0:null;
+        return `<div class="km-r"><i style="background:${sportCol(k)}"></i><span>${esc(KM_NAME[k]||k)}</span><em><u style="width:${v/max*100}%;background:${sportCol(k)}"></u></em><b>${kmTxt(v)}<small> km</small></b>${pv!=null?`<small class="km-p">${kmTxt(pv)} ${esc(prev[2])}</small>`:""}</div>`;}).join("")
+        :`<p class="muted-s">No distance in this period.</p>`}
+    </div>
+    <div class="sec-h" style="margin-top:18px"><h2>Gear</h2><span>Km since you started using it</span></div>
+    <div class="gear-l">${G.map((g,i)=>{const km=gearKm(g),lim=g.limit||0;
+      return `<button class="gear-c${g.to?" ret":""}" data-gi="${i}"><div><b>${esc(g.name)}</b><span>${esc(KM_NAME[g.sport]||g.sport)} · since ${fmtDay(g.from,{day:"numeric",month:"short",year:"numeric"})}${g.to?` · retired ${fmtDay(g.to,{day:"numeric",month:"short"})}`:""}</span>
+        ${lim?`<div class="en-bar"><i style="width:${Math.min(100,km/lim*100)}%;background:${km>=lim?"var(--amber)":sportCol(g.sport)}"></i></div>`:""}</div><em>${kmTxt(km)}<small> km${lim?` / ${fmtK(lim)}`:""}</small></em></button>`;}).join("")}
+      <button class="nudge" id="gear-add"><b>+ Add shoes or a bike</b><span>e.g. new running shoes from 19 Oct: see how many km they've done</span></button></div>
+  </section>`;
+}
+function openGear(i){
+  const G=gearAll(),g=i!=null?G[i]:{name:"",sport:"Running",from:todayISO()};
+  openSheet(`<div class="sh-top"><h2>${i!=null?"Edit gear":"New gear"}</h2>${X}</div>
+    <p class="sh-desc">Km are counted from your Garmin activities of that sport from the start date on.</p>
+    <div class="field"><label for="g-n">Name</label><input id="g-n" type="text" value="${esc(g.name)}" placeholder="e.g. Pegasus 41"></div>
+    <div class="field"><label for="g-s">Used for</label><select id="g-s">${KM_SPORTS.map(k=>`<option value="${k}"${g.sport===k?" selected":""}>${KM_NAME[k]}</option>`).join("")}</select></div>
+    <div class="ath-log" style="grid-template-columns:1fr 1fr"><div class="field"><label for="g-f">Using it since</label><input id="g-f" type="date" value="${g.from}" max="${todayISO()}"></div>
+      <div class="field"><label for="g-b">Km already done</label><input id="g-b" type="number" inputmode="decimal" value="${g.base||""}" placeholder="0"></div></div>
+    <div class="field"><label for="g-l">Replace at (km, optional)</label><input id="g-l" type="number" inputmode="numeric" value="${g.limit||""}" placeholder="e.g. 700 for running shoes"></div>
+    ${i!=null?`<div class="kv"><span>Km so far</span><b>${kmTxt(gearKm(g))} km</b></div>`:""}
+    <div class="savebar" style="margin-top:16px">${i!=null?`<button class="btn quiet" id="g-r">${g.to?"Back in use":"Retire it"}</button>`:"<span></span>"}<button class="btn" id="g-ok">Save</button></div>
+    ${i!=null?`<button class="pl-q" id="g-x" style="color:var(--rose)">Delete</button>`:""}`);
+  const save=v=>{syncSet("rd_gear",v);closeSheet();render();};
+  $("g-ok").onclick=()=>{const name=$("g-n").value.trim(),from=$("g-f").value;if(!name||!from) return toast("Name and start date");
+    const n={...g,name,sport:$("g-s").value,from,base:+String($("g-b").value).replace(",",".")||0,limit:+$("g-l").value||0};const A=[...G];if(i!=null) A[i]=n; else A.push(n);buzz(10);save(A);toast("Saved");};
+  const r=$("g-r");if(r) r.onclick=()=>{const A=[...G];A[i]={...g};if(g.to) delete A[i].to; else A[i].to=todayISO();save(A);};
+  const x=$("g-x");if(x) x.onclick=()=>{const A=[...G];A.splice(i,1);save(A);toast("Deleted");};
+}
+function bindDistance(){
+  document.querySelectorAll("#kmsec [data-km]").forEach(b=>b.onclick=()=>{kmMode=b.dataset.km;LS.set("rd_kmv",kmMode);buzz(4);$("kmsec").outerHTML=distanceSection();bindDistance();});
+  document.querySelectorAll("#kmsec [data-gi]").forEach(b=>b.onclick=()=>openGear(+b.dataset.gi));
+  const a=$("gear-add");if(a) a.onclick=()=>openGear(null);
+}
+
 let fitPick=null;
 function formZone(f){return f>5?["Fresh","var(--b3)"]:f>=-10?["Neutral","var(--muted)"]:f>=-30?["Optimal","var(--b5)"]:["High risk","var(--amber)"];}
 function fitnessSection(){
@@ -341,10 +399,10 @@ function renderTraining(){
     <span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
   ${pageBar("training")}
   ${PG.training==="week"?(()=>{const t=(DATA.days||[]).find(d=>d.date===todayISO());return t?sessions(t):"";})()+weekReviewSection()+streakCard()+weekSection():""}
-  ${PG.training==="month"?monthPage()+intensitySection()+volumeSection():""}
+  ${PG.training==="month"?monthPage()+intensitySection()+volumeSection()+distanceSection():""}
   ${PG.training==="fitness"?powerSection()+durabilitySection()+markersSection()+fitnessSection():""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}</p>`;
-  $("gear").onclick=openSettings; bindSessions(); bindVolume(); bindFitness(); bindMonthPage(); bindIntensity();
+  $("gear").onclick=openSettings; bindSessions(); bindVolume(); bindDistance(); bindFitness(); bindMonthPage(); bindIntensity();
   document.querySelectorAll(".mk[data-mk]").forEach(b=>b.onclick=()=>openMarker(b.dataset.mk));
 }
 

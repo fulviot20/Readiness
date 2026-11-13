@@ -139,6 +139,18 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       const ls = dayPlan(t).meals.find(m => m.slot === "lc" || m.slot === "l").slot; document.querySelector(`[data-eat="${ls}"]`).click();
       if (!dayPlan(t).meals.find(m => m.slot === ls).parts.every(x => x.ok || !x.m.lines.length)) throw new Error("ate-it tap not kept");
       document.querySelector(`[data-undo="${ls}"]`).click(); if (dayPlan(t).meals.find(m => m.slot === ls).ate) throw new Error("undo failed"); }],
+    // distance by sport (hike apart from run) and a gear counter from a start date
+    ["distance-gear", () => { const t = todayISO(); localStorage.removeItem("rd_gear");
+      if (!DATA.km || !Object.keys(DATA.km).length) throw new Error("no km in data");
+      DATA.km[t] = {...(DATA.km[t] || {}), Hiking: 12.4}; kmMode = "week"; TAB = "training"; PG.training = "month"; render();
+      const rows = [...document.querySelectorAll("#kmsec .km-r span")].map(e => e.textContent);
+      if (!rows.includes("Hike")) throw new Error("hike not shown apart: " + rows);
+      document.getElementById("gear-add").click(); document.getElementById("g-n").value = "Test shoes"; document.getElementById("g-s").value = "Running";
+      const from = isoAdd(t, -30); document.getElementById("g-f").value = from; document.getElementById("g-ok").click();
+      const want = Object.entries(DATA.km).filter(([d]) => d >= from).reduce((a, [, v]) => a + (v.Running || 0), 0);
+      const g = gearAll()[0]; if (!g || Math.abs(gearKm(g) - want) > .01 || want <= 0) throw new Error("gear km wrong");
+      if (!document.querySelector("#kmsec .gear-c")) throw new Error("gear card missing");
+      localStorage.removeItem("rd_gear"); delete DATA.km[t].Hiking; }],
     // today's planned session: Intervals' numbers in Readiness, no trip to Intervals
     ["planned-session", () => { TAB = "training"; PG.training = "week"; render();
       const c = document.querySelector(".wcard.hero[data-pd]"); if (!c) throw new Error("no premium planned card");

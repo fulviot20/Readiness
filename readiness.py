@@ -702,6 +702,19 @@ def volume(activities):
     return out
 
 
+def distance(activities):
+    """Kilometres per sport per day (only sports with a distance), for the distance history and the gear counters."""
+    out = {}
+    for a in activities:
+        d, km = (a.get("start_date_local") or "")[:10], (a.get("distance") or 0) / 1000
+        if not d or km < 0.05:
+            continue
+        sp = sport_name(a.get("type"))
+        day = out.setdefault(d, {})
+        day[sp] = round(day.get(sp, 0) + km, 2)
+    return out
+
+
 def week_summary(done, plans, today, n=6):
     """Current week day by day (done vs planned) plus totals for the last n weeks."""
     monday = today - dt.timedelta(days=today.weekday())
@@ -927,7 +940,7 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
             "calibration": {"mu": emu if eng else mu, "sigma": esig if eng else sigma,
                             "n": len(eraws) if eng else len(raws)},
             "weights": engine.WEIGHTS if eng else WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
-            "volume": volume(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals",
+            "volume": volume(activities), "km": distance(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals",
             "fitness": fit, "energy": energy.build(gdays, days, today)}
 
 
