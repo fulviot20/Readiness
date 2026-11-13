@@ -35,6 +35,9 @@ const FD={
   cmeat:["Meat or chicken",160,24,0,7,[150,"portion","portions"]], cfish:["Fish",120,20,1,4,[150,"portion","portions"]],
   cegg:["Eggs or omelette",160,11,1,12,[150,"portion","portions"]], ccheese:["Cheese",280,20,1,22,[100,"portion","portions"]],
   cleg:["Legumes",120,7.5,17,2,[200,"portion","portions"]],
+  cprimo:["Pasta or rice with sauce, cooked",175,5.5,27,5,[220,"plate","plates"]],
+  pudding:["Vanilla or custard pudding (Danone)",125,3,20,3.6,[100,"pot","pots"]],
+  stracchino:["Stracchino",300,18,.5,25,[25,"tbsp","tbsp"]], tempeh:["Tempeh",190,19,8,11],
 };
 // an option: parts [food, ratio to the main grams] or [food, 0, fixed grams]; lo–hi limits and rounding for the main part
 const O=(name,parts,lo,hi,step=5,x={})=>({name,parts,lo,hi,step,...x});
@@ -43,16 +46,19 @@ const PART={
     O("Potatoes",[["potato",1]],150,800,25),O("Couscous",[["couscous",1]],40,180),O("Gnocchi",[["gnocchi",1]],150,600,25),O("Piadina",[["piadina",1]],60,220,10)],
   protHome:[O("Chicken or turkey",[["chicken",1]],80,250,10),O("White fish",[["fish",1]],100,300,10),O("Salmon",[["salmon",1]],80,200,10),
     O("Eggs",[["eggs",1]],60,240,60),O("Tuna",[["tuna",1]],56,168,56),O("Legumes",[["legumes",1]],120,360,20),
-    O("Lean prosciutto",[["crudo",1]],36,120,12),O("Bresaola",[["bresaola",1]],40,120,10),O("Mozzarella",[["mozz",1]],60,125,5),O("Tofu",[["tofu",1]],100,250,10)],
+    O("Lean prosciutto",[["crudo",1]],36,120,12),O("Bresaola",[["bresaola",1]],40,120,10),O("Mozzarella",[["mozz",1]],60,125,5),O("Tofu",[["tofu",1]],100,250,10),O("Tempeh",[["tempeh",1]],80,200,10)],
   fatMeal:[O("Olive oil",[["oil",1]],5,40,5),O("Olive oil + Parmesan",[["oil",.7],["parm",.3]],5,40,5),O("Avocado",[["avocado",1]],35,140,5)],
   veg:[O("Vegetables, as many as you like",[["veg",0,250]],0,0,1,{fixed:1})],
   snackCarb:[O("Banana",[["banana",1]],120,360,60),O("Fruit",[["fruit",1]],150,450,75),O("Crackers",[["crackers",1]],25,100,25),
     O("Rice cakes + jam",[["ricecakes",1],["jam",.5]],16,64,8),O("Bread + honey",[["bread",1],["honey",.2]],40,120,10),O("Dates",[["dates",1]],16,80,8),
     O("Grissini",[["grissini",1]],18,72,6)],
-  snackProt:[O("Nothing",[],0,0,1,{fixed:1}),O("Greek yogurt",[["greek",1]],125,300,25),O("Skyr",[["skyr",1]],125,300,25),O("Bresaola",[["bresaola",1]],30,90,10),
-    O("Cottage cheese",[["cottage",1]],100,250,25)],
-  preRide:[O("Banana",[["banana",1]],60,240,60),O("Bread + honey",[["bread",1],["honey",.25]],30,120,10),O("Rusks + jam",[["rusks",1],["jam",.35]],20,80,10),
+  snackFat:[O("Almonds or walnuts",[["nuts",1]],10,30,5),O("Peanut butter",[["pb",1]],10,30,5)],
+  preRide:[O("Honey, one spoon",[["honey",0,20]],0,0,1,{fixed:1}),O("Banana",[["banana",1]],60,240,60),O("Bread + honey",[["bread",1],["honey",.25]],30,120,10),O("Rusks + jam",[["rusks",1],["jam",.35]],20,80,10),
     O("Rice cakes + honey",[["ricecakes",1],["honey",.4]],16,64,8),O("Dates",[["dates",1]],16,80,8)],
+  // dinner: there is always at least a slice of bread next to the rest
+  carbsDinner:[O("Rice + a slice of bread",[["rice",1],["bread",0,40]],30,150),O("Pasta + a slice of bread",[["pasta",1],["bread",0,40]],30,150),
+    O("Bread",[["bread",1]],40,240,10),O("Potatoes + a slice of bread",[["potato",1],["bread",0,40]],100,600,25),
+    O("Couscous + a slice of bread",[["couscous",1],["bread",0,40]],30,150),O("Piadina, stracchino and crudo",[["piadina",1],["stracchino",.35],["crudo",.25]],110,220,55)],
 };
 const MEAL_T={
   b:{title:"Breakfast",ic:"b",parts:[
@@ -62,26 +68,30 @@ const MEAL_T={
     ["Fruit",null,[O("2 kiwis",[["kiwi",0,150]],0,0,1,{fixed:1}),O("Banana",[["banana",0,120]],0,0,1,{fixed:1}),O("Apple",[["apple",0,150]],0,0,1,{fixed:1}),O("Orange",[["orange",0,150]],0,0,1,{fixed:1})]],
     ["Fat","f",[O("Peanut butter",[["pb",1]],10,30,5),O("Almonds or walnuts",[["nuts",1]],10,30,5)]],
     ["Sweet",null,[O("Honey",[["honey",0,12]],0,0,1,{fixed:1}),O("Nothing",[],0,0,1,{fixed:1})]]]},
-  s:{title:"Snack",ic:"s",parts:[["Carbs","c",PART.snackCarb],["Protein (optional)","p",PART.snackProt]]},
+  s:{title:"Snack",ic:"s",parts:[["Fruit","c",[O("Banana",[["banana",1]],120,240,60),...PART.snackCarb.slice(1)]],["Nuts","f",PART.snackFat]]},
+  // the usual canteen lunch: a first course, a 60 g roll, a main, plain vegetables, a pudding
   lc:{title:"Lunch · canteen",ic:"l",parts:[
+    ["First course","c",[O("Plain rice",[["cpasta",1]],100,300,10),O("Pasta or rice with sauce",[["cprimo",1]],100,300,10),O("No first course",[],0,0,1,{fixed:1})]],
+    ["Bread",null,[O("Bread roll",[["roll",0,60]],0,0,1,{fixed:1}),O("No bread",[],0,0,1,{fixed:1})]],
     ["Main course (one portion)",null,[O("Meat or chicken",[["cmeat",0,150]],0,0,1,{fixed:1}),O("Fish",[["cfish",0,150]],0,0,1,{fixed:1}),
       O("Eggs or omelette",[["cegg",0,150]],0,0,1,{fixed:1}),O("Cheese",[["ccheese",0,100]],0,0,1,{fixed:1}),O("Legumes",[["cleg",0,200]],0,0,1,{fixed:1})]],
-    ["Carbs","c",[O("Bread",[["roll",1]],60,240,10),O("Plain pasta or rice",[["cpasta",1]],150,450,25),O("Crackers from home",[["crackers",1]],25,125,25),O("Grissini from home",[["grissini",1]],30,120,6)]],
-    ["Side",null,[O("Vegetables",[["cveg",0,200]],0,0,1,{fixed:1})]],
-    ["Fruit",null,[O("One piece of fruit",[["fruit",0,150]],0,0,1,{fixed:1}),O("Nothing",[],0,0,1,{fixed:1})]]]},
+    ["Vegetables",null,[O("Plain vegetables",[["veg",0,200]],0,0,1,{fixed:1}),O("Dressed vegetables",[["cveg",0,200]],0,0,1,{fixed:1})]],
+    ["Dessert",null,[O("Vanilla or custard pudding",[["pudding",0,100]],0,0,1,{fixed:1}),O("One piece of fruit",[["fruit",0,150]],0,0,1,{fixed:1}),O("No dessert",[],0,0,1,{fixed:1})]]]},
   l:{title:"Lunch",ic:"l",parts:[["Carbs","c",PART.carbsHome],["Protein","p",PART.protHome],["Veg",null,PART.veg],["Fat","f",PART.fatMeal]]},
-  pre:{title:"Pre-ride · optional",ic:"s",parts:[["Carbs","c",PART.preRide]]},
-  d:{title:"Dinner",ic:"d",parts:[["Carbs","c",PART.carbsHome],["Protein","p",PART.protHome],["Veg",null,PART.veg],["Fat","f",PART.fatMeal]]},
+  pre:{title:"Pre-ride · if hungry",ic:"s",parts:[["Carbs","c",[...PART.preRide,O("Nothing, not hungry",[],0,0,1,{fixed:1})]]]},
+  a:{title:"Afternoon snack · if hungry",ic:"s",parts:[["Carbs","c",[O("Nothing, not hungry",[],0,0,1,{fixed:1}),...PART.preRide]]]},
+  d:{title:"Dinner",ic:"d",parts:[["Carbs","c",PART.carbsDinner],["Protein","p",[...PART.protHome,O("Nothing more (piadina night)",[],0,0,1,{fixed:1})]],
+    ["Veg",null,PART.veg],["Fat","f",PART.fatMeal],["Fruit",null,[O("One piece of fruit",[["fruit",0,150]],0,0,1,{fixed:1}),O("No fruit",[],0,0,1,{fixed:1})]]]},
 };
 // share of the day's carbs / protein / fat for each meal (dinner takes what is left)
-const SHARE={b:[.25,.2,.22],m:[.1,.12,.08],a:[.1,.12,.08],l:[.26,.28,.3],lc:[.26,.28,.3],pre:[.1,0,.02]};
+const SHARE={b:[.25,.2,.22],m:[.1,.04,.1],a:[0,0,0],l:[.26,.28,.3],lc:[.26,.28,.3],pre:[.1,0,.02]};
 const kindOf=date=>{const tr=dayTraining(date),we=new Date(date+"T12:00").getDay()%6===0;return {tr,train:tr.min>=20,long:tr.min>=180,we};};
 // the shape of the day: on work days you train in the evening, at the weekend in the morning
 function daySlots(date){
   const K=kindOf(date),home=lunchHome(date);
   const lunch=home?"l":"lc",ride={ride:1};
-  if(!K.train) return [["b","b"],["m","s"],[lunch,lunch],["a","s"],["d","d"]];
-  if(K.we) return [["b","b"],ride,[lunch,lunch],["a","s"],["d","d"]];
+  if(!K.train) return [["b","b"],["m","s"],[lunch,lunch],["a","a"],["d","d"]];
+  if(K.we) return [["b","b"],ride,[lunch,lunch],["a","a"],["d","d"]];
   return [["b","b"],["m","s"],[lunch,lunch],["pre","pre"],ride,["d","d"]];
 }
 const lunchAll=()=>lsJSON("rd_lunch",{});
@@ -100,7 +110,10 @@ function portionTxt(k,q){
   const g=`${Math.round(q)} g`;
   return n<.5?g:`${g} · ${nt} ${n<=1?u[1]:u[2]}`;
 }
-const PSEL=()=>lsJSON("rd_plan_sel",{});
+// meals rebuilt on your usual day (Nov 2026): picks saved for the old snack, canteen lunch and dinner no longer match
+function PSEL(){const v=lsJSON("rd_plan_sel",{});if(localStorage.getItem("rd_plan_v")==="2") return v;
+  localStorage.setItem("rd_plan_v","2");const n={};for(const k of Object.keys(v)) if(!/^(m|a|lc|d)\./.test(k)) n[k]=v[k];
+  if(Object.keys(n).length!==Object.keys(v).length) syncSet("rd_plan_sel",n);return n;}
 // What you actually ate, when it differs from the plan: per meal, the grams of a part, another option, extra foods,
 // or "skipped". The meal is then fixed as eaten and dinner (the last meal) absorbs the difference.
 const ateAll=()=>lsJSON("rd_ate",{});
@@ -114,7 +127,8 @@ const IT={oats:"avena fiocchi porridge",milk:"latte",chia:"semi chia",raisins:"u
   ricotta:"ricotta",eggs:"uova uovo",whites:"albume albumi",chicken:"pollo tacchino petto",fish:"pesce bianco merluzzo orata",salmon:"salmone",
   tuna:"tonno",legumes:"legumi ceci fagioli lenticchie",crudo:"prosciutto crudo",bresaola:"bresaola",mozz:"mozzarella",tofu:"tofu",
   oil:"olio oliva",parm:"parmigiano grana",pb:"burro arachidi",nuts:"mandorle noci frutta secca",avocado:"avocado",veg:"verdura verdure",
-  cveg:"contorno mensa verdure",cmeat:"carne secondo mensa",cfish:"pesce mensa",cegg:"frittata uova mensa",ccheese:"formaggio mensa",cleg:"legumi mensa"};
+  cveg:"contorno mensa verdure",cmeat:"carne secondo mensa",cfish:"pesce mensa",cegg:"frittata uova mensa",ccheese:"formaggio mensa",cleg:"legumi mensa",cprimo:"primo condito pasta sugo ragu risotto mensa",pudding:"budino vaniglia crema danette danone",
+  stracchino:"stracchino crescenza",tempeh:"tempeh"};
 // The whole day: target, bike, then every meal solved part by part; dinner gets the remainder
 function dayPlan(date,off=0){
   const tg=targetOf(date);if(!tg) return null;
@@ -141,7 +155,7 @@ function dayPlan(date,off=0){
     let tot=parts.reduce((a,x)=>{const m=x.skip?optMac({parts:[]},0):optMac(x.o,x.g);x.m=m;return {kcal:a.kcal+m.kcal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{kcal:0,p:0,c:0,f:0});
     for(const e of extra) tot={kcal:tot.kcal+e.kcal,p:tot.p+e.p,c:tot.c+e.c,f:tot.f+e.f};
     left={p:left.p-tot.p,c:left.c-tot.c,f:left.f-tot.f};
-    meals.push({ate,extra,slot,tpl,title:slot==="m"?"Mid-morning snack":slot==="a"?"Afternoon snack":T.title,ic:T.ic,parts,tot});
+    meals.push({ate,extra,slot,tpl,title:slot==="m"?"Mid-morning snack":T.title,ic:T.ic,parts,tot});
   });
   const sum=meals.reduce((a,m)=>({kcal:a.kcal+m.tot.kcal,p:a.p+m.tot.p,c:a.c+m.tot.c,f:a.f+m.tot.f}),{kcal:bike.g*4,p:0,c:bike.g,f:0});
   return {tg,kcal,P,C,F:Fa,bike,slots,meals,sum,K:kindOf(date)};
@@ -166,7 +180,7 @@ function planView(){
       return `<button data-pk="${x.key}" data-oi="${oi}" data-slot="${M.slot}" class="${oi===x.oi?"on":""}${oi===x.oi&&x.eaten?" ate":""}"><b>${esc(o.name)}</b>${oi===x.oi&&x.m.lines.length?`<span>${x.m.lines.map(([k,q])=>(x.m.lines.length>1?FD[k][0].split(" ")[0]+" ":"")+portionTxt(k,q)).join(" + ")}</span>`:oi===x.oi?"":`<span>tap to switch</span>`}</button>`;}).join("")}</div></div>`).join("")}
     ${M.extra.length?`<div class="pl-c"><small>Also eaten</small>${M.extra.map(e=>`<div class="pl-x"><span>${esc(e.name)}${e.g?` · ${Math.round(e.g)} g`:""}</span><b>${fmtK(Math.round(e.kcal))} kcal</b></div>`).join("")}</div>`:""}
     <div class="pl-act"><button data-ate="${M.slot}">${M.ate?"Change what I ate":"I ate something different"}</button></div>
-    <p class="pl-n">P ${Math.round(M.tot.p)} · C ${Math.round(M.tot.c)} · F ${Math.round(M.tot.f)} g${M.slot==="pre"?" · skip it and add the same bread or fruit to dinner":M.slot==="d"&&K.train&&!K.we?" · this is also your recovery meal":M.slot==="l"&&K.train&&K.we||M.slot==="lc"&&K.train&&K.we?" · this is also your recovery meal":""}</p></div>`;
+    <p class="pl-n">P ${Math.round(M.tot.p)} · C ${Math.round(M.tot.c)} · F ${Math.round(M.tot.f)} g${M.slot==="pre"?" · only if you're hungry: skip it and dinner takes the carbs":M.slot==="d"&&K.train&&!K.we?" · this is also your recovery meal":M.slot==="l"&&K.train&&K.we||M.slot==="lc"&&K.train&&K.we?" · this is also your recovery meal":""}</p></div>`;
   const rideCard=bike.rows.length?`<div class="fuel-c static"><i>${FUEL_IC}</i><div>${bike.rows.map(r=>`<p><b>On the bike · ${esc(r.name)}, ${durTxt(r.min)}</b>${r.todo?`<em>${r.g} g of carbs</em> in the bottle${r.rate?` (${r.rate} g/h${r.rate>60?", glucose + fructose":""})`:""}.`:`${r.g} g taken (${esc(r.src)}).`}</p>`).join("")}</div></div>`:"";
   const after=fuelCard(t,[]);
   const body=D.slots.map(s=>s.ride?(after||rideCard):meal(D.meals.find(m=>m.slot===s[0]))).join("");
