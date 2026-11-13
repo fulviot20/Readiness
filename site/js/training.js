@@ -77,7 +77,7 @@ function planCard(p){
     <div class="w-name">${esc(p.name)}</div>
     ${heroK(p,D)}
     ${shapeSVG(D)}${zoneStrip(D)}
-    <div class="w-foot"><span>${[D.np?`NP <b>${D.np} W</b>`:"",D.kj?`<b>${fmtK(D.kj)}</b> kJ`:"",D.ss?`SS <b>${D.ss}</b>`:""].filter(Boolean).join(" · ")}</span><span class="more">Details ${chevR}</span></div>
+    <div class="w-foot"><span>${[D.np?`NP <b>${D.np} W</b>`:"",D.kj?`<b>${fmtK(D.kj)}</b> kJ`:"",D.ss?`SS <b>${D.ss}</b>`:"",fuelChip(p)].filter(Boolean).join(" · ")}</span><span class="more">Details ${chevR}</span></div>
   </button>`;
 }
 const findPlan=id=>{for(const d of DATA.days||[]) for(const p of d.plan||[]) if(String(p.id)===id) return [p,d.date];return [null,null];};
@@ -86,6 +86,25 @@ function descHTML(t){
     const m=l.match(/^[-•*]\s*(.*)$/);a.push(m?`<li>${esc(m[1])}</li>`:`<p>${esc(l)}</p>`);return a;},[]).join("")
     .replace(/(<li>.*?<\/li>)+/g,x=>`<ul>${x}</ul>`).replace(/^(<i class='gap'><\/i>)+|(<i class='gap'><\/i>)+$/g,"");
 }
+/* fuel of a session: before, during, after (model in food.js / fuel.py) */
+const fuelOk=()=>typeof fuelPlanned==="function"&&foodOn()&&fuelCfg().on;
+function fuelPlanHTML(p,date){
+  if(!fuelOk()||!p.fuel||p.fuel.min<30) return "";
+  const q=fuelPlanned(p),ride=isRide(p),big=x=>(x.load||0)>=70||(x.minutes||0)>=90;
+  const soon=((DATA.upcoming||{})[isoAdd(date,1)]||[]).some(big);
+  const rec=fuelRecovery(q.used,q.intake,weightNow()||70,soon);
+  const cell=(n,v,t)=>`<div><small>${n}</small><b>${v}</b><span>${t}</span></div>`;
+  return `<h3 class="sh-sub">Fuel</h3><div class="fz">
+    ${cell("Before",p.fuel.min>=60?"30–60 g":"–",p.fuel.min>=60?"carbs 1–2 h before: banana, bread + honey, rusks + jam":"a normal meal in the hours before")}
+    ${cell("During",q.intake?`${q.intake} g`:"–",q.rate?`${q.rate} g/h${ride&&q.rate>60?" · glucose + fructose":""}${ride?" · in the bottle":""}`:"too short to need anything")}
+    ${cell("After",rec.carbs?`${rec.carbs} g`:"Meal",rec.carbs?`carbs + ${rec.protein} g protein ${rec.window}${rec.more?`, then ${rec.more} g more`:""}`:`a normal meal with ${rec.protein} g protein`)}</div>
+    <p class="sh-note">You'll burn about ${r5(q.used)} g of carbs. If the session comes out longer or harder, the "after" is recalculated once it's done.</p>`;
+}
+function fuelDoneHTML(w,date){
+  if(!fuelOk()||!w.fuel||(w.minutes||0)<30) return "";
+  return `<h3 class="sh-sub">Fuel</h3>${fuelBreakdown(w,date)}<p class="sh-note">What you took on the bike comes from the carbs field of the activity on Intervals; without it, the plan's amount is assumed.</p>`;
+}
+const fuelChip=p=>{if(!fuelOk()||!p.fuel||p.fuel.min<40) return "";const q=fuelPlanned(p);return q.rate?`Fuel <b>${q.rate} g/h</b>`:"";};
 function openPlanned(id){
   const [p,date]=findPlan(id);if(!p||!p.detail) return;const D=p.detail,Z=zonesOf(D),T=Z.reduce((a,z)=>a+z.secs,0)||1;
   const cell=(n,v,u)=>v==null?"":`<div><span>${n}</span><b>${v}<small>${u}</small></b></div>`;
@@ -100,6 +119,7 @@ function openPlanned(id){
       ${cell("Polarization",D.pi!=null?D.pi.toFixed(2):null,"PI")}${cell("Work",D.kj!=null?fmtK(D.kj):null,"kJ")}${cell("Work > FTP",D.kj_ftp,"kJ")}</div>
     ${D.ss!=null?`<h3 class="sh-sub">Strain score</h3><div class="ssc"><b>${D.ss}</b><div><span><i style="background:var(--b5)"></i>Below CP <em>${D.ss_cp??"–"}</em></span><span><i style="background:var(--s2)"></i>W′ <em>${D.ss_wp??"–"}</em></span><span><i style="background:var(--hr)"></i>Max power <em>${D.ss_pmax??"–"}</em></span></div></div>`:""}
     ${D.desc?`<h3 class="sh-sub">The workout</h3><div class="wdesc">${descHTML(D.desc)}</div>`:""}
+    ${fuelPlanHTML(p,date)}
     <a class="pl-q" href="${INTERVALS}/?event=${encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open in Intervals ${arrow}</a>`);
 }
 function openDone(id){
@@ -112,6 +132,7 @@ function openDone(id){
     ${w.profile?`<div class="pw-sheet">${profileSVG(w.profile)}</div>`:""}
     <div class="mgrid sh">${cells.map(c=>`<div><span>${c[0]}</span><b>${c[1]}<small>${c[2]}</small></b></div>`).join("")}</div>
     <div class="w-foot"><span class="feel">${w.feel?`${faceSVG(w.feel)}<span>Feel: <b>${FEEL[w.feel]||w.feel}</b></span>`:"Feel not logged in Intervals"}</span>${w.rpe?`<span>RPE: <b>${w.rpe}/10</b></span>`:""}</div>
+    ${fuelDoneHTML(w,d.date)}
     <a class="pl-q" href="${INTERVALS}/activities/${encodeURIComponent(w.id)}" target="_blank" rel="noopener">Open in Intervals ${arrow}</a>`);
 }
 function bindSessions(){

@@ -141,7 +141,7 @@ function dayPlan(date,off=0){
     const T=MEAL_T[tpl],last=i===real.length-1,sh=SHARE[slot]||[0,0,0];
     let want=last?{...left}:{c:day.c*sh[0],p:day.p*sh[1],f:day.f*sh[2]};
     if(slot==="pre") want.c=clip(day.c*sh[0],25,60);
-    const ate=ateDay(date)[slot]||null;
+    const ate=null;      // no diary any more: the plan is a guide, nothing is ticked off
     const parts=T.parts.map(([role,solve,opts],pi)=>{const key=`${slot}.${pi}`,oi=clip(ate?.oi?.[key]??sel[key]??0,0,opts.length-1),o=opts[oi];
       const off=!!(ate&&!ate.skip&&ate.off?.[key]),eg=ate&&(ate.skip||off?0:ate.g?.[key]);
       const ok=!!(ate&&!ate.skip&&!off&&(ate.ok?.[key]||ate.g?.[key]!=null));
@@ -169,39 +169,47 @@ function bikeCarbs(date){
   return {g:Math.round(g),rows};
 }
 let PLAN_DT=null;      // kept for old links
+// the other options of a part, sized to give the same grams of its macro as the one shown
+function altsOf(x){
+  if(x.opts.length<2) return [];
+  const s=x.solve,have=s&&x.m?x.m[s]:0;
+  return x.opts.map((o,oi)=>({o,oi})).filter(a=>a.oi!==x.oi&&a.o.parts.length).map(({o,oi})=>{
+    let g=0;if(s&&!o.fixed){const k=optMac(o,100)[s]/100;g=k>0?snapG(o,have/k):o.lo;}
+    const m=optMac(o,o.fixed?0:g);
+    return {oi,name:o.name,txt:portionsTxt(m.lines)};});
+}
+const portionsTxt=ls=>!ls.length?"":ls.length===1?portionTxt(...ls[0]):ls.map(([k,q])=>portionTxt(k,q).split(" · ")[0]).join(" + ");
 function planView(){
   const t=todayISO(),D=dayPlan(t);
   if(!D) return `<section class="sec first"><p class="notice">Waiting for today's data from Garmin: the plan needs a few days of burn to start.</p></section>`;
-  const {tg,K,bike}=D,sel=PSEL();
-  const what=!K.train?"Rest day":`${K.long?"Long day":"Training day"} · ${esc(K.tr.names.join(", "))}`;
+  const {tg,K,bike}=D,big=K.tr.min>=150;
+  const kind=!K.train?"Light day":big?"Big day":"Normal day";
+  const what=!K.train?"Rest, or nothing planned":esc(K.tr.names.join(", "));
   const mac=(n,v,col)=>`<div class="mc"><small>${n}</small><b>${Math.round(v)}<u> g</u></b><div class="en-bar"><i style="width:100%;background:${col}"></i></div></div>`;
-  const meal=M=>{const all=!M.parts[0]?.skip&&M.parts.every(x=>x.ok||x.off||!x.m.lines.length)&&M.parts.some(x=>x.ok),sk=M.parts[0]?.skip;
-    const rows=sk?`<div class="mi-l"><span>Skipped</span></div>`:M.parts.filter(x=>!x.off&&x.m.lines.length).map(x=>`<div class="mi-l${x.ok?" ok":""}"><i>${x.ok?check:""}</i><span>${esc(x.o.name)}</span><b>${esc(x.m.lines.length===1?portionTxt(...x.m.lines[0]):x.m.lines.map(([k,q])=>portionTxt(k,q).split(" · ")[0]).join(" + "))}</b></div>`).join("")
-      +M.extra.map(e=>`<div class="mi-l ok"><i>${check}</i><span>${esc(e.name)}</span><b>${e.g?Math.round(e.g)+" g":fmtK(Math.round(e.kcal))+" kcal"}</b></div>`).join("");
-    return `<div class="pl-m${M.ate?" set":""}"><div class="pl-mh"><i class="ml-i ml-${M.ic}">${MEAL_ICON[M.ic]||""}</i><b>${esc(M.title)}</b><span>${all?`<em class="pl-ate">eaten</em> `:M.ate?`<em class="pl-ate">${sk?"skipped":"in part"}</em> `:""}${fmtK(Math.round(M.tot.kcal/10)*10)} kcal</span></div>
+  const part=x=>{const al=altsOf(x);
+    return `<div class="pa"><div class="pa-h"><small>${esc(x.role)}</small><span>${esc(x.o.name)}</span><b>${esc(portionsTxt(x.m.lines))}</b></div>
+      ${al.length?`<div class="pa-or"><em>or</em>${al.map(a=>`<button data-alt="${x.key}|${a.oi}">${esc(a.name)}${a.txt?` <b>${esc(a.txt.split(" · ")[0])}</b>`:""}</button>`).join("")}</div>`:""}</div>`;};
+  const meal=M=>`<div class="pl-m"><div class="pl-mh"><i class="ml-i ml-${M.ic}">${MEAL_ICON[M.ic]||""}</i><b>${esc(M.title)}</b><span>${fmtK(Math.round(M.tot.kcal/10)*10)} kcal</span></div>
     ${M.slot==="l"||M.slot==="lc"?`<div class="pl-o pl-lw">${[["0","Canteen"],["1","At home"]].map(([v,n])=>`<button data-lh="${v}" class="${(M.slot==="l")===(v==="1")?"on":""}"><b>${n}</b></button>`).join("")}</div>`:""}
-    <div class="mi">${rows}</div>
-    <div class="mi-act"><button class="mi-ch" data-meal="${M.slot}">Choose ${chevR}</button>${all?`<button class="mi-ok on" data-undo="${M.slot}">${check} Eaten</button>`:sk?"":`<button class="mi-ok" data-eat="${M.slot}">${check} Ate it</button>`}</div>
-    <p class="pl-n">P ${Math.round(M.tot.p)} · C ${Math.round(M.tot.c)} · F ${Math.round(M.tot.f)} g${M.slot==="pre"?" · only if you're hungry: skip it and dinner takes the carbs":M.slot==="d"&&K.train&&!K.we?" · this is also your recovery meal":M.slot==="l"&&K.train&&K.we||M.slot==="lc"&&K.train&&K.we?" · this is also your recovery meal":""}</p></div>`;};
-  const rideCard=bike.rows.length?`<div class="fuel-c static"><i>${FUEL_IC}</i><div>${bike.rows.map(r=>`<p><b>On the bike · ${esc(r.name)}, ${durTxt(r.min)}</b>${r.todo?`<em>${r.g} g of carbs</em> in the bottle${r.rate?` (${r.rate} g/h${r.rate>60?", glucose + fructose":""})`:""}.`:`${r.g} g taken (${esc(r.src)}).`}</p>`).join("")}</div></div>`:"";
-  const after=fuelCard(t,[]);
-  const body=D.slots.map(s=>s.ride?(after||rideCard):meal(D.meals.find(m=>m.slot===s[0]))).join("");
-  const off=Math.round(D.sum.kcal-D.kcal);
+    <div class="mi">${M.parts.map(part).join("")}</div>
+    <p class="pl-n">P ${Math.round(M.tot.p)} · C ${Math.round(M.tot.c)} · F ${Math.round(M.tot.f)} g${M.slot==="pre"?" · only if you're hungry":M.slot==="d"&&K.train&&!K.we||(M.slot==="l"||M.slot==="lc")&&K.train&&K.we?" · also your recovery meal":""}</p></div>`;
+  const rideRow=bike.rows.length?`<button class="fuel-c" id="pl-ride"><i>${FUEL_IC}</i><div>${bike.rows.map(r=>`<p><b>On the bike · ${esc(r.name)}, ${durTxt(r.min)}</b>${r.todo?`<em>${r.g} g of carbs</em>${r.rate?` · ${r.rate} g/h`:""}`:`${r.g} g taken`}. Before, during and after: tap the session in Training.</p>`).join("")}</div></button>`:"";
+  const body=D.slots.map(s=>s.ride?rideRow:meal(D.meals.find(m=>m.slot===s[0]))).join("");
   return `<section class="sec first">
-    <button class="pl-head" id="pl-need"><small>TODAY'S NEED</small><b>${fmtK(tg.lo)}–${fmtK(tg.hi)}<u>kcal</u></b><span>${what}</span></button>
+    <button class="pl-head" id="pl-need"><small>TODAY · ${kind.toUpperCase()}</small><b>${fmtK(tg.lo)}–${fmtK(tg.hi)}<u>kcal</u></b><span>${what}</span></button>
     <div class="macros">${mac("PROTEIN",D.P,MAC.p[1])}${mac("CARBS",D.C,MAC.c[1])}${mac("FAT",D.F,MAC.f[1])}</div>
-    <p class="pl-fit">${bike.g?`${bike.g} g of the carbs go in the bottle, the rest in the meals. `:""}Tap Choose on a meal to pick what you have, tick what you ate, change the amounts or add something else: dinner closes the day on target${Math.abs(off)>150?` (this mix lands ${fmtK(Math.abs(off))} kcal ${off>0?"over":"under"}: try other options)`:""}.</p>
+    <p class="pl-fit">Just read it, nothing to log. Every part has alternatives with the grams already worked out: eat what's in the house.${bike.g?` ${bike.g} g of the carbs go in the bottle.`:""}</p>
     ${body}
     ${trendCard()}
-    <p class="foot">No diary: weigh in every 3–4 days. If the trend moves faster or slower than your aim, the need changes by itself.</p></section>`;
+    <p class="foot">Weigh in every 3–4 days, when you like: if the trend moves faster or slower than your aim, the need changes by itself.</p></section>`;
 }
 function bindPlan(){
   const t=todayISO(),rr=()=>{const y=scrollY;renderFood();scrollTo(0,y);};
-  document.querySelectorAll("[data-meal]").forEach(b=>b.onclick=()=>{buzz(5);openMeal(t,b.dataset.meal);});
-  document.querySelectorAll("[data-eat]").forEach(b=>b.onclick=()=>{eatAll(t,b.dataset.eat);buzz(10);rr();toast("Eaten: dinner adjusts");});
-  document.querySelectorAll("[data-undo]").forEach(b=>b.onclick=()=>{ateSet(t,b.dataset.undo,null);buzz(6);rr();});
+  // tapping an alternative makes it the one shown from now on (a default, not a record of what you ate)
+  document.querySelectorAll("[data-alt]").forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.alt.split("|");syncSet("rd_plan_sel",{...PSEL(),[k]:+i});buzz(4);rr();});
   document.querySelectorAll("[data-lh]").forEach(b=>b.onclick=()=>{lunchSet(t,b.dataset.lh==="1");buzz(4);rr();});
   const n=$("pl-need");if(n) n.onclick=()=>openTarget(t);
+  const r=$("pl-ride");if(r) r.onclick=()=>goPage("training","week");
 }
 const findMeal=(date,slot)=>dayPlan(date)?.meals.find(m=>m.slot===slot);
 const macLine=m=>`${fmtK(Math.round(m.kcal))} kcal · P ${Math.round(m.p)} · C ${Math.round(m.c)} · F ${Math.round(m.f)} g`;

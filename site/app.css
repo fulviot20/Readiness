@@ -862,3 +862,20 @@ button.wcard{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
 .gear-c.ret{opacity:.55}
 #gear-add{flex-direction:column;align-items:flex-start;gap:2px;margin-top:0}
 .field select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font:inherit}
+
+/* food plan: read-only, every part with its alternatives */
+.pa{padding:8px 0;border-bottom:1px solid var(--line)}.pa:last-child{border:0}
+.pa-h{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline}
+.pa-h small{grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.pa-h span{font-size:15px}.pa-h b{font-weight:500;color:var(--muted);font-size:13.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pa-or{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;margin:7px -14px 0 0;padding-right:14px;overflow-x:auto;scrollbar-width:none}.pa-or::-webkit-scrollbar{display:none}
+.pa-or button{flex:none;white-space:nowrap}
+.pa-or em{font-style:normal;font-size:12px;color:var(--faint);margin-right:2px}
+.pa-or button{background:var(--surface2);border:0;border-radius:99px;padding:5px 10px;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer}
+.pa-or button b{font-weight:600;color:var(--text)}.pa-or button:active{background:var(--line)}
+/* fuel in a session sheet */
+.fz{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.fz div{background:var(--surface2);border-radius:14px;padding:10px 11px}
+.fz small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.fz b{display:block;font-family:var(--cond);font-size:24px;font-weight:500;color:#f59e0b;margin:2px 0}
+.fz span{display:block;font-size:12px;line-height:1.35;color:var(--muted)}

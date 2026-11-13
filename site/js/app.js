@@ -80,7 +80,7 @@ function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
 const PAGES={today:[["overview","Score"],["day","Day"]],
   training:[["week","Week"],["month","Month"],["fitness","Fitness"]],
-  athlete:[["profile","Profile"],["plan","Plan"]]};
+  athlete:[["profile","Profile"],["plan","Food"]]};
 // pages that were folded into another one: old links and saved positions still land in the right place
 const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"profile",weight:"profile",diary:"plan"}};
 let SCROLL_TO=null;      // element id to bring into view after the next render (journal, balance)
@@ -345,7 +345,7 @@ function openSettings(){
     <div class="tog"><div><label>Morning notification</label><p>Your score as soon as it's ready, early warnings, and a weekly review on Sunday evening.</p></div>
       <button class="btn ${pushState()==="on"?"quiet":""}" id="s-push">${pushState()==="on"?"Send a test":"Turn on"}</button></div><p class="st" id="s-pst" style="font-size:13px;color:var(--muted);margin:8px 0 0">${pushState()==="blocked"?"Notifications are blocked for Readiness: allow them in Android Settings → Apps → Readiness → Notifications, then come back.":pushState()==="on"?`On${DATA.push_devices?` · ${DATA.push_devices} device${DATA.push_devices>1?"s":""} registered`:""}.${DATA.push_last?` Last one sent: ${esc(DATA.push_last.what)} at ${new Date(DATA.push_last.ts*1000).toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"})}. If it never showed up on this phone, tap “Send a test” and check Android Settings → Apps → Readiness → Notifications.`:""}`:""}</p>
     ${remindRow()}
-    <div class="tog"><div><label>Food</label><p>Inside Athlete: today&#39;s need, meals with alternatives, ride fuel. No diary: the weight trend corrects it.</p></div>
+    <div class="tog"><div><label>Food</label><p>Inside Athlete: today&#39;s need and meals with alternatives, nothing to log. Fuel is on each session in Training. The weight trend corrects the need.</p></div>
       <button class="btn ${foodOn()?"quiet":""}" id="s-food">${foodOn()?"Hide":"Show"}</button></div>
     ${foodOn()?`<div class="tog"><div><label>Fuelling</label><p>${fuelCfg().on?"What each session burns, what to take while riding and what to eat after.":"Off."}</p></div>
       <button class="btn quiet" id="s-fuel">Open</button></div>`:""}

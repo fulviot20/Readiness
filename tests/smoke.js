@@ -114,31 +114,17 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (Math.abs(R.sum.kcal - R.kcal) > 150) throw new Error("training day plan off target");
       TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "plan"; render();
       if (!document.querySelector(".pl-head") || document.querySelectorAll(".pl-m").length < 4 || !document.querySelector(".fuel-c")) throw new Error("plan page incomplete");
-      document.querySelector('[data-meal="d"]').click(); document.querySelector('[data-mk="d.0"][data-mi="1"]').click(); document.getElementById("at-s").click();
-      if (PSEL()["d.0"] !== 1) throw new Error("pick not kept");
+      if (document.querySelector("[data-meal],[data-eat]")) throw new Error("the plan should have nothing to log");
+      const alt = document.querySelector('[data-alt^="d.0|"]'); if (!alt) throw new Error("no alternatives on dinner carbs");
+      const oi = +alt.dataset.alt.split("|")[1]; alt.click();
+      if (PSEL()["d.0"] !== oi) throw new Error("pick not kept");
       d.plan.pop(); PB = null; render(); }],
-    // a meal that went differently: details on tap, grams as eaten, extras, skipped; dinner takes up the difference
-    ["plan-ate", () => { const t = todayISO(); localStorage.removeItem("rd_ate"); localStorage.removeItem("rd_plan_sel");
-      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "plan"; render();
-      const D0 = dayPlan(t), din0 = D0.meals.find(m => m.slot === "d").tot.kcal;
-      // Choose: change the grams of the porridge, tick the yogurt, mark the fruit as not had
-      document.querySelector('[data-meal="b"]').click(); if (!document.querySelector('#sheet [data-qi="b.0"]')) throw new Error("no amount in Choose");
-      const qi = document.querySelector('#sheet [data-qi="b.0"]'); qi.value = "100"; qi.onchange();
-      document.querySelector('#sheet [data-tk="b.1"]').click(); document.querySelector('#sheet [data-mo="b.2"]').click(); document.getElementById("at-s").click();
-      const D1 = dayPlan(t), b = D1.meals.find(m => m.slot === "b");
-      if (b.parts[0].g !== 100 || !b.parts[0].ok || !b.parts[1].ok || !b.parts[2].off || b.parts[2].m.kcal !== 0) throw new Error("Choose not kept: " + JSON.stringify(b.ate));
-      if (!(D1.meals.find(m => m.slot === "d").tot.kcal < din0 - 50) || Math.abs(D1.sum.kcal - D1.kcal) > 150) throw new Error("dinner didn't make room " + JSON.stringify([din0, D1.meals.map(m=>[m.slot,Math.round(m.tot.kcal)]), D0.meals.map(m=>[m.slot,Math.round(m.tot.kcal)]), Math.round(D1.sum.kcal - D1.kcal)]));
-      document.querySelector('[data-meal="b"]').click(); const q = document.getElementById("at-q"); q.value = "mozza"; q.oninput();
-      document.querySelector('[data-ha="mozz"]').click(); document.getElementById("at-s").click();
-      if (dayPlan(t).meals.find(m => m.slot === "b").extra.length !== 1) throw new Error("extra not kept");
-      document.querySelector('[data-meal="b"]').click(); document.getElementById("at-sk").click(); document.getElementById("at-s").click();
-      if (dayPlan(t).meals.find(m => m.slot === "b").tot.kcal !== 0) throw new Error("skip not kept");
-      document.querySelector('[data-meal="b"]').click(); document.getElementById("at-r").click();
-      if (dayPlan(t).meals.find(m => m.slot === "b").ate) throw new Error("reset failed");
-      // one tap: the whole lunch as planned
-      const ls = dayPlan(t).meals.find(m => m.slot === "lc" || m.slot === "l").slot; document.querySelector(`[data-eat="${ls}"]`).click();
-      if (!dayPlan(t).meals.find(m => m.slot === ls).parts.every(x => x.ok || !x.m.lines.length)) throw new Error("ate-it tap not kept");
-      document.querySelector(`[data-undo="${ls}"]`).click(); if (dayPlan(t).meals.find(m => m.slot === ls).ate) throw new Error("undo failed"); }],
+    // fuel sits on the session: before, during and after in the planned session's sheet
+    ["plan-fuel", () => { const t = todayISO(), d = DATA.days.find(x => x.date === t);
+      const ride = {id: 999001, name: "Test ride", type: "Ride", minutes: 120, load: 90, fuel: {kcal: 1800, frac: .6, min: 120}, detail: {secs: 7200}};
+      (d.plan = d.plan || []).push(ride); openPlanned("999001");
+      if (document.querySelectorAll("#sheet .fz div").length !== 3) throw new Error("no before/during/after in the session");
+      d.plan.pop(); }],
     // distance by sport (hike apart from run) and a gear counter from a start date
     ["distance-gear", () => { const t = todayISO(); localStorage.removeItem("rd_gear");
       if (!DATA.km || !Object.keys(DATA.km).length) throw new Error("no km in data");
