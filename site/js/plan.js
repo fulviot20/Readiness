@@ -143,8 +143,9 @@ function dayPlan(date,off=0){
     if(slot==="pre") want.c=clip(day.c*sh[0],25,60);
     const ate=ateDay(date)[slot]||null;
     const parts=T.parts.map(([role,solve,opts],pi)=>{const key=`${slot}.${pi}`,oi=clip(ate?.oi?.[key]??sel[key]??0,0,opts.length-1),o=opts[oi];
-      const eg=ate&&(ate.skip?0:ate.g?.[key]);
-      return {role,solve,opts,oi,o,key,g:o.fixed?0:(o.lo+o.hi)/2,eaten:eg!=null,eg,skip:!!ate?.skip};});
+      const off=!!(ate&&!ate.skip&&ate.off?.[key]),eg=ate&&(ate.skip||off?0:ate.g?.[key]);
+      const ok=!!(ate&&!ate.skip&&!off&&(ate.ok?.[key]||ate.g?.[key]!=null));
+      return {role,solve,opts,oi,o,key,g:o.fixed?0:(o.lo+o.hi)/2,eaten:eg!=null,eg,ok,off,skip:!!ate?.skip};});
     // three rounds: each part sized to what the others leave of its own macro
     for(let it=0;it<4;it++) for(const x of parts){if(!x.solve||x.o.fixed||x.eaten) continue;
       const others=parts.filter(y=>y!==x).reduce((a,y)=>{const m=optMac(y.o,y.g);return {p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{p:0,c:0,f:0});
@@ -152,7 +153,7 @@ function dayPlan(date,off=0){
       x.g=k>0?clip(need/k,x.o.lo,x.o.hi):x.o.lo;}
     for(const x of parts) x.g=x.eaten&&!x.o.fixed?x.eg:snapG(x.o,x.g);
     const extra=ate&&!ate.skip?ate.extra||[]:[];
-    let tot=parts.reduce((a,x)=>{const m=x.skip?optMac({parts:[]},0):optMac(x.o,x.g);x.m=m;return {kcal:a.kcal+m.kcal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{kcal:0,p:0,c:0,f:0});
+    let tot=parts.reduce((a,x)=>{const m=x.skip||x.off?optMac({parts:[]},0):optMac(x.o,x.g);x.m=m;return {kcal:a.kcal+m.kcal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{kcal:0,p:0,c:0,f:0});
     for(const e of extra) tot={kcal:tot.kcal+e.kcal,p:tot.p+e.p,c:tot.c+e.c,f:tot.f+e.f};
     left={p:left.p-tot.p,c:left.c-tot.c,f:left.f-tot.f};
     meals.push({ate,extra,slot,tpl,title:slot==="m"?"Mid-morning snack":T.title,ic:T.ic,parts,tot});
@@ -174,13 +175,14 @@ function planView(){
   const {tg,K,bike}=D,sel=PSEL();
   const what=!K.train?"Rest day":`${K.long?"Long day":"Training day"} · ${esc(K.tr.names.join(", "))}`;
   const mac=(n,v,col)=>`<div class="mc"><small>${n}</small><b>${Math.round(v)}<u> g</u></b><div class="en-bar"><i style="width:100%;background:${col}"></i></div></div>`;
-  const meal=M=>`<div class="pl-m${M.ate?" set":""}"><div class="pl-mh"><i class="ml-i ml-${M.ic}">${MEAL_ICON[M.ic]||""}</i><b>${esc(M.title)}</b><span>${M.ate?`<em class="pl-ate">${M.ate.skip?"skipped":"as eaten"}</em> `:""}${fmtK(Math.round(M.tot.kcal/10)*10)} kcal</span></div>
+  const meal=M=>{const all=!M.parts[0]?.skip&&M.parts.every(x=>x.ok||x.off||!x.m.lines.length)&&M.parts.some(x=>x.ok),sk=M.parts[0]?.skip;
+    const rows=sk?`<div class="mi-l"><span>Skipped</span></div>`:M.parts.filter(x=>!x.off&&x.m.lines.length).map(x=>`<div class="mi-l${x.ok?" ok":""}"><i>${x.ok?check:""}</i><span>${esc(x.o.name)}</span><b>${esc(x.m.lines.length===1?portionTxt(...x.m.lines[0]):x.m.lines.map(([k,q])=>portionTxt(k,q).split(" · ")[0]).join(" + "))}</b></div>`).join("")
+      +M.extra.map(e=>`<div class="mi-l ok"><i>${check}</i><span>${esc(e.name)}</span><b>${e.g?Math.round(e.g)+" g":fmtK(Math.round(e.kcal))+" kcal"}</b></div>`).join("");
+    return `<div class="pl-m${M.ate?" set":""}"><div class="pl-mh"><i class="ml-i ml-${M.ic}">${MEAL_ICON[M.ic]||""}</i><b>${esc(M.title)}</b><span>${all?`<em class="pl-ate">eaten</em> `:M.ate?`<em class="pl-ate">${sk?"skipped":"in part"}</em> `:""}${fmtK(Math.round(M.tot.kcal/10)*10)} kcal</span></div>
     ${M.slot==="l"||M.slot==="lc"?`<div class="pl-o pl-lw">${[["0","Canteen"],["1","At home"]].map(([v,n])=>`<button data-lh="${v}" class="${(M.slot==="l")===(v==="1")?"on":""}"><b>${n}</b></button>`).join("")}</div>`:""}
-    ${M.parts.map(x=>`<div class="pl-c"><small>${esc(x.role)}</small><div class="pl-o">${x.opts.map((o,oi)=>{const g=oi===x.oi?x.g:null;
-      return `<button data-pk="${x.key}" data-oi="${oi}" data-slot="${M.slot}" class="${oi===x.oi?"on":""}${oi===x.oi&&x.eaten?" ate":""}"><b>${esc(o.name)}</b>${oi===x.oi&&x.m.lines.length?`<span>${x.m.lines.map(([k,q])=>(x.m.lines.length>1?FD[k][0].split(" ")[0]+" ":"")+portionTxt(k,q)).join(" + ")}</span>`:oi===x.oi?"":`<span>tap to switch</span>`}</button>`;}).join("")}</div></div>`).join("")}
-    ${M.extra.length?`<div class="pl-c"><small>Also eaten</small>${M.extra.map(e=>`<div class="pl-x"><span>${esc(e.name)}${e.g?` · ${Math.round(e.g)} g`:""}</span><b>${fmtK(Math.round(e.kcal))} kcal</b></div>`).join("")}</div>`:""}
-    <div class="pl-act"><button data-ate="${M.slot}">${M.ate?"Change what I ate":"I ate something different"}</button></div>
-    <p class="pl-n">P ${Math.round(M.tot.p)} · C ${Math.round(M.tot.c)} · F ${Math.round(M.tot.f)} g${M.slot==="pre"?" · only if you're hungry: skip it and dinner takes the carbs":M.slot==="d"&&K.train&&!K.we?" · this is also your recovery meal":M.slot==="l"&&K.train&&K.we||M.slot==="lc"&&K.train&&K.we?" · this is also your recovery meal":""}</p></div>`;
+    <div class="mi">${rows}</div>
+    <div class="mi-act"><button class="mi-ch" data-meal="${M.slot}">Choose ${chevR}</button>${all?`<button class="mi-ok on" data-undo="${M.slot}">${check} Eaten</button>`:sk?"":`<button class="mi-ok" data-eat="${M.slot}">${check} Ate it</button>`}</div>
+    <p class="pl-n">P ${Math.round(M.tot.p)} · C ${Math.round(M.tot.c)} · F ${Math.round(M.tot.f)} g${M.slot==="pre"?" · only if you're hungry: skip it and dinner takes the carbs":M.slot==="d"&&K.train&&!K.we?" · this is also your recovery meal":M.slot==="l"&&K.train&&K.we||M.slot==="lc"&&K.train&&K.we?" · this is also your recovery meal":""}</p></div>`;};
   const rideCard=bike.rows.length?`<div class="fuel-c static"><i>${FUEL_IC}</i><div>${bike.rows.map(r=>`<p><b>On the bike · ${esc(r.name)}, ${durTxt(r.min)}</b>${r.todo?`<em>${r.g} g of carbs</em> in the bottle${r.rate?` (${r.rate} g/h${r.rate>60?", glucose + fructose":""})`:""}.`:`${r.g} g taken (${esc(r.src)}).`}</p>`).join("")}</div></div>`:"";
   const after=fuelCard(t,[]);
   const body=D.slots.map(s=>s.ride?(after||rideCard):meal(D.meals.find(m=>m.slot===s[0]))).join("");
@@ -188,72 +190,86 @@ function planView(){
   return `<section class="sec first">
     <button class="pl-head" id="pl-need"><small>TODAY'S NEED</small><b>${fmtK(tg.lo)}–${fmtK(tg.hi)}<u>kcal</u></b><span>${what}</span></button>
     <div class="macros">${mac("PROTEIN",D.P,MAC.p[1])}${mac("CARBS",D.C,MAC.c[1])}${mac("FAT",D.F,MAC.f[1])}</div>
-    <p class="pl-fit">${bike.g?`${bike.g} g of the carbs go in the bottle, the rest in the meals. `:""}Pick what you have at home: the grams follow, and dinner closes the day on target${Math.abs(off)>150?` (this mix lands ${fmtK(Math.abs(off))} kcal ${off>0?"over":"under"}: try other options)`:""}.</p>
+    <p class="pl-fit">${bike.g?`${bike.g} g of the carbs go in the bottle, the rest in the meals. `:""}Tap Choose on a meal to pick what you have, tick what you ate, change the amounts or add something else: dinner closes the day on target${Math.abs(off)>150?` (this mix lands ${fmtK(Math.abs(off))} kcal ${off>0?"over":"under"}: try other options)`:""}.</p>
     ${body}
     ${trendCard()}
     <p class="foot">No diary: weigh in every 3–4 days. If the trend moves faster or slower than your aim, the need changes by itself.</p></section>`;
 }
 function bindPlan(){
   const t=todayISO(),rr=()=>{const y=scrollY;renderFood();scrollTo(0,y);};
-  // first tap picks an option, a tap on the picked one opens its details
-  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{
-    if(b.classList.contains("on")) return openFoodPart(t,b.dataset.slot,b.dataset.pk);
-    const a=ateDay(t)[b.dataset.slot];
-    if(a){const v={...a,oi:{...(a.oi||{}),[b.dataset.pk]:+b.dataset.oi},g:{...(a.g||{})}};delete v.g[b.dataset.pk];ateSet(t,b.dataset.slot,v);}
-    else{const s={...PSEL()};s[b.dataset.pk]=+b.dataset.oi;syncSet("rd_plan_sel",s);}
-    buzz(4);rr();});
-  document.querySelectorAll("[data-ate]").forEach(b=>b.onclick=()=>openAte(t,b.dataset.ate));
+  document.querySelectorAll("[data-meal]").forEach(b=>b.onclick=()=>{buzz(5);openMeal(t,b.dataset.meal);});
+  document.querySelectorAll("[data-eat]").forEach(b=>b.onclick=()=>{eatAll(t,b.dataset.eat);buzz(10);rr();toast("Eaten: dinner adjusts");});
+  document.querySelectorAll("[data-undo]").forEach(b=>b.onclick=()=>{ateSet(t,b.dataset.undo,null);buzz(6);rr();});
   document.querySelectorAll("[data-lh]").forEach(b=>b.onclick=()=>{lunchSet(t,b.dataset.lh==="1");buzz(4);rr();});
   const n=$("pl-need");if(n) n.onclick=()=>openTarget(t);
 }
 const findMeal=(date,slot)=>dayPlan(date)?.meals.find(m=>m.slot===slot);
 const macLine=m=>`${fmtK(Math.round(m.kcal))} kcal · P ${Math.round(m.p)} · C ${Math.round(m.c)} · F ${Math.round(m.f)} g`;
-// details of one option: every ingredient with grams and household portion, its macros, and the amount you really had
-function openFoodPart(date,slot,key){
-  const M=findMeal(date,slot),x=M&&M.parts.find(y=>y.key===key);if(!x) return;
-  const o=x.o,m=x.m,ed=!o.fixed;
-  openSheet(`<div class="sh-top"><h2>${esc(o.name)}</h2>${X}</div>
-    <p class="sh-desc">${esc(M.title)} · ${esc(x.role.toLowerCase())}${x.eaten?" · as you ate it":""}</p>
-    <div class="kv">${m.lines.length?m.lines.map(([k,q])=>`<span>${esc(FD[k][0])}</span><b>${esc(portionTxt(k,q))}</b>`).join(""):"<span>Nothing</span><b>–</b>"}</div>
-    <div class="kv"><span>Energy</span><b>${fmtK(Math.round(m.kcal))} kcal</b><span>Protein</span><b>${r1(m.p)} g</b><span>Carbs</span><b>${r1(m.c)} g</b><span>Fat</span><b>${r1(m.f)} g</b></div>
-    ${ed?`<h3 class="sh-sub">How much did you have?</h3>
-      <div class="ath-log" style="grid-template-columns:1fr auto"><div class="field"><label for="fp-g">${esc(FD[o.parts[0][0]][0])} (g)</label><input id="fp-g" type="number" inputmode="decimal" min="0" step="5" value="${Math.round(x.g)}"></div><button class="btn" id="fp-s">Save</button></div>
-      <p class="sh-note" id="fp-k"></p>`:`<p class="sh-note">A fixed amount. If you didn't have it, pick "Nothing", or add what you had with "I ate something different".</p>`}
-    ${x.eaten?`<button class="btn quiet" id="fp-r" style="width:100%;margin-top:10px">Back to the plan's amount</button>`:""}`);
-  const inp=$("fp-g");
-  if(inp){const upd=()=>{const g=+String(inp.value).replace(",",".")||0;$("fp-k").textContent=macLine(optMac(o,g))+(o.parts.length>1?" (the other ingredients follow)":"");};inp.oninput=upd;upd();
-    $("fp-s").onclick=()=>{const g=Math.max(0,+String(inp.value).replace(",",".")||0),a=ateDay(date)[slot]||{};
-      ateSet(date,slot,{...a,skip:false,g:{...(a.g||{}),[key]:g},oi:{...(a.oi||{}),[key]:x.oi}});buzz(10);closeSheet();render();toast("Saved: dinner adjusts");};}
-  const r=$("fp-r");if(r) r.onclick=()=>{const a={...(ateDay(date)[slot]||{})},g={...(a.g||{})};delete g[key];a.g=g;
-    ateSet(date,slot,Object.keys(g).length||(a.extra||[]).length||a.skip?a:null);closeSheet();render();};
-}
-// a meal that went differently: skipped, or extra foods (from the list, or any food with its kcal)
-function openAte(date,slot){
+// the whole meal as you had it, at the plan's amounts: one tap
+function eatAll(date,slot){const M=findMeal(date,slot);if(!M) return;const a={...(ateDay(date)[slot]||{})};
+  const oi={},g={},ok={};for(const x of M.parts){oi[x.key]=x.oi;if(x.off) continue;ok[x.key]=true;if(!x.o.fixed) g[x.key]=x.g;}
+  ateSet(date,slot,{oi,g,ok,off:a.off||{},extra:a.extra||[],skip:false});}
+// "Choose": every part of the meal as a list. Pick an option, tick it if you had it, change the amount,
+// say you didn't have it, or add something else; dinner takes up the difference.
+function openMeal(date,slot){
   const M=findMeal(date,slot);if(!M) return;
-  const a={...(ateDay(date)[slot]||{})},extra=[...(a.extra||[])];
+  const a0=ateDay(date)[slot]||{};
+  const S={oi:{},g:{},ok:{},off:{},extra:[...(a0.extra||[])],skip:!!a0.skip};
+  for(const x of M.parts){S.oi[x.key]=x.oi;if(x.off) S.off[x.key]=1;if(x.ok) S.ok[x.key]=1;if(a0.g?.[x.key]!=null) S.g[x.key]=a0.g[x.key];}
+  const plan={};for(const x of M.parts) plan[x.key]=x.g;          // the plan's grams, while you haven't set your own
   const keys=Object.keys(FD);let q="";
+  const gOf=(x,o)=>S.g[x.key]??(o===x.o?plan[x.key]:snapG(o,(o.lo+o.hi)/2));
+  const total=()=>{let t={kcal:0,p:0,c:0,f:0};if(S.skip) return t;
+    for(const x of M.parts){if(S.off[x.key]) continue;const o=x.opts[S.oi[x.key]],m=optMac(o,o.fixed?0:gOf(x,o));t={kcal:t.kcal+m.kcal,p:t.p+m.p,c:t.c+m.c,f:t.f+m.f};}
+    for(const e of S.extra) t={kcal:t.kcal+e.kcal,p:t.p+e.p,c:t.c+e.c,f:t.f+e.f};return t;};
   const draw=()=>{
     const hits=q.length>1?keys.filter(k=>norm(FD[k][0]+" "+(IT[k]||"")).includes(norm(q))).slice(0,6):[];
+    const part=x=>{const cur=S.oi[x.key],off=!!S.off[x.key];
+      return `<div class="mo"><div class="mo-h"><small>${esc(x.role)}</small>${off?"":`<button class="mo-tk${S.ok[x.key]?" on":""}" data-tk="${x.key}">${check}<span>${S.ok[x.key]?"Had it":"Had it?"}</span></button>`}</div>
+        ${x.opts.map((o,oi)=>{const on=!off&&oi===cur,g=on&&!o.fixed?gOf(x,o):0,m=on?optMac(o,g):null;
+          return `<div class="mo-r${on?" on":""}"><button class="mo-p" data-mk="${x.key}" data-mi="${oi}"><i class="rd"></i><span><b>${esc(o.name)}</b>${on&&m.lines.length?`<em>${m.lines.map(([k,q])=>(m.lines.length>1?FD[k][0].split(/[ ,(]/)[0]+" ":"")+portionTxt(k,q)).join(" + ")} · ${fmtK(Math.round(m.kcal))} kcal</em>`:""}</span></button>
+            ${on&&!o.fixed?`<div class="mo-q"><button data-qm="${x.key}" aria-label="Less">−</button><input data-qi="${x.key}" type="number" inputmode="decimal" value="${Math.round(g)}"><u>g</u><button data-qp="${x.key}" aria-label="More">+</button></div>`:""}</div>`;}).join("")}
+        ${x.opts.some(o=>!o.parts.length)?"":`<div class="mo-r${off?" on":""}"><button class="mo-p" data-mo="${x.key}"><i class="rd"></i><span><b>Didn't have it</b></span></button></div>`}</div>`;};
+    const T=total();
     openSheet(`<div class="sh-top"><h2>${esc(M.title)}</h2>${X}</div>
-      <p class="sh-desc">To change the grams, tap the food in the plan. Here you add what else you had, or say you skipped it. Dinner takes up the difference.</p>
-      ${extra.length?extra.map((e,i)=>`<div class="ent"><span>${esc(e.name)}${e.g?` · ${Math.round(e.g)} g`:""} · ${fmtK(Math.round(e.kcal))} kcal</span><button data-rx="${i}">Remove</button></div>`).join(""):""}
-      <div class="field" style="margin-top:12px"><label for="at-q">Add a food</label><input id="at-q" type="text" placeholder="e.g. pane, mozzarella, banana" value="${esc(q)}" autocomplete="off"></div>
-      <div id="at-h">${hits.map(k=>`<div class="at-row"><span>${esc(FD[k][0])}</span><input data-hg="${k}" type="number" inputmode="decimal" placeholder="g" value="${FD[k][5]?FD[k][5][0]:100}"><button class="btn quiet" data-ha="${k}">Add</button></div>`).join("")}</div>
-      <details class="pl-tips"><summary>Something not in the list</summary>
-        <div class="field"><label for="at-n">Name</label><input id="at-n" type="text" placeholder="e.g. slice of cake"></div>
-        <div class="ath-log" style="grid-template-columns:repeat(4,1fr)"><div class="field"><label for="at-k">kcal</label><input id="at-k" type="number" inputmode="numeric"></div>
-          <div class="field"><label for="at-c">Carbs</label><input id="at-c" type="number" inputmode="numeric"></div><div class="field"><label for="at-p">Prot.</label><input id="at-p" type="number" inputmode="numeric"></div><div class="field"><label for="at-f">Fat</label><input id="at-f" type="number" inputmode="numeric"></div></div>
-        <button class="btn quiet" id="at-cu" style="width:100%">Add</button></details>
-      <div class="savebar" style="margin-top:20px"><button class="btn quiet" id="at-sk">${a.skip?"I didn't skip it":"Skipped this meal"}</button><button class="btn" id="at-s">Save</button></div>
+      <p class="sh-desc">Pick what you have, tick what you ate, change the amounts. Dinner takes up the difference.</p>
+      ${S.skip?`<p class="notice" style="margin:0 0 12px">Marked as skipped.</p>`:M.parts.map(part).join("")}
+      <div class="mo"><div class="mo-h"><small>Something else</small></div>
+        ${S.extra.map((e,i)=>`<div class="ent"><span>${esc(e.name)}${e.g?` · ${Math.round(e.g)} g`:""} · ${fmtK(Math.round(e.kcal))} kcal</span><button data-rx="${i}">Remove</button></div>`).join("")}
+        <div class="field" style="margin-top:8px"><input id="at-q" type="text" placeholder="Search: pane, mozzarella, banana…" value="${esc(q)}" autocomplete="off" aria-label="Add a food"></div>
+        <div id="at-h">${hits.map(k=>`<div class="at-row"><span>${esc(FD[k][0])}</span><input data-hg="${k}" type="number" inputmode="decimal" placeholder="g" value="${FD[k][5]?FD[k][5][0]:100}"><button class="btn quiet" data-ha="${k}">Add</button></div>`).join("")}</div>
+        <details class="pl-tips"><summary>Not in the list</summary>
+          <div class="field"><label for="at-n">Name</label><input id="at-n" type="text" placeholder="e.g. slice of cake"></div>
+          <div class="ath-log" style="grid-template-columns:repeat(4,1fr)"><div class="field"><label for="at-k">kcal</label><input id="at-k" type="number" inputmode="numeric"></div>
+            <div class="field"><label for="at-c">Carbs</label><input id="at-c" type="number" inputmode="numeric"></div><div class="field"><label for="at-p">Prot.</label><input id="at-p" type="number" inputmode="numeric"></div><div class="field"><label for="at-f">Fat</label><input id="at-f" type="number" inputmode="numeric"></div></div>
+          <button class="btn quiet" id="at-cu" style="width:100%">Add</button></details></div>
+      <p class="mo-tot">${fmtK(Math.round(T.kcal))} kcal · P ${Math.round(T.p)} · C ${Math.round(T.c)} · F ${Math.round(T.f)} g</p>
+      <div class="savebar"><button class="btn quiet" id="at-sk">${S.skip?"I didn't skip it":"Skipped this meal"}</button><button class="btn" id="at-s">Save</button></div>
       ${ateDay(date)[slot]?`<button class="pl-q" id="at-r">Back to the plan for this meal</button>`:""}`);
-    const qi=$("at-q");qi.oninput=()=>{q=qi.value;const p=qi.selectionStart;draw();const n=$("at-q");n.focus();n.setSelectionRange(p,p);};
+    const sh=$("sheet"),y=sh.scrollTop,redraw=()=>{draw();$("sheet").scrollTop=y;};
+    const xOf=k=>M.parts.find(x=>x.key===k);
+    document.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{const k=b.dataset.mk,i=+b.dataset.mi;if(S.oi[k]!==i) delete S.g[k];S.oi[k]=i;delete S.off[k];buzz(4);redraw();});
+    document.querySelectorAll("[data-mo]").forEach(b=>b.onclick=()=>{const k=b.dataset.mo;S.off[k]=1;delete S.ok[k];delete S.g[k];buzz(4);redraw();});
+    document.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>{const k=b.dataset.tk;if(S.ok[k]) delete S.ok[k]; else S.ok[k]=1;buzz(6);redraw();});
+    const step=(k,d)=>{const x=xOf(k),o=x.opts[S.oi[k]];S.g[k]=Math.max(0,Math.round((gOf(x,o)+d*o.step)/o.step)*o.step);S.ok[k]=1;buzz(3);redraw();};
+    document.querySelectorAll("[data-qm]").forEach(b=>b.onclick=()=>step(b.dataset.qm,-1));
+    document.querySelectorAll("[data-qp]").forEach(b=>b.onclick=()=>step(b.dataset.qp,1));
+    document.querySelectorAll("[data-qi]").forEach(i=>i.onchange=()=>{const k=i.dataset.qi;S.g[k]=Math.max(0,+String(i.value).replace(",",".")||0);S.ok[k]=1;redraw();});
+    const qi=$("at-q");qi.oninput=()=>{q=qi.value;const p=qi.selectionStart;redraw();const n=$("at-q");n.focus();n.setSelectionRange(p,p);};
     document.querySelectorAll("[data-ha]").forEach(b=>b.onclick=()=>{const k=b.dataset.ha,g=+String(document.querySelector(`[data-hg="${k}"]`).value).replace(",",".")||0;if(!g) return;
-      const F=FD[k];extra.push({name:F[0],g,kcal:F[1]*g/100,p:F[2]*g/100,c:F[3]*g/100,f:F[4]*g/100});q="";buzz(6);draw();});
-    document.querySelectorAll("[data-rx]").forEach(b=>b.onclick=()=>{extra.splice(+b.dataset.rx,1);draw();});
+      const F=FD[k];S.extra.push({name:F[0],g,kcal:F[1]*g/100,p:F[2]*g/100,c:F[3]*g/100,f:F[4]*g/100});q="";buzz(6);redraw();});
+    document.querySelectorAll("[data-rx]").forEach(b=>b.onclick=()=>{S.extra.splice(+b.dataset.rx,1);redraw();});
     $("at-cu").onclick=()=>{const n=$("at-n").value.trim(),k=+$("at-k").value||0,c=+$("at-c").value||0,p=+$("at-p").value||0,f=+$("at-f").value||0;
-      if(!n||!(k||c||p||f)) return toast("Name and kcal");extra.push({name:n,kcal:k||c*4+p*4+f*9,p,c,f});draw();};
-    $("at-sk").onclick=()=>{a.skip=!a.skip;ateSet(date,slot,a.skip?{...a,extra:[]}:{...a,skip:false});buzz(8);closeSheet();render();toast(a.skip?"Skipped: the rest of the day adjusts":"Back on");};
-    $("at-s").onclick=()=>{ateSet(date,slot,{...a,skip:false,extra});buzz(10);closeSheet();render();toast("Saved: dinner adjusts");};
+      if(!n||!(k||c||p||f)) return toast("Name and kcal");S.extra.push({name:n,kcal:k||c*4+p*4+f*9,p,c,f});redraw();};
+    $("at-sk").onclick=()=>{S.skip=!S.skip;buzz(8);redraw();};
+    $("at-s").onclick=()=>{
+      // your picks become the default for the next days too
+      const ps={...PSEL()};for(const [k,i] of Object.entries(S.oi)) ps[k]=i;syncSet("rd_plan_sel",ps);
+      const g={};for(const k of Object.keys(S.ok)){const x=xOf(k),o=x.opts[S.oi[k]];if(!o.fixed) g[k]=gOf(x,o);}
+      for(const [k,v] of Object.entries(S.g)) g[k]=v;
+      const any=S.skip||S.extra.length||Object.keys(S.ok).length||Object.keys(S.off).length||Object.keys(g).length;
+      ateSet(date,slot,any?{oi:S.oi,g,ok:S.ok,off:S.off,extra:S.skip?[]:S.extra,skip:S.skip}:null);
+      buzz(10);closeSheet();render();toast(any?"Saved: dinner adjusts":"Saved");};
     const r=$("at-r");if(r) r.onclick=()=>{ateSet(date,slot,null);closeSheet();render();};
   };
   draw();

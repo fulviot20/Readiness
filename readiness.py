@@ -311,8 +311,69 @@ def plans_by_day(events):
             "id": e.get("id"), "name": e.get("name") or ("Race" if cat != "WORKOUT" else "Workout"), "type": e.get("type"),
             "race": cat != "WORKOUT" or None,
             "minutes": round(sum(x["min"] for x in steps)) or round((e.get("moving_time") or 0) / 60) or None,
-            "load": e.get("icu_training_load"), "steps": steps})
+            "load": e.get("icu_training_load"), "steps": steps, "detail": plan_detail(e)})
     return out
+
+
+def plan_detail(e):
+    """What Intervals computes for a planned workout, to show it in the app without opening Intervals:
+    the description, power stats, work, strain score, time in zones and the power shape of the session."""
+    doc = e.get("workout_doc") or {}
+    num = lambda v, nd=0: None if not isinstance(v, (int, float)) else (round(v, nd) if nd else round(v))
+    zones, ftp = [], None
+    for z in doc.get("zoneTimes") or []:
+        if not isinstance(z, dict):
+            continue
+        if not ftp and z.get("maxWatts") and z.get("max") and z["max"] < 200:
+            ftp = z["maxWatts"] / z["max"] * 100
+        zones.append({"id": z.get("id"), "secs": z.get("secs") or 0, "color": z.get("color"), "pct": z.get("percentRange"),
+                      "lo": z.get("minWatts"), "hi": z.get("maxWatts")})
+    # middle of each power zone in %FTP, for steps written as "Z2" (the top zone gets 160%)
+    zmid, prev = {}, 0
+    for z in doc.get("zoneTimes") or []:
+        if isinstance(z, dict) and isinstance(z.get("zone"), int) and isinstance(z.get("max"), (int, float)) and z.get("id") != "SS":
+            zmid[z["zone"]] = (prev + z["max"]) / 2 if z["max"] < 300 else 160
+            prev = z["max"] if z["max"] < 300 else prev
+    # the power shape: flat list of [seconds, start %FTP, end %FTP], repeats unrolled
+    segs = []
+
+    def walk(steps):
+        for st_ in steps or []:
+            if not isinstance(st_, dict) or len(segs) > 400:
+                continue
+            if st_.get("steps"):
+                for _ in range(min(int(st_.get("reps") or 1), 60)):
+                    walk(st_["steps"])
+                continue
+            pw, dur = st_.get("power") or {}, st_.get("duration") or 0
+            if not dur:
+                continue
+            u = pw.get("units") or "%ftp"
+            a, b = pw.get("start", pw.get("value")), pw.get("end", pw.get("value"))
+            if u not in ("%ftp",) and ftp and isinstance(a, (int, float)) and u in ("w", "W", "watts"):
+                a, b = a / ftp * 100, (b if isinstance(b, (int, float)) else a) / ftp * 100
+            elif u == "power_zone" and isinstance(a, (int, float)) and zmid.get(round(a)):
+                a = b = zmid[round(a)]
+            elif u not in ("%ftp",):
+                a = b = None
+            segs.append([dur, num(a, 1) if a is not None else None, num(b, 1) if b is not None else None])
+    walk(doc.get("steps"))
+    ss = doc.get("strain_score") or {}
+    out = {
+        "desc": (e.get("description") or "").strip()[:3000] or None,
+        "avg_w": num(doc.get("average_watts")), "np": num(doc.get("normalized_power")),
+        "vi": num(doc.get("variability_index"), 2), "pi": num(doc.get("polarization_index"), 2),
+        "if": num(e["icu_intensity"] / 100, 2) if isinstance(e.get("icu_intensity"), (int, float)) else None,
+        "kj": round(e["joules"] / 1000) if e.get("joules") else None,
+        "kj_ftp": round(e["joules_above_ftp"] / 1000) if e.get("joules_above_ftp") else None,
+        "ss": num(ss.get("strain_score") or e.get("strain_score")),
+        "ss_cp": num(ss.get("ss_cp") or e.get("ss_cp")), "ss_wp": num(ss.get("ss_w_prime") or e.get("ss_w_prime"), 1),
+        "ss_pmax": num(ss.get("ss_p_max") or e.get("ss_p_max"), 1),
+        "ftp": num(ftp), "zones": zones or None, "segs": segs or None,
+        "secs": doc.get("duration") or e.get("moving_time") or None, "indoor": e.get("indoor") or None,
+    }
+    out = {k: v for k, v in out.items() if v is not None}
+    return out or None
 
 
 # ---------------------------------------------------------------- score

@@ -33,24 +33,90 @@ function metricsGrid(w){
   return cells.length?`<div class="mgrid">${cells.map(c=>`<div><span>${c[0]}</span><b>${c[1]}<small>${c[2]}</small></b></div>`).join("")}</div>`:"";
 }
 function doneCard(w){
-  const href=`${INTERVALS}/activities/${encodeURIComponent(w.id)}`;
   const feel=`<span class="feel">${w.feel?`${faceSVG(w.feel)}<span>Feel: <b>${FEEL[w.feel]||w.feel}</b></span>`:"Feel not logged in Intervals"}</span>`;
-  return `<a class="wcard" href="${href}" target="_blank" rel="noopener">
-    <div class="w-top"><span class="tag done">${check}Completed</span><span class="go">${arrow}</span></div>
+  return `<button class="wcard" data-wd="${esc(String(w.id))}">
+    <div class="w-top"><span class="tag done">${check}Completed</span><span class="go">${chevR}</span></div>
     <div class="w-name">${esc(w.name||w.type)}</div>
     <div class="w-meta">${dur(w.minutes)}${w.km?` · ${w.km} km`:""}</div>
     ${w.profile?profileSVG(w.profile):""}
     ${metricsGrid(w)}
     <div class="w-foot">${feel}${w.rpe?`<span>RPE: <b>${w.rpe}/10</b></span>`:""}</div>
-  </a>`;
+  </button>`;
 }
+/* planned session: Intervals' own numbers (power, work, strain, zones, shape), shown here without leaving the app */
+const chevR=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+const ZCOL=["#6b7a90","#3a9cf5","#5fe08a","#f7c948","#e9a15a","#ff5d6c","#b07cf0"];
+const zcol=pct=>ZCOL[zoneOf(pct)-1];
+const secTxt=s=>s>=3600?`${Math.floor(s/3600)}h${String(Math.round(s%3600/60)).padStart(2,"0")}m`:s>=60?`${Math.floor(s/60)}m${s%60?String(Math.round(s%60)).padStart(2,"0")+"s":""}`:`${Math.round(s)}s`;
+const zonesOf=D=>(D.zones||[]).filter(z=>/^Z\d$/.test(z.id||""));
+// the session drawn as Intervals does: one block per step, height = %FTP, colour = zone
+function shapeSVG(D,big){
+  const S=(D.segs||[]).filter(s=>s[0]>0);if(!S.length) return "";
+  const W=320,H=big?120:64,T=S.reduce((a,s)=>a+s[0],0),top=Math.max(130,...S.flatMap(s=>[s[1]||0,s[2]||0]))*1.06;
+  const y=v=>(H-(v||0)/top*(H-2)).toFixed(1);let t=0;
+  const blocks=S.map(([d,a,b])=>{const x0=t/T*W,x1=(t+d)/T*W;t+=d;if(a==null) return "";const bb=b??a;
+    return `<polygon points="${x0.toFixed(1)},${H} ${x0.toFixed(1)},${y(a)} ${x1.toFixed(1)},${y(bb)} ${x1.toFixed(1)},${H}" fill="${zcol((a+bb)/2)}" opacity=".9"/>`;}).join("");
+  const ftp=`<line x1="0" x2="${W}" y1="${y(100)}" y2="${y(100)}" stroke="var(--text)" stroke-opacity=".35" stroke-dasharray="3 4"/>`;
+  const lbl=big&&D.ftp?`<text x="${W-2}" y="${(+y(100)-4).toFixed(1)}" text-anchor="end" class="shp-t">FTP ${D.ftp} W</text>`:"";
+  return `<svg class="shp${big?" big":""}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${blocks}${ftp}</svg>${big?`<div class="shp-ax"><span>0:00</span><span>${secTxt(T/2)}</span><span>${secTxt(T)}</span></div>`:""}${lbl?`<svg class="shp-l" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lbl}</svg>`:""}`;
+}
+function zoneStrip(D){const Z=zonesOf(D),T=Z.reduce((a,z)=>a+z.secs,0);if(!T) return "";
+  return `<div class="zstrip">${Z.map((z,i)=>z.secs?`<i style="flex:${z.secs};background:${ZCOL[i]||ZCOL[6]}"></i>`:"").join("")}</div>`;}
+const heroK=(p,D)=>{const m=D.secs?Math.round(D.secs/60):p.minutes;
+  return `<div class="hero-k"><div><span>Duration</span><b>${m?dur(m):"–"}</b></div><div><span>Load</span><b>${p.load!=null?Math.round(p.load):"–"}</b></div><div><span>Intensity</span><b>${D.if!=null?Math.round(D.if*100)+"<small>%</small>":"–"}</b></div></div>`;};
 function planCard(p){
-  const href=p.id?`${INTERVALS}/?event=${encodeURIComponent(p.id)}`:`${INTERVALS}/`;
-  return `<a class="wcard" href="${href}" target="_blank" rel="noopener">
+  const D=p.detail;
+  if(!D){const href=p.id?`${INTERVALS}/?event=${encodeURIComponent(p.id)}`:`${INTERVALS}/`;
+    return `<a class="wcard" href="${href}" target="_blank" rel="noopener">
     <div class="w-top"><span class="tag">Planned</span><span class="go">${arrow}</span></div>
     <div class="w-name">${esc(p.name)}</div>
     <div class="w-meta">${[p.minutes?dur(p.minutes):"",p.load?`${Math.round(p.load)} TSS`:""].filter(Boolean).join(" · ")||"Open in Intervals for details"}</div>
-  </a>`;
+  </a>`;}
+  return `<button class="wcard hero" data-pd="${esc(String(p.id))}">
+    <div class="w-top"><span class="tag pl">${p.race?"Race":"Planned"}</span><span class="src">Intervals.icu</span></div>
+    <div class="w-name">${esc(p.name)}</div>
+    ${heroK(p,D)}
+    ${shapeSVG(D)}${zoneStrip(D)}
+    <div class="w-foot"><span>${[D.np?`NP <b>${D.np} W</b>`:"",D.kj?`<b>${fmtK(D.kj)}</b> kJ`:"",D.ss?`SS <b>${D.ss}</b>`:""].filter(Boolean).join(" · ")}</span><span class="more">Details ${chevR}</span></div>
+  </button>`;
+}
+const findPlan=id=>{for(const d of DATA.days||[]) for(const p of d.plan||[]) if(String(p.id)===id) return [p,d.date];return [null,null];};
+function descHTML(t){
+  return t.split(/\n/).map(l=>l.trim()).reduce((a,l)=>{if(!l){a.push("<i class='gap'></i>");return a;}
+    const m=l.match(/^[-•*]\s*(.*)$/);a.push(m?`<li>${esc(m[1])}</li>`:`<p>${esc(l)}</p>`);return a;},[]).join("")
+    .replace(/(<li>.*?<\/li>)+/g,x=>`<ul>${x}</ul>`).replace(/^(<i class='gap'><\/i>)+|(<i class='gap'><\/i>)+$/g,"");
+}
+function openPlanned(id){
+  const [p,date]=findPlan(id);if(!p||!p.detail) return;const D=p.detail,Z=zonesOf(D),T=Z.reduce((a,z)=>a+z.secs,0)||1;
+  const cell=(n,v,u)=>v==null?"":`<div><span>${n}</span><b>${v}<small>${u}</small></b></div>`;
+  openSheet(`<div class="sh-top"><h2>${esc(p.name)}</h2>${X}</div>
+    <p class="sh-desc">${fmtDay(date,{weekday:"long",day:"numeric",month:"long"})} · ${esc(/Ride/.test(p.type||"")?"Ride":/Run/.test(p.type||"")?"Run":(p.type||"Workout"))}${D.indoor?" · indoor":""}</p>
+    <div class="srcbar"><span class="src">Intervals.icu</span><span>Planned workout, numbers computed by Intervals${D.ftp?` on your FTP of ${D.ftp} W`:""}</span></div>
+    <div class="pw-sheet">${heroK(p,D)}${shapeSVG(D,true)}</div>
+    ${Z.length&&T>1?`<h3 class="sh-sub">Time in zones</h3><div class="zrows">${Z.map((z,i)=>`<div class="zr"><b style="color:${ZCOL[i]}">${esc(z.id)}</b><span>${z.lo!=null&&z.hi!=null?(z.hi>3000?`${z.lo}+ W`:`${z.lo}–${z.hi} W`):""}</span>
+      <em><u style="width:${(z.secs/T*100).toFixed(1)}%;background:${ZCOL[i]}"></u></em><i>${z.secs?secTxt(z.secs):"–"}</i><small>${z.secs?(z.secs/T*100).toFixed(1)+"%":""}</small></div>`).join("")}</div>`:""}
+    <h3 class="sh-sub">Power</h3>
+    <div class="mgrid sh">${cell("Normalized",D.np,"W")}${cell("Average",D.avg_w,"W")}${cell("Variability",D.vi!=null?D.vi.toFixed(2):null,"VI")}
+      ${cell("Polarization",D.pi!=null?D.pi.toFixed(2):null,"PI")}${cell("Work",D.kj!=null?fmtK(D.kj):null,"kJ")}${cell("Work > FTP",D.kj_ftp,"kJ")}</div>
+    ${D.ss!=null?`<h3 class="sh-sub">Strain score</h3><div class="ssc"><b>${D.ss}</b><div><span><i style="background:var(--b5)"></i>Below CP <em>${D.ss_cp??"–"}</em></span><span><i style="background:var(--s2)"></i>W′ <em>${D.ss_wp??"–"}</em></span><span><i style="background:var(--hr)"></i>Max power <em>${D.ss_pmax??"–"}</em></span></div></div>`:""}
+    ${D.desc?`<h3 class="sh-sub">The workout</h3><div class="wdesc">${descHTML(D.desc)}</div>`:""}
+    <a class="pl-q" href="${INTERVALS}/?event=${encodeURIComponent(p.id)}" target="_blank" rel="noopener">Open in Intervals ${arrow}</a>`);
+}
+function openDone(id){
+  const d=(DATA.days||[]).find(x=>(x.workouts||[]).some(w=>String(w.id)===id)),w=d&&d.workouts.find(w=>String(w.id)===id);if(!w) return;
+  const cells=[["Avg power",w.avg_w,"W"],["Normalized",w.np,"W"],["Intensity",w.if!=null?Math.round(w.if*100):null,"%"],["Load",w.load,"TSS"],["Work",w.kj!=null?fmtK(w.kj):null,"kJ"],
+    ["Avg HR",w.avg_hr,"bpm"],["Max HR",w.max_hr,"bpm"],["Cadence",w.cadence!=null?Math.round(w.cadence):null,"rpm"],["Distance",w.km,"km"],["Climbing",w.elev,"m"],["Calories",w.kcal!=null?fmtK(w.kcal):null,"kcal"],["Elapsed",w.elapsed?dur(w.elapsed):null,""]].filter(c=>c[1]!=null);
+  openSheet(`<div class="sh-top"><h2>${esc(w.name||w.type)}</h2>${X}</div>
+    <p class="sh-desc">${fmtDay(d.date,{weekday:"long",day:"numeric",month:"long"})}${w.start?` · ${w.start}`:""} · ${dur(w.minutes)}</p>
+    <div class="srcbar"><span class="src">Intervals.icu</span><span>Completed session, recorded by Garmin and analysed by Intervals</span></div>
+    ${w.profile?`<div class="pw-sheet">${profileSVG(w.profile)}</div>`:""}
+    <div class="mgrid sh">${cells.map(c=>`<div><span>${c[0]}</span><b>${c[1]}<small>${c[2]}</small></b></div>`).join("")}</div>
+    <div class="w-foot"><span class="feel">${w.feel?`${faceSVG(w.feel)}<span>Feel: <b>${FEEL[w.feel]||w.feel}</b></span>`:"Feel not logged in Intervals"}</span>${w.rpe?`<span>RPE: <b>${w.rpe}/10</b></span>`:""}</div>
+    <a class="pl-q" href="${INTERVALS}/activities/${encodeURIComponent(w.id)}" target="_blank" rel="noopener">Open in Intervals ${arrow}</a>`);
+}
+function bindSessions(){
+  document.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>{buzz(5);openPlanned(b.dataset.pd);});
+  document.querySelectorAll("[data-wd]").forEach(b=>b.onclick=()=>{buzz(5);openDone(b.dataset.wd);});
 }
 function sessions(day){
   const isT=day.date===todayISO();
@@ -278,7 +344,7 @@ function renderTraining(){
   ${PG.training==="month"?monthPage()+intensitySection()+volumeSection():""}
   ${PG.training==="fitness"?powerSection()+durabilitySection()+markersSection()+fitnessSection():""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}</p>`;
-  $("gear").onclick=openSettings; bindVolume(); bindFitness(); bindMonthPage(); bindIntensity();
+  $("gear").onclick=openSettings; bindSessions(); bindVolume(); bindFitness(); bindMonthPage(); bindIntensity();
   document.querySelectorAll(".mk[data-mk]").forEach(b=>b.onclick=()=>openMarker(b.dataset.mk));
 }
 

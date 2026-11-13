@@ -99,6 +99,18 @@ def build_data(today=TODAY):
     events = [{"id": 900 + k, "category": "WORKOUT", "type": "Ride", "name": "4x8 threshold", "description": hard,
                "start_date_local": f"{(today - dt.timedelta(days=k)).isoformat()}T17:00:00", "icu_training_load": 85}
               for k in range(0, 4)]
+    # what Intervals computes for a planned workout (shape of the real API)
+    zt = [("Z1", 55, 1, 154, 900), ("Z2", 75, 155, 210, 120), ("Z3", 90, 211, 252, 0), ("Z4", 105, 253, 294, 1920),
+          ("Z5", 120, 295, 336, 0), ("Z6", 150, 337, 420, 0), ("Z7", 999, 421, 9999, 0), ("SS", 0, 0, 0, 0)]
+    events[0].update({"joules": 1025000, "joules_above_ftp": 98000, "icu_intensity": 88.4, "strain_score": 120.5, "moving_time": 3600,
+        "workout_doc": {"duration": 3600, "average_watts": 228, "normalized_power": 248, "variability_index": 1.09, "polarization_index": 1.4,
+            "strain_score": {"strain_score": 120.5, "ss_cp": 101.2, "ss_w_prime": 14.1, "ss_p_max": 5.2},
+            "zoneTimes": [{"id": i, "max": m, "minWatts": lo, "maxWatts": hi, "secs": sec, "zone": n + 1, "color": "#888888",
+                           "percentRange": f"{m}%"} for n, (i, m, lo, hi, sec) in enumerate(zt)],
+            "steps": [{"duration": 900, "ramp": True, "warmup": True, "power": {"start": 50, "end": 60, "units": "%ftp"}},
+                      {"reps": 4, "steps": [{"duration": 480, "power": {"value": 100, "units": "%ftp"}},
+                                            {"duration": 240, "power": {"value": 50, "units": "%ftp"}}]},
+                      {"duration": 1020, "power": {"value": 60, "units": "%ftp"}}]}})
     events.append({"id": 990, "category": "WORKOUT", "type": "Ride", "name": "Long endurance", "description": "- 3h30m 65%",
                    "start_date_local": f"{(today + dt.timedelta(days=1)).isoformat()}T09:00:00", "icu_training_load": 150})
     data = readiness.build(wellness, activities, events, answers, today, {}, {}, gdays)
