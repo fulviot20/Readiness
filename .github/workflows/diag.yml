@@ -26,6 +26,7 @@ jobs:
           python readiness.py
           python diag/fuel_probe.py || true
           python diag/power_probe.py || true
+          python diag/event_probe.py || true
       - name: Render app
         env:
           READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
