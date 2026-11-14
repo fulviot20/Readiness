@@ -303,3 +303,38 @@ def test_widget_file_has_todays_numbers():
     today = data["days"][-1]
     assert w["date"] == data["today"] and w["score"] == today["score"] and w["band"] == today["band"]
     assert w["sleep"] == today["sleep_score"]["score"] and set(w) == {"date", "score", "band", "sleep", "strain", "alarm", "generated_at"}
+
+
+def _short_night(gdays, iso, hours=4.5, resp=17.5):
+    s = gdays[iso]["sleep"]
+    s["hours"], s["resp"] = hours, resp
+
+
+def test_short_night_alone_does_not_raise_illness_alarm():
+    # 13/11/2026: 5h31 of sleep, breathing +1.3, HRV a bit low, sleeping HR +2 -> sleep debt, not a cold
+    wellness, activities, gdays = make_inputs()
+    t = TODAY.isoformat()
+    _short_night(gdays, t)
+    gdays[t]["hrv_night"] = {"ms": 53.0, "n": 80}
+    gdays[t]["hr"]["low30"] = gdays[t]["hr"]["rest_used"] = 50
+    data = readiness.build(wellness, activities, [], {}, TODAY, {}, {}, gdays)
+    today = data["days"][-1]
+    assert not today["alarm"] and today["why"].startswith("Short night")
+
+
+def test_breathing_high_two_nights_still_alarms():
+    wellness, activities, gdays = make_inputs()
+    for k in (0, 1):
+        iso = (TODAY - dt.timedelta(days=k)).isoformat()
+        gdays[iso]["sleep"]["resp"] = 17.5
+    data = readiness.build(wellness, activities, [], {}, TODAY, {}, {}, gdays)
+    today = data["days"][-1]
+    assert today["alarm"] and today["score"] <= 49
+
+
+def test_breathing_high_one_night_alone_no_alarm():
+    wellness, activities, gdays = make_inputs()
+    t = TODAY.isoformat()
+    gdays[t]["sleep"]["resp"] = 17.5
+    data = readiness.build(wellness, activities, [], {}, TODAY, {}, {}, gdays)
+    assert not data["days"][-1]["alarm"]

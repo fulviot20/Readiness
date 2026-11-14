@@ -640,6 +640,19 @@ def band(score):
             return name, advice
 
 
+def alarm_flags(comp):
+    """(breathing well above normal, low HRV + high sleeping HR together) for one night's components."""
+    hz = comp.get("hrv", {}).get("z_night")
+    rz = comp.get("rhr", {}).get("z")
+    resp_hi = (comp.get("resp", {}).get("z_raw") or 0) > 2
+    return resp_hi, (hz is not None and rz is not None and hz < -1 and rz < -1)
+
+
+def short_night(comp):
+    s = comp.get("sleep") or {}
+    return s.get("value") is not None and s.get("lo") is not None and s["value"] < s["lo"]
+
+
 def modifier(ans):
     """Optional check-in: at most ±15 points; illness caps the score at 49."""
     if not ans:
@@ -898,10 +911,26 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
         else:
             days.append(item)
             continue
-        hz = comp.get("hrv", {}).get("z_night")
-        rz = comp.get("rhr", {}).get("z")
-        resp_hi = comp.get("resp", {}).get("z_raw", 0) > 2
-        alarm = (hz is not None and rz is not None and hz < -1 and rz < -1) or resp_hi
+        flags = alarm_flags(comp)
+        resp_hi, pair = flags
+        short = short_night(comp)
+        if resp_hi or pair:
+            # One night out of range is not enough when it comes on its own or after a short night:
+            # breathing alone needs a second night or a clear HRV/heart-rate signal beside it, and after a
+            # short night (below your minimum) any alarm needs the night before to agree, since sleep loss
+            # by itself lowers HRV and raises heart rate and breathing.
+            pi = dates.index(d) - 1
+            pd = dates[pi] if pi >= 0 else None
+            pe = eng.get(pd) if pd else None
+            pcomp = pe["comp"] if pe and pe["raw"] is not None else (rowmap[pd][1].get("comp") if pd in rowmap else None)
+            prev_resp, prev_pair = alarm_flags(pcomp or {})
+            hz, rz = comp.get("hrv", {}).get("z_night"), comp.get("rhr", {}).get("z")
+            strong = pair and hz < -2 and rz < -2          # far beyond what one short night does
+            if short:
+                resp_hi, pair = resp_hi and prev_resp, pair and (strong or prev_pair or prev_resp)
+            else:
+                resp_hi = resp_hi and (prev_resp or (hz is not None and hz < -1) or (rz is not None and rz < -1))
+        alarm = resp_hi or pair
         if alarm:
             base = min(base, 49)
         mod, sick = modifier(answers.get(d))
@@ -910,7 +939,9 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
             final = min(final, 49)
         name, advice = band(final)
         warn = ("Breathing rate during sleep is well above your normal: often the first sign of a cold. " if resp_hi
-                else "Low HRV and high sleeping heart rate together: a classic early warning. " if alarm else "")
+                else "Low HRV and high sleeping heart rate together: a classic early warning. " if alarm
+                else "Short night: HRV, heart rate and breathing reflect the missing sleep. " if short and any(flags)
+                else "")
         item.update({
             "score": round(final), "base": round(base), "mod": round(mod), "alarm": alarm,
             "band": name, "advice": advice, "model": model, "legacy": legacy(d),
