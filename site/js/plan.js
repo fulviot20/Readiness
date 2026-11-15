@@ -101,7 +101,7 @@ function lunchSet(date,home){const A={...lunchAll()},lim=isoAdd(todayISO(),-14);
 function optMac(o,g){const t={g:0,kcal:0,p:0,c:0,f:0},lines=[];
   for(const [k,r,fix] of o.parts){const q=fix!=null?fix:g*r,F=FD[k];if(!q) continue;t.kcal+=F[1]*q/100;t.p+=F[2]*q/100;t.c+=F[3]*q/100;t.f+=F[4]*q/100;lines.push([k,q]);}
   return {...t,lines};}
-const snapG=(o,g)=>o.fixed?0:clip(Math.round(g/o.step)*o.step,o.lo,o.hi);
+const snapG=(o,g,hm=1)=>o.fixed?0:clip(Math.round(g/o.step)*o.step,o.lo,o.hi*hm);
 function portionTxt(k,q){
   const F=FD[k],u=F[5];
   if(k==="milk") return `${Math.round(q/10)*10} ml`;
@@ -130,7 +130,18 @@ const IT={oats:"avena fiocchi porridge",milk:"latte",chia:"semi chia",raisins:"u
   cveg:"contorno mensa verdure",cmeat:"carne secondo mensa",cfish:"pesce mensa",cegg:"frittata uova mensa",ccheese:"formaggio mensa",cleg:"legumi mensa",cprimo:"primo condito pasta sugo ragu risotto mensa",pudding:"budino vaniglia crema danette danone",
   stracchino:"stracchino crescenza",tempeh:"tempeh"};
 // The whole day: target, bike, then every meal solved part by part; dinner gets the remainder
+// On a big day the usual largest portions can fall short of the target (a long ride burns 3000 kcal or more):
+// then the carb portions (pasta, rice, bread, oats...) may grow step by step (up to 1.6x, so a portion stays something you'd eat) until the day adds up.
 function dayPlan(date,off=0){
+  let D=dayPlanAt(date,off,1);if(!D) return D;
+  const score=X=>Math.abs(X.kcal-X.sum.kcal)+2*Math.max(0,X.C-X.sum.c);
+  let best=D;
+  for(let hm=1.2;hm<=1.61&&(D.kcal-D.sum.kcal>120||D.C-D.sum.c>30);hm+=.2){
+    D=dayPlanAt(date,off,hm);if(D.sum.kcal-D.kcal>120) break;      // grown past the target: keep the step before
+    if(score(D)<score(best)) best=D;}
+  return best;
+}
+function dayPlanAt(date,off,hm){
   const tg=targetOf(date);if(!tg) return null;
   const w=weightNow()||63,kcal=tg.kcal+off,sel=PSEL();
   const P=Math.round(1.75*w),Fa=Math.round(Math.max(.9*w,.2*kcal/9)),C=Math.max(0,Math.round((kcal-P*4-Fa*9)/4));
@@ -150,8 +161,8 @@ function dayPlan(date,off=0){
     for(let it=0;it<4;it++) for(const x of parts){if(!x.solve||x.o.fixed||x.eaten) continue;
       const others=parts.filter(y=>y!==x).reduce((a,y)=>{const m=optMac(y.o,y.g);return {p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{p:0,c:0,f:0});
       const per=optMac(x.o,100),need=want[x.solve]-others[x.solve],k=per[x.solve]/100;
-      x.g=k>0?clip(need/k,x.o.lo,x.o.hi):x.o.lo;}
-    for(const x of parts) x.g=x.eaten&&!x.o.fixed?x.eg:snapG(x.o,x.g);
+      x.g=k>0?clip(need/k,x.o.lo,x.o.hi*(x.solve==="c"?hm:1)):x.o.lo;}
+    for(const x of parts) x.g=x.eaten&&!x.o.fixed?x.eg:snapG(x.o,x.g,x.solve==="c"?hm:1);
     const extra=ate&&!ate.skip?ate.extra||[]:[];
     let tot=parts.reduce((a,x)=>{const m=x.skip||x.off?optMac({parts:[]},0):optMac(x.o,x.g);x.m=m;return {kcal:a.kcal+m.kcal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f};},{kcal:0,p:0,c:0,f:0});
     for(const e of extra) tot={kcal:tot.kcal+e.kcal,p:tot.p+e.p,c:tot.c+e.c,f:tot.f+e.f};
