@@ -11,7 +11,8 @@ import json
 import urllib.request
 
 BASE = "https://ntfy.sh"
-SYNC_KEYS = ("rd_plan", "rd_plan_sel", "rd_fuel", "rd_remind", "rd_insight", "rd_trim", "rd_adh", "rd_pck", "rd_plan_fix", "rd_ate", "rd_lunch")    # same list as site/js/sync.js
+SYNC_KEYS = ("rd_fuel", "rd_remind", "rd_insight", "rd_gear", "rd_fuelg")    # same list as site/js/sync.js (checked by a test)
+FOOD_KEYS = ("food", "lib", "fnotes", "goal")      # the food section was removed in November 2026: dropped from the cache
 
 
 def keep_value(mail, obj):
@@ -79,24 +80,6 @@ def collect(cache, pw, decrypt):
         elif kind == "profile":                      # athlete profile: birth date, sex, height
             if (obj.get("ts") or 0) >= (mail.get("profile") or {}).get("ts", 0):
                 mail["profile"] = obj
-        elif kind == "goal":                         # weight goal: target kg and pace (kg per week)
-            if (obj.get("ts") or 0) >= (mail.get("goal") or {}).get("ts", 0):
-                mail["goal"] = obj
-        elif kind == "food" and obj.get("date") and obj.get("id"):
-            # one message per food entry (add, edit or delete) keeps each message small;
-            # deletions stay as tombstones so a late copy of the add can't bring the entry back
-            day = mail.setdefault("food", {}).setdefault(obj["date"], {})
-            old = day.get(obj["id"])
-            if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
-                day[obj["id"]] = obj
-        elif kind == "fnote" and obj.get("id"):        # what the app knows about how you eat (one note per message)
-            old = mail.setdefault("fnotes", {}).get(obj["id"])
-            if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
-                mail["fnotes"][obj["id"]] = obj
-        elif kind == "lib" and obj.get("id"):          # saved meals and recipes; deletions stay as tombstones
-            old = mail.setdefault("lib", {}).get(obj["id"])
-            if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
-                mail["lib"][obj["id"]] = obj
         elif kind == "journal" and obj.get("date"):      # habits tapped for a day; the newest copy wins
             old = mail.setdefault("journal", {}).get(obj["date"])
             if not old or (obj.get("ts") or 0) >= (old.get("ts") or 0):
@@ -104,7 +87,7 @@ def collect(cache, pw, decrypt):
         elif kind == "jtags":                           # which habits are tracked, plus your own
             if (obj.get("ts") or 0) >= (mail.get("jtags") or {}).get("ts", 0):
                 mail["jtags"] = obj
-        elif kind == "kv":                              # a synced value (meal plan, settings), possibly in pieces
+        elif kind == "kv":                              # a synced value (settings, gear), possibly in pieces
             keep_value(mail, obj)
         elif kind == "metric" and obj.get("key") in ("weight", "lthr") and obj.get("date"):
             series = mail.setdefault("metrics", {}).setdefault(obj["key"], {})
@@ -114,5 +97,9 @@ def collect(cache, pw, decrypt):
                 series[obj["date"]] = obj["value"]
         seen.append(m["id"])
         new += 1
+    for k in FOOD_KEYS:
+        mail.pop(k, None)
+    for k in [k for k in mail.get("kv", {}) if k not in SYNC_KEYS]:
+        mail["kv"].pop(k)
     cache["mail_seen"] = seen[-600:]
     return new

@@ -92,7 +92,7 @@ const QS=new URLSearchParams(location.search);let GO_PENDING=QS.get("go");
 let NAV0=null;if(RELOAD){try{NAV0=JSON.parse(sessionStorage.getItem("rd_nav")||"null");}catch(e){}}
 // which page of each tab is open (the pill menu under the title)
 let PG={today:"overview",training:"week",athlete:"profile"};
-function saveNav(){try{sessionStorage.setItem("rd_nav",JSON.stringify({t:TAB,s:ATH_SUB,p:PG,f:foodSel,d:DATA?.days?.[sel]?.date,y:scrollY}));}catch(e){}}
+function saveNav(){try{sessionStorage.setItem("rd_nav",JSON.stringify({t:TAB,p:PG,d:DATA?.days?.[sel]?.date,y:scrollY}));}catch(e){}}
 addEventListener("pagehide",saveNav);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden") saveNav();});
 const todayISO=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Rome"});
 const fmtDay=(iso,o)=>new Date(iso+"T12:00").toLocaleDateString("en-GB",o);
@@ -104,7 +104,7 @@ async function cachedEnv(){try{const c=await caches.open("rd-data"),r=await c.ma
 async function saveEnv(txt){try{const c=await caches.open("rd-data");await c.put("data.enc",new Response(txt,{headers:{"content-type":"application/json"}}));}catch(e){}}
 function useData(d,quiet,keepY){
   const keepDate=quiet&&DATA?DATA.days[sel]?.date:null,keepDraft=quiet?{...draft}:null;
-  DATA=d; CAL=null; PB=null; ATH_CACHE=null; foodReset(); syncPull(); try{trimCheck();}catch(e){}
+  DATA=d; ATH_CACHE=null; dayReset(); syncPull();
   for(const d of DATA.days){const n=LS.get("note:"+d.date); if(n&&!d.note) d.note=JSON.parse(n);}
   for(const d of DATA.days){const l=LS.get("ans:"+d.date); if(l&&!d.answers) Object.assign(d,applyAnswers(d,JSON.parse(l)));}
   // always open on today, even before today's data has arrived
@@ -124,7 +124,7 @@ function applyGo(){
   const g=GO_PENDING; if(!g) return; GO_PENDING=null;
   const t=DATA.days.findIndex(d=>d.date===todayISO()); if(t>=0&&sel!==t){sel=t;draft={...(DATA.days[t].answers||{})};}
   if(g==="journal"){TAB="today";PG.today="day";SCROLL_TO="journal";jDay=todayISO();render();afterRender();}
-  else if(g==="weight"){TAB="athlete";ATH_SUB="profile";PG.athlete="profile";render();scrollTo(0,0);setTimeout(()=>openAth("weight"),350);}
+  else if(g==="weight"){TAB="athlete";PG.athlete="profile";render();scrollTo(0,0);setTimeout(()=>openAth("weight"),350);}
   else if(g==="checkin"){TAB="today";PG.today="overview";MORE_OPEN=true;render();requestAnimationFrame(()=>document.querySelector(".checkin")?.scrollIntoView({block:"center"}));}
 }
 let swDone=false;
@@ -207,7 +207,7 @@ let hiddenAt=0;
 document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="hidden"){hiddenAt=Date.now();return;}
   if(DATA&&hiddenAt&&Date.now()-hiddenAt>10*60000&&!$("sheet").classList.contains("open")){
-    TAB="today";ATH_SUB="profile";PG={today:"overview",training:"week",athlete:"profile"};foodSel=todayISO();const i=DATA.days.findIndex(d=>d.date===todayISO());if(i>=0){sel=i;draft={...(DATA.days[i].answers||{})};}render();scrollTo(0,0);}
+    TAB="today";PG={today:"overview",training:"week",athlete:"profile"};const i=DATA.days.findIndex(d=>d.date===todayISO());if(i>=0){sel=i;draft={...(DATA.days[i].answers||{})};}render();scrollTo(0,0);}
 });
 document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible"&&DATA&&!$("sheet").classList.contains("open")){ autoTries=0; if(Date.now()-loadedAt>60000) load(true); else autoRefresh(); }

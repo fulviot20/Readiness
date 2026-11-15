@@ -145,6 +145,13 @@ def test_calendar_and_indoor_km():
     assert readiness.distance_indoor(acts) == {"2026-11-15": 35.0}
 
 
+def test_sync_keys_match_the_app():
+    import os, re, mailbox
+    js = open(os.path.join(os.path.dirname(__file__), "..", "site", "js", "sync.js")).read()
+    keys = re.search(r"SYNC_KEYS=\[([^\]]*)\]", js).group(1)
+    assert tuple(k.strip().strip('"') for k in keys.split(",")) == mailbox.SYNC_KEYS
+
+
 # ---------------------------------------------------------------- crypto and output
 def test_encrypt_roundtrip(data):
     enc = readiness.encrypt({"a": 1, "b": [1, 2]}, PASS)
@@ -205,15 +212,15 @@ def test_synced_value_in_pieces():
     parts = [body[i:i + 500] for i in range(0, len(body), 500)]
     assert len(parts) > 2
     mail = {}
-    msgs = [{"key": "rd_plan", "ts": 2000, "i": i, "n": len(parts), "z": 1, "s": s} for i, s in enumerate(parts)]
+    msgs = [{"key": "rd_gear", "ts": 2000, "i": i, "n": len(parts), "z": 1, "s": s} for i, s in enumerate(parts)]
     for m in reversed(msgs[1:]):                       # pieces can arrive in any order
         assert not mailbox.keep_value(mail, m)
-    assert "rd_plan" not in mail.get("kv", {})
-    assert mailbox.keep_value(mail, msgs[0]) and mail["kv"]["rd_plan"] == {"ts": 2000, "v": plan}
+    assert "rd_gear" not in mail.get("kv", {})
+    assert mailbox.keep_value(mail, msgs[0]) and mail["kv"]["rd_gear"] == {"ts": 2000, "v": plan}
     # an older change never replaces a newer one; a newer small one does; unknown keys are ignored
-    assert not mailbox.keep_value(mail, {"key": "rd_plan", "ts": 1000, "i": 0, "n": 1, "z": 0, "s": "{}"})
+    assert not mailbox.keep_value(mail, {"key": "rd_gear", "ts": 1000, "i": 0, "n": 1, "z": 0, "s": "{}"})
     assert mailbox.keep_value(mail, {"key": "rd_fuel", "ts": 3000, "i": 0, "n": 1, "z": 0, "s": '{"rate":80}'})
-    assert mail["kv"]["rd_fuel"]["v"] == {"rate": 80} and mail["kv"]["rd_plan"]["ts"] == 2000
+    assert mail["kv"]["rd_fuel"]["v"] == {"rate": 80} and mail["kv"]["rd_gear"]["ts"] == 2000
     assert not mailbox.keep_value(mail, {"key": "rd_pass", "ts": 9000, "i": 0, "n": 1, "z": 0, "s": '"x"'})
 
 

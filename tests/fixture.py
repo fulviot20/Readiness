@@ -116,7 +116,6 @@ def build_data(today=TODAY):
     data = readiness.build(wellness, activities, events, answers, today, {}, {}, gdays)
     data["athlete"] = readiness.athlete(wellness, {}, data["fitness"], None)
     data["energy"] = energy.build(gdays, data["days"], today, 174, "m")
-    data["nutrition"] = readiness.nutrition({}, today)
     data["journal"] = {"days": {}, "tags": None}
     data["garmin_key"] = {"expires": "2027-11-03", "error": False}
     data["dayflow"] = dayflow.build(gdays, data["days"], today, 186)

@@ -1,42 +1,18 @@
 "use strict";
-/* ------------------------------------------------------------ assistant: ask or tell, by text or voice */
-// It reads a summary of your day, answers questions, and turns requests into actions
-// (log food, save a meal or recipe, set the goal, log weight, delete entries) that you confirm before they run.
-// Foods already in the day's diary that a new list says again: same or similar name, the same food under its
-// database name (e.g. "Ciambella al forno" and "Ring cake"), or the same meal with nearly the same grams and kcal.
-// The list then replaces every old copy instead of adding one more.
-const DUP_STOP=new Set(["di","del","della","con","al","alla","allo","e","the","of","with","and","in"]);
-const dupToks=s=>norm(s).split(/[^a-z0-9]+/).filter(w=>w.length>2&&!DUP_STOP.has(w)).map(w=>w.length>4?w.slice(0,-1):w);
-function dupSame(n,o){
-  const a=dupToks(n.name),b=dupToks(o.name);
-  if(a.length&&b.length){const hit=a.filter(w=>b.some(t=>t.startsWith(w)||w.startsWith(t))).length;
-    if(a[0]===b[0]&&hit/Math.min(a.length,b.length)>=.5) return true;
-    if(hit===Math.min(a.length,b.length)&&hit>=1&&n.meal===o.meal) return true;}
-  const m=bestMatch(n.name); if(m&&m.src==="ref"&&(m.name===o.name||bestMatch(o.name)===m)) return true;
-  const near=(x,y,k)=>x>0&&y>0&&Math.abs(x-y)<=k*Math.max(x,y);
-  return n.meal===o.meal&&near(n.g,o.g,.1)&&near(n.kcal,o.kcal,.3);
-}
-function dupIds(items,date){
-  const old=foodDay(date).filter(x=>!x.fuel&&x.kcal!=null),used=new Set();
-  for(const n of items) for(const o of old) if(dupSame(n,o)) used.add(o.id);   // every old copy goes: the list is the truth for that food
-  return [...used];
-}
-const mealNow=()=>{const h=new Date().getHours();return h<11?"b":h<15?"l":h<18?"s":"d";};
+/* ------------------------------------------------------------ assistant: ask by text or voice */
+// It reads a summary of your day and training and answers like a coach. The only thing it can change is your weight
+// (log it), always after you confirm. Food logging was removed with the food section (November 2026).
 let AS={msgs:[],pending:null,busy:false,draft:(()=>{try{return sessionStorage.getItem("rd_as_draft")||"";}catch(e){return "";}})()};
 const SPARK=`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.5l2.1 6.4 6.4 2.1-6.4 2.1L12 19.5l-2.1-6.4L3.5 11l6.4-2.1z"/><path d="M19 15.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg>`;
 const ASK=`<button class="ask-p" id="ask" aria-label="Ask AI">${SPARK}<span>Ask AI</span></button><button class="gear" id="find" aria-label="Find in the app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>`;
 document.addEventListener("click",e=>{if(e.target.closest("#ask")) openAssistant();});
 // What the message is about decides what goes in the context: a short, relevant context makes answers faster,
 // spares the free quota and keeps a Flash model from getting lost in data that has nothing to do with the question.
-const RX_FOOD=/mangi|cib|colazion|pranz|cen[ae]\b|spuntin|merend|kcal|calori|protein|carbo|grass|pasto|pasti|ricett|salva|registr|aggiung|togli|elimin|cancell|\d+\s*(g|gr|grammi|ml)\b|piano aliment|dieta|fame|peso|kg\b|obiettiv/i;
 const RX_HAB=/abitudin|journal|diario|alcol|vino|birr|caff|schermo|telefono|stress|correla/i;
-function aiTopics(text,section){
-  const t=String(text||"");
-  return {food:section==="food"||RX_FOOD.test(t),habits:RX_HAB.test(t)};
-}
-function aiContext(TP={food:true,habits:true}){
+function aiTopics(text){return {habits:RX_HAB.test(String(text||""))};}
+function aiContext(TP={habits:true}){
   const t=todayISO(),raw=(DATA.days||[]).find(x=>x.date===t)||{},d=raw.score!=null?applyAnswers(raw,raw.answers):raw,c=d.comp||{},E=DATA.energy?.today;
-  const fo=foodOn(),items=fo?foodDay(t):[],T=ftot(items),tg=fo?targetOf(t):null,gs=goalState();
+  const fuelToday=(raw.plan||[]).filter(p=>!p.done&&p.fuel&&p.fuel.min>=40).map(p=>{const q=fuelPlanned(p);return {session:p.name,carbs_on_bike_g:q.intake,g_per_hour:q.rate};});
   const sig=k=>c[k]?.value!=null?Math.round(c[k].value*10)/10:null;
   return {now:new Date().toLocaleString("en-GB",{timeZone:"Europe/Rome",weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}),today:t,
     readiness:d.score??null,readiness_band:d.score!=null?bandOf(d.score)[1]:null,advice:d.advice||null,
@@ -45,12 +21,7 @@ function aiContext(TP={food:true,habits:true}){
     sleep_score:raw.sleep_score?.score??null,strain:raw.strain?.score??null,
     planned_today:(raw.plan||[]).map(p=>p.name),done_today:(raw.workouts||[]).filter(w=>w.type).map(w=>`${w.name} ${w.minutes} min`),
     energy:E?{burned_so_far:E.kcal_now,expected_today:E.projected,steps:E.steps,km:E.km,stress:E.stress}:null,
-    ...(TP.food?{food_diary_on:fo,food_today:items.map(x=>({id:x.id,meal:x.meal,name:x.name,grams:x.g,kcal:x.kcal})),
-    eaten:{kcal:Math.round(T.kcal),protein:Math.round(T.p),carbs:Math.round(T.c),fat:Math.round(T.f)},
-    target:tg?{kcal_range:[tg.lo,tg.hi],day:tg.tr?dayKind(tg.tr):null,protein:tg.p,carbs:tg.c,fat:tg.f}:null,
-    weight_kg:weightNow(),goal:gs?{target_kg:gs.g.target,pace_kg_week:gs.g.pace,eta:gs.eta}:null,
-    my_meals:libAll().map(e=>({id:e.id,kind:e.kind,name:e.name,for:e.for||null})),
-    food_notes:fnAll().map(n=>({id:n.id,text:n.text})),has_meal_plan:!!planGet()}:{food_diary_on:fo}),
+    fuel_today:fuelCfg().on?fuelToday:null,
     page:AS.section||"today",
     ...(TP.habits?{journal_last_14_days:Object.entries(jAll()).filter(([d])=>d>=isoAdd(t,-14)).map(([d,o])=>({date:d,habits:(o.tags||[]).map(id=>jTags().find(x=>x.id===id)?.label||id)})),
     habit_impact:habitImpact().filter(x=>!x.need).map(x=>({habit:x.tag.label,days:x.n,next_morning_recovery_diff:x.rec!=null?Math.round(x.rec):null,next_morning_sleep_diff:x.sl!=null?Math.round(x.sl):null}))}:{}),
@@ -61,77 +32,34 @@ function aiContext(TP={food:true,habits:true}){
 }
 const AS_RULES=(T,deep)=>`You are the assistant inside Readiness, a personal app for an endurance athlete (cyclist who also runs). The user writes or speaks, usually in Italian.
 Reply with JSON only: {"reply":"...","actions":[...]}.
-"reply": in the user's language, friendly and direct. ${deep?`This is a question: answer it like a good sports scientist and coach who knows this athlete: lead with the answer, then the 2–4 reasons that matter, each tied to his actual numbers from the context (compare with his own recent values, not textbook norms), then one concrete thing to do. 60–160 words, no filler, no generic advice that would fit anyone. If the context doesn't hold what's needed, say what's missing instead of guessing.`:`Short: say what you are about to do, or answer briefly using the context (numbers from it, not invented).`} No medical diagnoses.
-Ground rules for this athlete: protein about 1.7–1.8 g/kg (not more), fat at the healthy minimum, carbohydrates first and they follow training; on the bike he takes at least 70 g/h of carbohydrate.
+"reply": in the user's language, friendly and direct. ${deep?`This is a question: answer it like a good sports scientist and coach who knows this athlete: lead with the answer, then the 2–4 reasons that matter, each tied to his actual numbers from the context. No filler.`:"Keep it short."}
+On the bike he takes at least 70 g/h of carbohydrate; fuelling and recovery after a session follow the numbers in fuel_today when present.
 The score is a companion, not a judge: the user decides whether to train and adapts by feel (e.g. fewer intervals); never call sessions "missed" or sound alarming.
+The app has no food diary or meal plan: if asked to log food, say that the app only tracks fuelling on the bike and recovery after sessions.
 "actions" (empty when it's only a question). Allowed:
-{"type":"log_food","date":"YYYY-MM-DD","items":[ITEM]}
-{"type":"save_meal","name":"...","for":"b|l|d|s","items":[ITEM]}   a set of foods eaten together, logged later with one tap
-{"type":"save_recipe","name":"...","servings":1,"cooked_weight_g":null,"items":[ITEM]}   a dish cooked in several servings
-{"type":"delete_food","date":"YYYY-MM-DD","ids":["..."]}   only ids listed in food_today
-{"type":"delete_saved","id":"..."}   only ids listed in my_meals
-{"type":"food_notes","add":["..."],"edit":[{"id":"...","text":"..."}],"remove":["id"],"rebuild_plan":true}   the user's food memory (food_notes): use it whenever they tell you how they eat, what they like/avoid, where they eat, or ask to remember/change something about their diet; one short fact per note, edit instead of duplicating; rebuild_plan true when has_meal_plan
-{"type":"set_goal","target_kg":71,"pace_kg_week":0.5}   pace 0.25, 0.5 or 0.75
 {"type":"log_weight","date":"YYYY-MM-DD","kg":72.4}
-ITEM = {"meal":"b|l|d|s","name":"...","db":"...","grams":0,"kcal":0,"protein":0,"carbs":0,"fat":0,"note":""}: grams as eaten (drinks in ml), realistic values (Italian CREA tables, USDA, labels), typical Italian portion when the amount is missing.
-${AI_DB}
-${AI_ESTIMATE}
-When you estimate, the reply lists each food with its kcal and says the user can adjust the grams after saving.
-meal: b breakfast/colazione, l lunch/pranzo, d dinner/cena, s snack/spuntino/merenda; if not said, pick from the time of day.
-When the user wants to save something they always eat (e.g. "la mia colazione"), use save_meal with "for" set to that meal so it gets a one-tap button, even if they call it a recipe; use save_recipe for dishes made in several servings or when they talk about servings or the cooked weight.
-Never log a food twice: when a food the user tells you is already in food_today (same or similar name, or clearly the same thing), put its id in a delete_food in the same answer so the new entry replaces the old one, and say so in the reply. A corrected amount ("erano 80 g, non 50") is a replacement too.
-To log a saved meal, copy its foods into log_food only if you know them; otherwise tell the user to tap its button.
-Dates: "ieri" = the day before today; never in the future. Keep names short, in the user's language.
+Dates: "ieri" = the day before today; never in the future.
 Context (JSON): ${JSON.stringify(aiContext(T))}`;
 function actText(a){
-  const L=it=>`${esc(it.name)}${it.grams?` ${Math.round(it.grams)} g`:""} · ${Math.round(+it.kcal||0)} kcal${it.ground?` <small class="as-src">${esc(it.ground)}</small>`:""}${it.note?`<i class="as-note">${esc(it.note)}</i>`:""}`;
-  const sum=its=>Math.round((its||[]).reduce((s,x)=>s+(+x.kcal||0),0));
   const day=d=>d===todayISO()?"today":fmtDay(d,{weekday:"short",day:"numeric",month:"short"});
-  if(a.type==="log_food") return `<b>Log ${(a.items||[]).length} food${(a.items||[]).length>1?"s":""} · ${day(a.date)} · ${fmtK(sum(a.items))} kcal</b>${(a.items||[]).map(it=>`<span>${MEAL_TAG[it.meal]||""} · ${L(it)}</span>`).join("")}`;
-  if(a.type==="save_meal") return `<b>Save meal “${esc(a.name)}” · ${MEAL_NAME[a.for]||""} · ${fmtK(sum(a.items))} kcal</b>${(a.items||[]).map(it=>`<span>${L(it)}</span>`).join("")}`;
-  if(a.type==="save_recipe") return `<b>Save recipe “${esc(a.name)}” · ${a.servings||1} serving${(a.servings||1)>1?"s":""}</b>${(a.items||[]).map(it=>`<span>${L(it)}</span>`).join("")}`;
-  if(a.type==="delete_food"){const its=foodDay(a.date).filter(x=>(a.ids||[]).includes(x.id));return `<b>${a.replace?"Replace, already in "+day(a.date)+"'s diary":"Delete from "+day(a.date)}</b>${its.map(x=>`<span>${esc(x.name)} · ${fmtK(Math.round(x.kcal))} kcal</span>`).join("")}`;}
-  if(a.type==="delete_saved"){const e=libAll().find(x=>x.id===a.id);return `<b>Delete “${esc(e?.name||"?")}”</b>`;}
-  if(a.type==="food_notes"){const N=fnAll();return `<b>Update what I know about how you eat${a.rebuild_plan&&planGet()?" and your plan":""}</b>${(a.add||[]).map(t=>`<span>+ ${esc(t)}</span>`).join("")}${(a.edit||[]).map(e=>`<span>✎ ${esc(e.text)}</span>`).join("")}${(a.remove||[]).map(id=>`<span>− ${esc(N.find(n=>n.id===id)?.text||"")}</span>`).join("")}`;}
-  if(a.type==="set_goal") return `<b>Goal ${(+a.target_kg).toFixed(1)} kg · ${a.pace_kg_week} kg a week</b>`;
   if(a.type==="log_weight") return `<b>Weight ${(+a.kg).toFixed(1)} kg · ${day(a.date)}</b>`;
   return "";
 }
 function validAct(a){
   const t=todayISO(),okD=d=>/^\d{4}-\d{2}-\d{2}$/.test(d||"")&&d<=t&&d>=isoAdd(t,-120);
-  if(!a||!a.type) return false;
-  if(a.type==="log_food") {a.date=okD(a.date)?a.date:t; return (a.items||[]).length>0&&foodOn();}
-  if(a.type==="save_meal") {a.for=MEAL_NAME[a.for]?a.for:"b"; return !!a.name&&(a.items||[]).length>0;}
-  if(a.type==="save_recipe") return !!a.name&&(a.items||[]).length>0;
-  if(a.type==="delete_food") return okD(a.date)&&(a.ids||[]).length>0;
-  if(a.type==="delete_saved") return !!libAll().find(x=>x.id===a.id);
-  if(a.type==="food_notes") return !!((a.add||[]).length||(a.edit||[]).length||(a.remove||[]).length);
-  if(a.type==="set_goal") {a.pace_kg_week=[.25,.5,.75].reduce((b,p)=>Math.abs(p-a.pace_kg_week)<Math.abs(b-a.pace_kg_week)?p:b,.5); return +a.target_kg>=35&&+a.target_kg<=200;}
-  if(a.type==="log_weight") {a.date=okD(a.date)?a.date:t; return +a.kg>=30&&+a.kg<=200;}
+  if(a&&a.type==="log_weight") {a.date=okD(a.date)?a.date:t; return +a.kg>=30&&+a.kg<=200;}
   return false;
 }
 async function runActs(acts){
-  const now=Date.now();let n=0;
-  for(const a of acts){
-    if(a.type==="log_food") a.items.forEach(x=>{const it=aiFood(x,"s");foodSave({...it,id:uid(),date:a.date,at:now+n,ts:now+n});n++;});
-    else if(a.type==="save_meal") libSave({id:uid(),kind:"meal",for:a.for,name:String(a.name).slice(0,40),items:a.items.map(x=>aiFood(x,a.for))});
-    else if(a.type==="save_recipe") libSave({id:uid(),kind:"recipe",name:String(a.name).slice(0,40),servings:Math.max(1,Math.round(+a.servings||1)),weight:+a.cooked_weight_g||null,items:a.items.map(x=>aiFood(x,"s"))});
-    else if(a.type==="delete_food") foodDay(a.date).filter(x=>a.ids.includes(x.id)).forEach(x=>foodSave({id:x.id,date:x.date,del:true,ts:Date.now()}));
-    else if(a.type==="delete_saved") libSave({id:a.id,del:true,name:"deleted"});
-    else if(a.type==="food_notes"){fnApply(a);if(a.rebuild_plan&&planGet()) setTimeout(()=>genPlan({quiet:true}),300);}
-    else if(a.type==="set_goal"){const g=goalGet(),w=weightNow(),t=r1(+a.target_kg);
-      const obj={target:t,pace:a.pace_kg_week,start:g&&g.target===t?g.start:w,since:g&&g.target===t?g.since:todayISO(),ts:Date.now()};LS.set("rd_goal",JSON.stringify(obj));sendQ("goal",obj);CAL=null;}
-    else if(a.type==="log_weight") await logMetric("weight",a.date,r1(+a.kg));
-  }
+  for(const a of acts) if(a.type==="log_weight") await logMetric("weight",a.date,r1(+a.kg));
   ATH_CACHE=null;
 }
 function asLog(){
   const EX={today:["Perché il mio score oggi è così?","Ho dormito poco: come adatto l'allenamento di oggi?","Quante ore dovrei dormire stanotte?","Cosa sta pesando di più sul recupero questa settimana?"],
     training:["Com'è andata la mia settimana di allenamento?","Il carico di questa settimana è troppo alto?","Domani ho la seduta dura: come mi preparo?","Riassumi gli allenamenti degli ultimi 7 giorni"],
-    food:["Salva la mia colazione classica: 50 g di avena, 200 ml di latte, una banana","Ho mangiato due uova e una fetta di pane a colazione","Quante calorie mi restano oggi?","Cosa mangio stasera per arrivare alle proteine?"],
-    athlete:["Come sta andando il peso rispetto all'obiettivo?","Imposta l'obiettivo a 71 kg, 0,5 kg a settimana","Peso di stamattina 72,4 kg","Come sono messo con FTP e VO2max?"]};
+    athlete:["Come sta andando il peso?","Peso di stamattina 72,4 kg","Come sono messo con FTP e VO2max?","Quanti carboidrati porto domani in bici?"]};
   const ex=EX[AS.section]||EX.today;
-  if(!AS.msgs.length) return `<p class="sh-desc">Ask about your score, sleep, training or food, or tell me what to do: log what you ate, save your usual breakfast, build a recipe, set a goal, log your weight. I always ask before saving.</p>
+  if(!AS.msgs.length) return `<p class="sh-desc">Ask about your score, sleep, training, fuelling and recovery. You can also tell me your weight: I always ask before saving.</p>
     <div class="as-ex">${ex.map(t=>`<button data-ex="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
   return AS.msgs.map((m,i)=>m.role==="user"?`<div class="as-u">${esc(m.text)}</div>`:
     `<div class="as-a">${esc(m.text)}${m.acts&&m.acts.length?`<div class="as-acts">${m.acts.map(a=>`<div class="as-act">${actText(a)}</div>`).join("")}
@@ -139,10 +67,10 @@ function asLog(){
     (AS.busy?`<div class="as-a as-wait"><i class="spin"></i><span id="as-el">Thinking…</span></div>`:"");
 }
 function openAssistant(section){
-  AS.section=section||(TAB==="athlete"&&ATH_SUB==="food"?"food":TAB);
-  if(!aiKey()){ADD=null;return aiNeeded("The AI coach");}
+  AS.section=section||TAB;
+  if(!aiKey()) return aiNeeded("The AI coach");
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  openSheet(`<div class="sh-top"><h2>${AS.section==="food"?"Food coach":"Ask AI"}</h2>${X}</div>
+  openSheet(`<div class="sh-top"><h2>Ask AI</h2>${X}</div>
     <div id="as-log" class="as-log">${asLog()}</div>
     <div class="as-in"><textarea id="as-t" rows="1" placeholder="Ask or tell me…" enterkeyhint="enter">${esc(AS.draft||"")}</textarea>
       ${SR?`<button class="as-b" id="as-mic" aria-label="Speak"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></button>`:""}
@@ -158,31 +86,17 @@ function openAssistant(section){
   const send=async()=>{
     stop();const text=ta.value.trim();if(!text||AS.busy) return;
     ta.value="";grow();AS.draft="";AS.msgs.push({role:"user",text});
-    // a ready-made list (every food with its kcal, like the ones Claude prepares) is read on the phone:
-    // no AI request, so it works at once and without a connection
-    const ready=foodOn()?parseList(text,mealNow()):[];
-    if(ready.length&&ready.every(x=>x.exact)){
-      const acts=[{type:"log_food",date:todayISO(),items:ready.map(x=>({meal:x.meal,name:x.name,grams:x.g,kcal:x.kcal,protein:x.p,carbs:x.c,fat:x.f}))}];
-      const dup=dupIds(ready,todayISO()); if(dup.length) acts.unshift({type:"delete_food",date:todayISO(),ids:dup,replace:true});
-      AS.msgs.push({role:"model",text:`I read ${ready.length} food${ready.length>1?"s":""} from your list${dup.length?`. ${dup.length} ${dup.length>1?"are":"is"} already in today's diary: the list replaces ${dup.length>1?"them":"it"}, nothing is counted twice`:""}:`,acts,state:"pending"});redraw();buzz(6);return;}
     AS.busy=true;redraw();
     const t0=Date.now(),tick=setInterval(()=>{const el=$("as-el");if(!el) return;const s=Math.round((Date.now()-t0)/1000);
       el.textContent=s<8?"Thinking…":s<20?`Working on it… ${s} s`:`Still working… ${s} s (trying a faster model if needed)`;},1000);
     // a request to log or change something wants speed; a question wants a thought-through answer
-    const T=aiTopics(AS.msgs.filter(m=>m.role==="user").slice(-3).map(m=>m.text).join(" "),AS.section);
-    const deep=/\?\s*$|^(perch|come |cosa |quant|qual|dovrei|conviene|ha senso|why|how|what|should)/i.test(text)&&!/^(salva|registra|aggiungi|togli|elimina|cancella|ho mangiato|peso di)/i.test(text);
+    const T=aiTopics(AS.msgs.filter(m=>m.role==="user").slice(-3).map(m=>m.text).join(" "));
+    const deep=/\?\s*$|^(perch|come |cosa |quant|qual|dovrei|conviene|ha senso|why|how|what|should)/i.test(text)&&!/^(peso di|registra)/i.test(text);
     const contents=[{role:"user",parts:[{text:AS_RULES(T,deep)}]},{role:"model",parts:[{text:'{"reply":"Ok.","actions":[]}'}]},
       ...AS.msgs.filter(m=>!m.busy).slice(-10).map(m=>m.role==="user"?{role:"user",parts:[{text:m.text}]}:{role:"model",parts:[{text:m.raw||JSON.stringify({reply:m.text,actions:[]})}]})];
     try{
       const {json,raw}=await aiCall(contents,deep?50000:35000,deep);
       const acts=(json.actions||[]).filter(validAct);
-      // the numbers of each food come from the tables when the food is there, not from the AI's memory
-      for(const a of acts) if(a.items) a.items=a.items.map(groundAI);
-      // safety net: foods being logged that are already in that day and that the AI didn't mark for replacement
-      for(const a of acts.filter(x=>x.type==="log_food")){
-        const gone=new Set(acts.filter(x=>x.type==="delete_food"&&x.date===a.date).flatMap(x=>x.ids));
-        const dup=dupIds(a.items.map(x=>({meal:x.meal,name:x.name,g:+x.grams||0,kcal:+x.kcal||0})),a.date).filter(id=>!gone.has(id));
-        if(dup.length) acts.unshift({type:"delete_food",date:a.date,ids:dup,replace:true});}
       AS.msgs.push({role:"model",text:json.reply||(acts.length?"Here's what I'll do:":"Ok."),acts,raw,state:acts.length?"pending":null});
     }catch(e){AS.msgs.push({role:"model",text:e.message});}
     clearInterval(tick);AS.busy=false;redraw();buzz(6);

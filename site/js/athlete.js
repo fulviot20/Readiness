@@ -182,21 +182,15 @@ function athHero(){
     ${scale}
     <div class="ah-facts">${P.height?`<span>Height <b>${P.height} cm</b></span>`:""}${w?`<span>Weight <b>${w.v.toFixed(1)} kg</b></span>`:""}${bmi?`<span>BMI <b>${bmi.toFixed(1)}</b></span>`:""}<span>${P.sex==="m"?"Male":"Female"}</span></div></div>`;
 }
-// Food lives inside Athlete, as an optional second page (it can be hidden in Settings)
+// Athlete is one page: profile, body, cycling and running markers (the food section was removed in November 2026)
 let ATH_SUB="profile";
-const foodOn=()=>LS.get("rd_food_off")!=="1";
-const athSwitch=()=>pageBar("athlete");
-function bindSwitch(){}
 function renderAthlete(){
-  if(PG.athlete!=="profile"&&!foodOn()) PG.athlete="profile";
-  ATH_SUB=PG.athlete==="profile"?"profile":"food";
-  if(ATH_SUB==="food") return renderFood();
-  ATH_CACHE=null; if(!foodSel) foodSel=todayISO();
+  PG.athlete="profile";ATH_SUB="profile";
+  ATH_CACHE=null;
   const ftp=athLast("ftp"),wk=athLast("wkg"),L=athLast("lthr"),src=DATA.athlete?.lthr_src;
   const lsub=athEntries("lthr")&&Object.keys(athEntries("lthr")).length?"Set by you":src==="intervals"?"From Intervals":src==="estimate"?"Estimated · tap to set":"";
   $("app").innerHTML=`
   <div class="top"><div class="ttl">Athlete</div><span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
-  ${athSwitch()}
   ${athHero()}
   <section class="sec"><div class="sec-h"><h2>Body</h2><span>Tap for history</span></div>
     <div class="amks">${amkCard("weight")}${amkCard("vo2max","Estimated from your sessions")}</div></section>
@@ -204,9 +198,9 @@ function renderAthlete(){
     <div class="amks">${amkCard("ftp",wk?`${wk.v.toFixed(2)} W/kg`:"")}${amkCard("wkg")}</div></section>
   <section class="sec"><div class="sec-h"><h2>Running</h2><span>Tap for history</span></div>
     <div class="amks">${amkCard("lthr",lsub)}${amkCard("thr_pace",L?`at ${Math.round(L.v)} bpm`:"")}${amkCard("easy_pace",DATA.fitness?.easy_hr?`at ${DATA.fitness.easy_hr} bpm`:"")}</div></section>
-  <p class="foot">Age and fitness age update by themselves. Log your weight every 3–4 days, same conditions: the calorie range follows its trend.</p>`;
+  <p class="foot">Age and fitness age update by themselves. Log your weight every 3–4 days, same conditions: it sets your W/kg and the fuel per kilo.</p>`;
   $("gear").onclick=openSettings;
-  $("ath-edit").onclick=openProfile; bindSwitch();
+  $("ath-edit").onclick=openProfile;
   const f=$("ath-fit"); if(f) f.onclick=()=>openAth("fitage");
   document.querySelectorAll(".amk[data-am]").forEach(b=>b.onclick=()=>openAth(b.dataset.am));
   document.querySelectorAll(".amk[disabled]").forEach(b=>{if(b.textContent.includes("Tap to log")){b.disabled=false;b.onclick=()=>openAth("weight");}});
@@ -239,8 +233,7 @@ function athChart(key,days){
   if(!s.length) return "<p class='sh-desc'>No values in this period yet.</p>";
   const W=320,H=170,PL=4,PR=42,PT=12,PB=8;
   const t0=days?+new Date(lim):+new Date(s[0].date),t1=Math.max(+new Date(todayISO()),+new Date(s[s.length-1].date));
-  const gl=key==="weight"?goalGet():null;
-  const vals=s.map(p=>p.v).concat(key==="fitage"?s.map(p=>p.age):[]).concat(gl?[gl.target]:[]);
+  const vals=s.map(p=>p.v).concat(key==="fitage"?s.map(p=>p.age):[]);
   let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.15||Math.max(m.eps*3,Math.abs(hi)*.01);lo-=pad;hi+=pad;
   const x=d=>PL+(+new Date(d)-t0)/Math.max(1,t1-t0)*(W-PL-PR),y=v=>m.inv?PT+(v-lo)/(hi-lo)*(H-PT-PB):PT+(hi-v)/(hi-lo)*(H-PT-PB);
   const pick=athPick==null||athPick>=s.length?s.length-1:athPick,pk=s[pick];
@@ -250,17 +243,15 @@ function athChart(key,days){
   const dots=s.map((p,i)=>`<circle cx="${x(p.date).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${i===pick?r+2:r}" fill="${i===pick?m.col:"var(--surface)"}" stroke="${m.col}" stroke-width="${s.length>60&&i!==pick?1.4:2}"/>`).join("");
   const ticks=[hi-pad,lo+pad].map(v=>`<line x1="${PL}" x2="${W-PR+4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--muted)" stroke-dasharray="3 4" opacity=".4"/><text x="${W-PR+8}" y="${y(v)+4}" class="rl">${m.fmt(v)}</text>`).join("");
   const extra=key==="fitage"?`<span style="margin-left:auto">age ${pk.age.toFixed(1)}</span>`:key==="ftp"||key==="wkg"?"":"";
-  const WT=key==="weight"&&typeof weightTrend==="function"?weightTrend():null;let trend="";
-  if(WT&&WT.ok){const a=WT.from<new Date(t0).toLocaleDateString("sv-SE")?new Date(t0).toLocaleDateString("sv-SE"):WT.from,b=todayISO(),cy=v=>clip(y(v),PT,H-PB);
-    trend=`<line x1="${x(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y1="${cy(WT.at(a)).toFixed(1)}" y2="${cy(WT.at(b)).toFixed(1)}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round" opacity=".9"/>`;}
+  const trend="";
   return `<div class="readout"><span>${fmtDay(pk.date,{weekday:"short",day:"numeric",month:"short",year:days&&days<=90?undefined:"2-digit"})}</span><b>${m.fmt(pk.v)}</b><em style="color:${m.col}">${m.unit}</em>${extra}</div>
     <div class="sh-chart"><svg id="ath-svg" viewBox="0 0 ${W} ${H}" style="touch-action:pan-y">${ticks}
       <line x1="${x(pk.date)}" x2="${x(pk.date)}" y1="${PT}" y2="${H-PB}" stroke="var(--muted)" opacity=".5"/>${ref}
-      ${gl?`<line x1="${PL}" x2="${W-PR+4}" y1="${y(gl.target)}" y2="${y(gl.target)}" stroke="#5fc795" stroke-dasharray="5 4" opacity=".8"/><text x="${PL+4}" y="${y(gl.target)-6}" class="rl" style="fill:#5fc795">goal ${gl.target.toFixed(1)}</text>`:""}
+      
       ${s.length>1?`<polyline points="${line}" fill="none" stroke="${m.col}" stroke-width="2" stroke-linejoin="round"/>`:""}${trend}${dots}
       <rect x="0" y="0" width="${W}" height="${H}" fill="transparent" style="cursor:pointer"/></svg>
     <div class="ax"><span>${fmtDay(new Date(t0).toLocaleDateString("sv-SE"),{day:"numeric",month:"short",year:"2-digit"})}</span><span>${fmtDay(new Date(t1).toLocaleDateString("sv-SE"),{day:"numeric",month:"short",year:"2-digit"})}</span></div>
-    ${key==="fitage"?`<div class="lg">Dashed: your real age</div>`:""}${trend?`<div class="lg">Dashed amber: the trend of your last three weeks, the one the calorie range follows</div>`:""}</div>`;
+    ${key==="fitage"?`<div class="lg">Dashed: your real age</div>`:""}</div>`;
 }
 function athBindChart(key,days){
   const svg=$("ath-svg");if(!svg) return;
@@ -277,12 +268,10 @@ function openAth(key,days=90,keep=false){
   let extra="";
   if(key==="weight"){
     const ent=Object.entries(athEntries("weight")).sort().reverse().slice(0,8);
-    const gs=goalState();
     extra=`      <h3 class="sh-sub">Log weight</h3>
       <div class="ath-log"><div class="field"><label for="w-d">Date</label><input id="w-d" type="date" value="${todayISO()}" max="${todayISO()}"></div>
         <div class="field"><label for="w-v">Kg</label><input id="w-v" type="number" inputmode="decimal" step="0.1" min="30" max="200" placeholder="${l?l.v.toFixed(1):"70.0"}"></div>
-        <button class="btn" id="w-save">Save</button></div><p class="st" id="w-st" style="font-size:13px;color:var(--muted);margin:-6px 0 10px"></p><div id="w-adh"></div>
-      ${foodOn()?wStatusHTML()+wAimHTML():""}<h3 class="sh-sub">Weigh-ins</h3>
+        <button class="btn" id="w-save">Save</button></div><p class="st" id="w-st" style="font-size:13px;color:var(--muted);margin:-6px 0 10px"></p><h3 class="sh-sub">Weigh-ins</h3>
       ${ent.length?ent.map(([d,v])=>`<div class="ent"><span>${esc(fmtDay(d,{weekday:"short",day:"numeric",month:"short",year:"numeric"}))}</span><b>${(+v).toFixed(1)} kg</b><button data-del="${d}" aria-label="Delete">Delete</button></div>`).join(""):""}`;
   } else if(key==="lthr"){
     const own=Object.keys(athEntries("lthr")).length,src=DATA.athlete?.lthr_src;
@@ -309,7 +298,6 @@ function openAth(key,days=90,keep=false){
     ${athChart(key,days)}${extra}`);
   if(keep) $("sheet").scrollTop=y;
   athBindChart(key,days);
-  if(key==="weight") bindWAim(()=>openAth("weight",days,true));
   $("sheet").querySelectorAll(".range button").forEach(b=>b.onclick=()=>openAth(key,+b.dataset.n));
   const sv=$("w-save");
   if(sv) sv.onclick=async()=>{
@@ -319,19 +307,8 @@ function openAth(key,days=90,keep=false){
     sv.disabled=true;const sent=await logMetric(key,d,key==="weight"?Math.round(v*10)/10:Math.round(v));
     openAth(key,days);renderIfAthlete();
     $("w-st").textContent=sent?"Saved.":"Saved on this phone: it goes out as soon as you're back online.";
-    if(key==="weight"&&foodOn()){try{trimCheck();}catch(e){}}
   };
   $("sheet").querySelectorAll("button[data-del]").forEach(b=>b.onclick=async()=>{await logMetric(key,b.dataset.del,null);openAth(key,days);renderIfAthlete();});
-}
-// one tap after a weigh-in, instead of a food diary
-function adhAsk(date){
-  const box=$("w-adh");if(!box) return;
-  // the plan check-offs already say how closely the plan was followed: no need to ask
-  const P=lsJSON("rd_pck",{});if([0,1,2,3].some(k=>Object.keys(P[isoAdd(date,-k)]||{}).length)) return;
-  box.innerHTML=`<div class="note-card" style="margin:4px 0 14px"><b>One tap, instead of a food diary</b><p style="margin:6px 0 10px">Since your last weigh-in, compared with your plan you ate:</p>
-    <div class="seg three" id="adh-s"><button data-a="-1"><b>Less</b><span>Skipped, smaller</span></button><button data-a="0"><b>About that</b><span>Close to it</span></button><button data-a="1"><b>More</b><span>Extras, bigger</span></button></div></div>`;
-  box.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{adhSet(date,+b.dataset.a);buzz();try{trimCheck();}catch(e){}
-    box.innerHTML=`<p class="st" style="font-size:13px;color:var(--muted);margin:0 0 12px">Noted. Weight and this answer together decide whether your range moves.</p>`;renderIfAthlete();});
 }
 function renderIfAthlete(){ if(TAB==="athlete"){const y=scrollY;renderAthlete();scrollTo(0,y);} }
 

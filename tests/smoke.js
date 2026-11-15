@@ -48,7 +48,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
     ["training", () => setTab("training")],
     ["training-pages", () => { for (const k of ["month", "volume", "fitness", "week"]) setPage("training", k); }],
     ["athlete", () => setTab("athlete")],
-    ["food-pages", () => { for (const k of ["diary", "plan", "weight", "balance", "profile"]) setPage("athlete", k); }],
+    ["old-food-links", () => { for (const k of ["diary", "plan", "weight", "balance", "profile"]) { setPage("athlete", k); if (PG.athlete !== "profile") throw new Error("old food link should open Profile"); } }],
     ["months", () => { if (typeof openMonths === "function") openMonths(); }],
     // the model: a session that ran longer than planned leaves more to refill than the plan foresaw
     ["fuel-model", () => { const f = {kcal: 2000, frac: .5, min: 180, how: "power zones"};
@@ -60,69 +60,19 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (!d) throw new Error("no finished session matched to its plan");
       const w = d.workouts.find(w => planOf(d.date, w)), r = fuelDone(w, d.date);
       if (!(r.used > 0) || r.plan == null || r.extra == null) throw new Error("planned vs done not compared");
-      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "plan"; foodSel = todayISO(); render(); }],
+      // a ride's carbs set by hand win over the automatic amount, and recovery follows
+      const auto = fuelIntake(w, d.date).g; syncSet("rd_fuelg", {[w.id]: auto + 40});
+      if (fuelIntake(w, d.date).g !== auto + 40 || !fuelIntake(w, d.date).own) throw new Error("carbs set by hand not used");
+      openFuelTaken(w.id, d.date); if (!document.getElementById("fu-c")) throw new Error("carbs sheet missing");
+      document.getElementById("fu-del").click(); if (fuelIntake(w, d.date).own) throw new Error("back to automatic failed"); }],
     ["fuel-settings", () => openFuelSettings()],
-    // the target is a range fixed for the day: Garmin's moving projection doesn't touch it, the session does once it's done
-    ["range", () => { const t = todayISO(), a = targetOf(t);
-      if (!a || !a.burn.fixed || a.hi - a.lo !== 200 || a.kcal % 50) throw new Error("no fixed range");
-      DATA.energy.today.projected += 600; DATA.energy.today.kcal_now += 600;
-      if (targetOf(t).kcal !== a.kcal) throw new Error("the range moved with Garmin's projection");
-      const d = DATA.days.find(x => x.date === t), extra = {name: "Test ride", type: "Ride", minutes: 120};
-      (d.plan = d.plan || []).push(extra); const r = targetOf(t);
-      if (!(r.kcal > a.kcal + 300) || !r.burn.proj || !/Training day|Long day/.test(dayKind(r.tr))) throw new Error("a planned session should raise the range from the morning");
-      extra.done = true; const q = targetOf(t); d.plan.pop();
-      if (q.kcal !== a.kcal) throw new Error("a planned session that isn't pending any more shouldn't count twice");
-      if (rangeState(a.lo - 10, a).k !== "under" || rangeState(a.kcal, a).k !== "in" || rangeState(a.hi + 10, a).k !== "over") throw new Error("range state wrong");
-      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "plan"; foodSel = t; render(); openTarget(t); }],
-    // the scale corrects the range: losing faster than the goal's pace raises it, once a week, in a small step
-    ["scale", () => { const t = todayISO(), set = f => { DATA.athlete.weights = [0, 4, 8, 12, 16, 20].map(k => ({date: isoAdd(t, -k), kg: 63 + f * k / 7})); ATH_CACHE = null; };
-      localStorage.removeItem("ath_m_weight"); if (DATA.athlete.metrics) DATA.athlete.metrics.weight = {};
-      localStorage.removeItem("rd_trim"); localStorage.removeItem("rd_goal"); DATA.nutrition.goal = null;
-      const base = targetOf(t).kcal;
-      set(0); trimCheck(); if (trimGet().v !== 0 || trimGet().at !== t) throw new Error("stable weight should change nothing");
-      localStorage.removeItem("rd_trim"); set(0.6); trimCheck();                       // 0.6 kg lighter every week
-      if (trimGet().v !== 150 || targetOf(t).kcal !== base + 150) throw new Error("fast loss should raise the range");
-      set(-0.6); trimCheck(); if (trimGet().v !== 150) throw new Error("checked twice in the same week");
-      localStorage.setItem("rd_trim", JSON.stringify({v: 150, at: isoAdd(t, -8)})); trimCheck();
-      if (trimGet().v !== 50) throw new Error("gaining should lower the range a little");
-      openTarget(t); if (!document.getElementById("trim-0")) throw new Error("no reset"); }],
-    // no diary: the one-tap answer at the weigh-in keeps the correction fair, and the weight sheet shows the trend
-    ["weigh-in", () => { const t = todayISO();
-      DATA.athlete.weights = [0, 4, 8, 12, 16, 20].map(k => ({date: isoAdd(t, -k), kg: 63 - 0.6 * k / 7})); ATH_CACHE = null;      // gaining
-      localStorage.setItem("rd_trim", JSON.stringify({v: 0, at: isoAdd(t, -8)})); trimCheck();
-      if (trimGet().v !== -100) throw new Error("gaining should lower the need, with no diary to ask");
-      openAth("weight");
-      if (!document.querySelector("#sheet .wt-st")) throw new Error("weight status missing");
-      if (!document.querySelector("#sheet #wt-m")) throw new Error("aim missing from the weight sheet");
-      if (!document.querySelector('#ath-svg line[stroke="#f59e0b"]')) throw new Error("no trend line on the weight chart");
-      document.getElementById("w-v").value = "63.2"; document.getElementById("w-save").click(); }],
-    // today's plan: macros from the need, every meal with alternatives, dinner closes the day on target whatever you pick
-    ["plan", () => { const t = todayISO(); localStorage.removeItem("rd_plan_sel"); localStorage.removeItem("rd_trim");
-      const D = dayPlan(t); if (!D) throw new Error("no plan");
-      if (Math.abs(D.sum.kcal - D.kcal) > 150) throw new Error(`default plan off by ${Math.round(D.sum.kcal - D.kcal)} kcal`);
-      // protein may run over on a big day (the extra pasta and bread carry protein too), never under
-      if (D.sum.p < D.P - 15 || D.sum.p > D.P + 35 || Math.abs(D.sum.c - D.C) > 40) throw new Error("macros off: " + JSON.stringify(D.sum));
-      if (D.meals[D.meals.length - 1].slot !== "d" || !D.meals.every(m => m.parts.every(x => x.opts.length >= 1))) throw new Error("meals malformed");
-      let worst = 0;
-      for (const m of D.meals) m.parts.forEach(x => x.opts.forEach((o, oi) => { syncSet("rd_plan_sel", {[x.key]: oi}); const E = dayPlan(t);
-        // a light option already at its largest sensible portion (potatoes on a 3500 kcal day) can't fill the day: not counted
-        const y = E.meals.flatMap(q => q.parts).find(q => q.key === x.key); if (y && !y.o.fixed && y.g >= y.o.hi) return;
-        worst = Math.max(worst, Math.abs(E.sum.kcal - E.kcal)); }));
-      if (worst > 250) throw new Error(`some pick lands ${Math.round(worst)} kcal off`);
-      localStorage.removeItem("rd_plan_sel");
-      const d = DATA.days.find(x => x.date === t), ride = {name: "Test ride", type: "Ride", minutes: 120, fuel: {kcal: 1800, frac: .6, min: 120}};
-      (d.plan = d.plan || []).push(ride); PB = null; const R = dayPlan(t);
-      if (!(R.bike.g > 100) || !R.slots.some(s => s.ride)) throw new Error("ride fuel missing from a training day");
-      if (new Date(t + "T12:00").getDay() % 6 && !R.meals.some(m => m.slot === "pre")) throw new Error("no pre-ride snack on a work day");
-      if (Math.abs(R.sum.kcal - R.kcal) > 150) throw new Error("training day plan off target");
-      TAB = "athlete"; ATH_SUB = "food"; PG.athlete = "plan"; render();
-      if (!document.querySelector(".pl-head") || document.querySelectorAll(".pl-m").length < 4 || !document.querySelector(".fuel-c")) throw new Error("plan page incomplete");
-      if (document.querySelector("[data-meal],[data-eat]")) throw new Error("the plan should have nothing to log");
-      const alt = document.querySelector('[data-alt^="d.0|"]'); if (!alt) throw new Error("no alternatives on dinner carbs");
-      const oi = +alt.dataset.alt.split("|")[1]; alt.click();
-      if (PSEL()["d.0"] !== oi) throw new Error("pick not kept");
-      d.plan.pop(); PB = null; render(); }],
-    // fuel sits on the session: before, during and after in the planned session's sheet
+    // today's fuel on the Score page: each line opens its session
+    ["fuel-today", () => { const t = todayISO(), d = DATA.days.find(x => x.date === t);
+      const ride = {id: 999002, name: "Test ride", type: "Ride", minutes: 120, load: 90, fuel: {kcal: 1800, frac: .6, min: 120}, detail: {secs: 7200}};
+      (d.plan = d.plan || []).push(ride); dayReset(); goPage("today", "overview");
+      const b = document.querySelector('.fuel-c [data-pd="999002"]'); if (!b) throw new Error("today's ride fuel not on Score");
+      b.click(); if (!document.getElementById("sheet").classList.contains("open")) throw new Error("fuel line did not open the session");
+      closeSheet(); d.plan.pop(); render(); }],
     ["plan-fuel", () => { const t = todayISO(), d = DATA.days.find(x => x.date === t);
       const ride = {id: 999001, name: "Test ride", type: "Ride", minutes: 120, load: 90, fuel: {kcal: 1800, frac: .6, min: 120}, detail: {secs: 7200}};
       (d.plan = d.plan || []).push(ride); openPlanned("999001");
@@ -150,8 +100,8 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (!sh.querySelector(".zr") || !sh.querySelector(".ssc") || !sh.querySelector(".wdesc li") || !/Intervals/.test(sh.querySelector(".srcbar").textContent)) throw new Error("planned sheet incomplete");
       closeSheet(); td.workouts = keep[0]; (td.plan || []).forEach((q, i) => { q.done = keep[1][i]; }); render(); }],
     // synced values: a newer copy from the server replaces the local one, an older one doesn't
-    ["sync", () => { syncSet("rd_fuel", {on: true, max: 90, since: "2000-01-01"}); const ts = Date.now() + 5000; DATA.sync = {rd_plan_sel: {ts, v: {b0: 2}}, rd_fuel: {ts: 5, v: {max: 40}}}; syncPull();
-      if (lsJSON("rd_plan_sel", {}).b0 !== 2) throw new Error("newer server value not taken");
+    ["sync", () => { syncSet("rd_fuel", {on: true, max: 90, since: "2000-01-01"}); const ts = Date.now() + 5000; DATA.sync = {rd_gear: {ts, v: [{name: "Server chain", sport: "Cycling", from: "2026-01-01"}]}, rd_fuel: {ts: 5, v: {max: 40}}}; syncPull();
+      if ((lsJSON("rd_gear", [])[0] || {}).name !== "Server chain") throw new Error("newer server value not taken"); localStorage.removeItem("rd_gear");
       if (fuelCfg().max !== 90) throw new Error("older server value overwrote the local one"); }],
     ["reminders", () => { localStorage.setItem("rd_push", "1"); remindRow(); remindNudge(); GO_PENDING = "journal"; applyGo();
       if (PG.today !== "day" || !document.getElementById("journal")) throw new Error("notification link did not open the journal"); PG.today = "overview"; }],
@@ -163,12 +113,12 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       setPage("today", "journal"); if (PG.today !== "day" || !document.getElementById("journal")) throw new Error("journal not on the Day page");
       setTab("training"); if (document.querySelectorAll(".pbar [data-pg]").length !== 4) throw new Error("Training should have four pages");
       setPage("training", "volume"); if (PG.training !== "month") throw new Error("Hours should live on the Month page");
-      setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 2) throw new Error("Athlete should have two pages");
+      setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 0) throw new Error("Athlete is a single page");
       setPage("athlete", "balance"); if (PG.athlete !== "profile") throw new Error("old balance link should open Profile");
       setTab("today"); }],
     // four tabs, and the search sheet reaches every destination without an error
     ["tabs", () => { if (document.querySelectorAll(".tabbar button").length !== 3) throw new Error("the bar should have three tabs");
-      setTab("athlete"); setPage("athlete", "diary"); if (!document.querySelector('.tabbar [data-tab="athlete"].on') || !document.querySelector('.pbar [data-pg="profile"]')) throw new Error("Food should sit inside Athlete"); }],
+      setTab("athlete"); setPage("athlete", "diary"); if (!document.querySelector('.tabbar [data-tab="athlete"].on') || PG.athlete !== "profile") throw new Error("an old food link should land on Athlete"); }],
     ["find", () => { openFind(); const q = document.getElementById("fd-q"); q.value = "peso"; q.oninput();
       if (!document.querySelectorAll("#fd-l [data-fd]").length) throw new Error("search in Italian found nothing");
       q.value = ""; q.oninput(); if (document.querySelectorAll("#fd-l [data-fd]").length !== FIND.length) throw new Error("not every destination is listed");

@@ -955,3 +955,9 @@ button.wcard{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
 .be-i:first-child .be-r{background:rgba(245,158,11,.2);color:#f59e0b}
 .be-nm{flex:1;min-width:0}.be-nm b{display:block;font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.be-nm small{font-size:12px;color:var(--faint)}
 .be-w{text-align:right}.be-w b{display:block;font-family:var(--cond);font-size:20px;font-weight:500}.be-w small{font-size:11.5px;color:var(--muted)}
+
+/* today's fuel (Score page): each line is a button that opens its session */
+.sec .fuel-c{margin-top:0;cursor:default}.fuel-c>div{flex:1;min-width:0}
+.fuel-r{display:block;width:100%;background:none;border:0;padding:0;text-align:left;font:inherit;font-size:13.5px;line-height:1.45;color:var(--muted);cursor:pointer}
+.fuel-r+.fuel-r{margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+.fuel-r b::after{content:" ›";color:var(--faint);font-weight:400}

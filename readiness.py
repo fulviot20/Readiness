@@ -133,20 +133,6 @@ def athlete(wellness, mail, fit, lthr_intervals):
             "lthr_default": lthr, "lthr_src": src}
 
 
-def nutrition(mail, today, keep=120):
-    """Food diary (entries logged in the app) and the weight goal. Older days are dropped from the cache."""
-    food = mail.get("food") or {}
-    oldest = (today - dt.timedelta(days=400)).isoformat()
-    for d in [d for d in food if d < oldest]:
-        food.pop(d)
-    first = (today - dt.timedelta(days=keep)).isoformat()
-    return {"goal": mail.get("goal"), "lib": list((mail.get("lib") or {}).values()),
-            "notes": list((mail.get("fnotes") or {}).values()),
-            "food": {d: list(items.values()) for d, items in sorted(food.items()) if d >= first}}
-
-
-# ---------------------------------------------------------------- encryption
-@functools.lru_cache(maxsize=64)
 def _key(passphrase, salt):
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=KDF_ITER)
     return kdf.derive(passphrase.encode())
@@ -1057,7 +1043,6 @@ def main():
     data["athlete"] = athlete(wellness, mail, data["fitness"], run_lthr())
     prof = mail.get("profile") or {}             # height and sex sharpen the distance estimate
     data["energy"] = energy.build(gdays, data["days"], today, prof.get("height"), prof.get("sex"))
-    data["nutrition"] = nutrition(mail, today)
     try:
         data["power"] = power.build(cache.get("power"), activities, today)
     except Exception as e:

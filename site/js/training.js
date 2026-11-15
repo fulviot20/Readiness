@@ -89,7 +89,7 @@ function descHTML(t){
     .replace(/(<li>.*?<\/li>)+/g,x=>`<ul>${x}</ul>`).replace(/^(<i class='gap'><\/i>)+|(<i class='gap'><\/i>)+$/g,"");
 }
 /* fuel of a session: before, during, after (model in food.js / fuel.py) */
-const fuelOk=()=>typeof fuelPlanned==="function"&&foodOn()&&fuelCfg().on;
+const fuelOk=()=>fuelCfg().on;
 function fuelPlanHTML(p,date){
   if(!fuelOk()||!p.fuel||p.fuel.min<30) return "";
   const q=fuelPlanned(p),ride=isRide(p),big=x=>(x.load||0)>=70||(x.minutes||0)>=90;
@@ -104,7 +104,8 @@ function fuelPlanHTML(p,date){
 }
 function fuelDoneHTML(w,date){
   if(!fuelOk()||!w.fuel||(w.minutes||0)<30) return "";
-  return `<h3 class="sh-sub">Fuel</h3>${fuelBreakdown(w,date)}<p class="sh-note">What you took on the bike comes from the carbs field of the activity on Intervals; without it, the plan's amount is assumed.</p>`;
+  return `<h3 class="sh-sub">Fuel and recovery</h3>${fuelBreakdown(w,date)}<p class="sh-note">What you took on the bike comes from the carbs field of the activity on Intervals; without it, the plan's amount is assumed.</p>
+    ${isRide(w)?`<button class="pl-q" id="fu-edit">Correct the carbs you took →</button>`:""}`;
 }
 const fuelChip=p=>{if(!fuelOk()||!p.fuel||p.fuel.min<40) return "";const q=fuelPlanned(p);return q.rate?`Fuel <b>${q.rate} g/h</b>`:"";};
 function openPlanned(id){
@@ -143,6 +144,7 @@ function openDone(id){
     <div class="w-foot"><span class="feel">${w.feel?`${faceSVG(w.feel)}<span>Feel: <b>${FEEL[w.feel]||w.feel}</b></span>`:"Feel not logged in Intervals"}</span>${w.rpe?`<span>RPE: <b>${w.rpe}/10</b></span>`:""}</div>
     ${fuelDoneHTML(w,d.date)}
     <a class="pl-q" href="${INTERVALS}/activities/${encodeURIComponent(w.id)}" target="_blank" rel="noopener">Open in Intervals ${arrow}</a>`);
+  const fe=$("fu-edit");if(fe) fe.onclick=()=>openFuelTaken(w.id,d.date);
 }
 function bindSessions(){
   document.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>{buzz(5);openPlanned(b.dataset.pd);});
