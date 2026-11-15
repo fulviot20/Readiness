@@ -80,7 +80,9 @@ function planCard(p){
     <div class="w-foot"><span>${[D.np?`NP <b>${D.np} W</b>`:"",D.kj?`<b>${fmtK(D.kj)}</b> kJ`:"",D.ss?`SS <b>${D.ss}</b>`:"",fuelChip(p)].filter(Boolean).join(" · ")}</span><span class="more">Details ${chevR}</span></div>
   </button>`;
 }
-const findPlan=id=>{for(const d of DATA.days||[]) for(const p of d.plan||[]) if(String(p.id)===id) return [p,d.date];return [null,null];};
+// planned sessions live in the days (today and before) and in "upcoming" (the coming days, also reached from the calendar)
+const findPlan=id=>{for(const d of DATA.days||[]) for(const p of d.plan||[]) if(String(p.id)===id) return [p,d.date];
+  for(const [d,ps] of Object.entries(DATA.upcoming||{})) for(const p of ps||[]) if(String(p.id)===id) return [p,d];return [null,null];};
 function descHTML(t){
   return t.split(/\n/).map(l=>l.trim()).reduce((a,l)=>{if(!l){a.push("<i class='gap'></i>");return a;}
     const m=l.match(/^[-•*]\s*(.*)$/);a.push(m?`<li>${esc(m[1])}</li>`:`<p>${esc(l)}</p>`);return a;},[]).join("")
@@ -106,7 +108,14 @@ function fuelDoneHTML(w,date){
 }
 const fuelChip=p=>{if(!fuelOk()||!p.fuel||p.fuel.min<40) return "";const q=fuelPlanned(p);return q.rate?`Fuel <b>${q.rate} g/h</b>`:"";};
 function openPlanned(id){
-  const [p,date]=findPlan(id);if(!p||!p.detail) return;const D=p.detail,Z=zonesOf(D),T=Z.reduce((a,z)=>a+z.secs,0)||1;
+  const [p,date]=findPlan(id);
+  // never a dead tap: without Intervals' detail the sheet still shows what is known and opens the session in Intervals
+  if(!p||!p.detail){const href=`${INTERVALS}/?event=${encodeURIComponent(id)}`;
+    if(!p) return window.open(href,"_blank","noopener");
+    return openSheet(`<div class="sh-top"><h2>${esc(p.name)}</h2>${X}</div>
+      <p class="sh-desc">${fmtDay(date,{weekday:"long",day:"numeric",month:"long"})}${p.minutes?` · ${dur(p.minutes)}`:""}${p.load?` · ${Math.round(p.load)} TSS`:""}</p>
+      <a class="pl-q" href="${href}" target="_blank" rel="noopener">Open in Intervals ${arrow}</a>`);}
+  const D=p.detail,Z=zonesOf(D),T=Z.reduce((a,z)=>a+z.secs,0)||1;
   const cell=(n,v,u)=>v==null?"":`<div><span>${n}</span><b>${v}<small>${u}</small></b></div>`;
   openSheet(`<div class="sh-top"><h2>${esc(p.name)}</h2>${X}</div>
     <p class="sh-desc">${fmtDay(date,{weekday:"long",day:"numeric",month:"long"})} · ${esc(/Ride/.test(p.type||"")?"Ride":/Run/.test(p.type||"")?"Run":(p.type||"Workout"))}${D.indoor?" · indoor":""}</p>

@@ -189,6 +189,11 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       d.click(); if (!document.querySelector("#cal-list .cal-c")) throw new Error("day sessions not listed");
       document.querySelector("#cal-list .cal-c").click(); if (!document.getElementById("sheet").classList.contains("open")) throw new Error("session sheet not opened"); closeSheet();
       document.querySelector(".cal-w").click(); if (!document.querySelector("#cal-list .sec-h")) throw new Error("week not listed");
+      // a planned session of the coming days opens its full detail from the calendar
+      const up = Object.keys(DATA.upcoming || {}).find(d => d > todayISO() && DATA.upcoming[d].some(q => q.detail));
+      if (up) { calSel = up; $("cal-list").innerHTML = calList(); bindCalList(); const c = document.querySelector("#cal-list [data-pd]");
+        if (!c) throw new Error("planned session not listed"); c.click();
+        if (!document.querySelector("#sheet.open .pw-sheet")) throw new Error("planned session detail did not open from the calendar"); closeSheet(); }
       document.getElementById("cal-p").click(); if (!document.querySelector(".cal-g")) throw new Error("previous month broken"); }],
     // distance between two dates, gear replaced on a day keeps the old part in the history
     ["distance-gear", () => { setPage("training", "month"); localStorage.setItem("rd_kmr", JSON.stringify({from: isoAdd(todayISO(), -20), to: todayISO()}));

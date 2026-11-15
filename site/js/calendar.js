@@ -70,7 +70,7 @@ function calCard(a){
 function openCalAct(id){
   // recent sessions have the full detail (profile, fuel): open that; older ones get the summary and the link
   if((DATA.days||[]).some(x=>(x.workouts||[]).some(w=>String(w.id)===id))) return openDone(id);
-  const a=calActs().find(x=>String(x.id)===id);if(!a) return;
+  const a=calActs().find(x=>String(x.id)===id);if(!a) return window.open(`${INTERVALS}/activities/${encodeURIComponent(id)}`,"_blank","noopener");
   const cells=[["Load",a.load,"TSS"],["Avg power",a.w,"W"],["Normalized",a.np,"W"],["Work",a.kj!=null?fmtK(a.kj):null,"kJ"],["Avg HR",a.hr?Math.round(a.hr):null,"bpm"],
     ["Distance",a.km,"km"],["Climbing",a.el,"m"],["Time",dur(a.m),""]].filter(c=>c[1]!=null);
   openSheet(`<div class="sh-top"><h2>${esc(a.n||a.s)}</h2>${X}</div>
