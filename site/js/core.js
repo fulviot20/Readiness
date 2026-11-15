@@ -215,10 +215,12 @@ document.addEventListener("visibilitychange",()=>{
 // the installed app can stay in memory for days: when it comes back to the screen it checks whether a new version of
 // the app has been published (the ?v= of its files in index.html) and, if so, reloads itself on the spot
 const appSig=doc=>[...doc.querySelectorAll("script[src],link[href]")].map(e=>e.getAttribute("src")||e.getAttribute("href")).filter(u=>/\?v=/.test(u)).sort().join("|");
-const APP_SIG=appSig(document);
+// read when the check runs, not when this file loads: at that point the later <script> tags aren't parsed yet
+let APP_SIG=null;
 let verAt=0;
 async function checkVersion(){
-  if(Date.now()-verAt<60000||!navigator.onLine) return; verAt=Date.now();
+  if(Date.now()-verAt<60000||!navigator.onLine||document.readyState==="loading") return; verAt=Date.now();
+  if(!APP_SIG) APP_SIG=appSig(document);
   try{const r=await fetch("index.html?vc="+Date.now(),{cache:"no-store"});if(!r.ok) return;
     const sig=appSig(new DOMParser().parseFromString(await r.text(),"text/html"));
     if(sig&&APP_SIG&&sig!==APP_SIG&&!$("sheet").classList.contains("open")){saveNav();location.reload();}}catch(e){}
