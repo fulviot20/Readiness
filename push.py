@@ -140,6 +140,12 @@ def due(data, sent, now, at=None):
         out.append((f"week:{wk['start']}", {"title": "Your week in review", "body": wk.get("headline", "")[:180],
                                             "tag": "week", "url": "./?tab=training"}))
     out.extend(reminders(data, sent, now, at or {}))
+    # 4. the automated checks of the app failed on the latest change (state from the Tests workflow), once per change
+    st = (data.get("tests") or "").split()
+    if len(st) == 3 and st[0] == "completed" and st[1] == "failure" and f"tests:{st[2][:12]}" not in sent:
+        out.append((f"tests:{st[2][:12]}", {"title": "App checks failed",
+                                            "body": "The last change to Readiness broke an automated check. Something in the app may not work as it should.",
+                                            "tag": "tests"}))
     return out
 
 

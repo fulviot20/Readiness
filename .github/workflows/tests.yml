@@ -29,3 +29,5 @@ jobs:
           python tests/fixture.py
           npm install --silent --no-save playwright-core@1.47.2 >/dev/null 2>&1
           node tests/smoke.js
+      - name: No dead taps
+        run: node tests/taps.js

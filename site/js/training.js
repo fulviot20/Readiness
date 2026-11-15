@@ -88,7 +88,7 @@ function descHTML(t){
     const m=l.match(/^[-•*]\s*(.*)$/);a.push(m?`<li>${esc(m[1])}</li>`:`<p>${esc(l)}</p>`);return a;},[]).join("")
     .replace(/(<li>.*?<\/li>)+/g,x=>`<ul>${x}</ul>`).replace(/^(<i class='gap'><\/i>)+|(<i class='gap'><\/i>)+$/g,"");
 }
-/* fuel of a session: before, during, after (model in food.js / fuel.py) */
+/* fuel of a session: before, during, after (model in fuel.js / fuel.py) */
 const fuelOk=()=>fuelCfg().on;
 function fuelPlanHTML(p,date){
   if(!fuelOk()||!p.fuel||p.fuel.min<30) return "";
@@ -149,6 +149,7 @@ function openDone(id){
 function bindSessions(){
   document.querySelectorAll("[data-pd]").forEach(b=>b.onclick=()=>{buzz(5);openPlanned(b.dataset.pd);});
   document.querySelectorAll("[data-wd]").forEach(b=>b.onclick=()=>{buzz(5);openDone(b.dataset.wd);});
+  const gc=$("go-cal");if(gc) gc.onclick=()=>{calSel=todayISO();calMonth=null;setPage("training","cal");};
 }
 function sessions(day){
   const isT=day.date===todayISO();
@@ -162,10 +163,10 @@ function sessions(day){
   const empty=`<div class="wcard rest"><div class="w-name">Nothing planned</div><div class="w-meta">Rest day, or nothing on the calendar yet.</div></div>`;
   return `<section class="sec"><div class="sec-h"><h2>${title}</h2><span>Synced with Garmin & Intervals</span></div>
     ${cards.length?cards.join(""):empty}
-    <a class="callink" href="${INTERVALS}/" target="_blank" rel="noopener">
+    <button class="callink" id="go-cal">
       <span class="cal-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
-      <span class="cal-t"><b>Training calendar</b><span>This week's plan in Intervals</span></span>
-      <span class="go">${arrow}</span></a>
+      <span class="cal-t"><b>Training calendar</b><span>Every session, done and planned</span></span>
+      <span class="go">${chevR}</span></button>
   </section>`;
 }
 

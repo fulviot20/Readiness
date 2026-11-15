@@ -42,3 +42,10 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 26. Peso: toccando il riquadro Weight in Athlete si apre il foglio con grafico, inserimento, "cosa sta succedendo" (con le correzioni in grammi) e obiettivo Lose / Maintain / Gain con ritmo (la pagina Weight separata è stata tolta)
 - [x] 27. Plan come centro del cibo: per oggi colazione, spuntini, pranzo (mensa), ride fuel e recupero, cena; spunte As planned / Less / More / Other su ogni pasto; "Make this my usual …" fissa un pasto (es. la colazione) con quantità modificabili, e gli altri pasti fanno spazio. Pagine: Profile · Plan · Diary
 - [x] 28. Today → Score: segnali e check-in sempre visibili sotto i punteggi; l'allenamento del giorno (Full / Short) si vede in Training → Week
+
+## Consolidare invece di aggiungere (15/11/2026)
+- [x] 29. Training: calendario delle sedute, km tra due date, componenti con storico dei cambi, migliori sforzi (stagione, stagione scorsa, all time)
+- [x] 30. Cibo tolto (piano, diario, range calorico, obiettivo di peso): restano fueling in bici e recupero, su Today e in ogni seduta, con la correzione dei carboidrati presi
+- [x] 31. Giro di rifinitura: ogni tocco porta da qualche parte (controllo automatico su tutte le pagine e i fogli), testi ripuliti dai riferimenti al cibo
+- [x] 32. L'app si aggiorna da sola quando esce una nuova versione; avviso quando i controlli automatici falliscono
+- [ ] 6. Validazione dello score con i dati veri (in corso): feel su Intervals e note "Score doesn't feel right?" con costanza

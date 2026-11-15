@@ -145,6 +145,16 @@ def test_calendar_and_indoor_km():
     assert readiness.distance_indoor(acts) == {"2026-11-15": 35.0}
 
 
+def test_failed_checks_notify_once():
+    import push
+    now = dt.datetime(2026, 11, 15, 21, 0)
+    base = {"days": [], "tests": "completed failure abcdef1234567890"}
+    tests = lambda d, sent=set(): [k for k, _ in push.due(d, sent, now) if k.startswith("tests:")]
+    assert tests(base) == ["tests:abcdef123456"]
+    assert not tests(base, {"tests:abcdef123456"})
+    assert not tests({"days": [], "tests": "completed success abcdef1234567890"})
+
+
 def test_sync_keys_match_the_app():
     import os, re, mailbox
     js = open(os.path.join(os.path.dirname(__file__), "..", "site", "js", "sync.js")).read()

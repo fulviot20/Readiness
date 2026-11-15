@@ -90,7 +90,7 @@ function openJTags(){
       <div class="savebar" style="margin-top:12px"><span></span><button class="btn" id="jt-save">Done</button></div>`);
     $("sheet").querySelectorAll("[data-hd]").forEach(b=>b.onclick=()=>{const id=b.dataset.hd,i=cfg.hidden.indexOf(id);i>=0?cfg.hidden.splice(i,1):cfg.hidden.push(id);draw();});
     $("sheet").querySelectorAll("[data-rc]").forEach(b=>b.onclick=()=>{cfg.custom.splice(+b.dataset.rc,1);draw();});
-    $("jt-add").onclick=()=>{const v=$("jt-n").value.trim();if(!v) return;cfg.custom.push({id:"c_"+uid(),label:v});draw();};
+    $("jt-add").onclick=()=>{const v=$("jt-n").value.trim();if(!v){toast("Type the habit first");$("jt-n").focus();return;}cfg.custom.push({id:"c_"+uid(),label:v});draw();};
     $("jt-save").onclick=()=>{cfg.ts=Date.now();LS.set("rd_jtags",JSON.stringify(cfg));sendQ("jtags",cfg);closeSheet();redrawJournal();toast("Habits updated");};
   };
   draw();

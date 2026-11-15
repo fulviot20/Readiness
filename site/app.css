@@ -961,3 +961,4 @@ button.wcard{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
 .fuel-r{display:block;width:100%;background:none;border:0;padding:0;text-align:left;font:inherit;font-size:13.5px;line-height:1.45;color:var(--muted);cursor:pointer}
 .fuel-r+.fuel-r{margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
 .fuel-r b::after{content:" ›";color:var(--faint);font-weight:400}
+button.callink{width:100%;background:none;font:inherit;text-align:left;cursor:pointer}

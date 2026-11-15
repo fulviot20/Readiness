@@ -1080,6 +1080,7 @@ def main():
     oldest = (today - dt.timedelta(days=400)).isoformat()
     data["journal"] = {"days": {d: o for d, o in (mail.get("journal") or {}).items() if d >= oldest},
                        "tags": mail.get("jtags")}
+    data["tests"] = os.environ.get("TESTS_STATE") or None   # "status conclusion sha" of the latest Tests run
     data["sync"] = mail.get("kv") or {}          # meal plan and settings shared between devices
     # personal Garmin key created on 3 Nov 2026 for one year
     data["garmin_key"] = {"expires": "2027-11-03", "error": bool(cache.get("garmin_auth_error"))}

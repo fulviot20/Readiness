@@ -14,6 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -34,6 +35,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      # the latest result of the automated checks: a failure becomes a phone notification (push.py)
+      - name: Stato dei controlli
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          s=$(gh run list -R "${{ github.repository }}" --workflow Tests -L 1 --json status,conclusion,headSha -q '.[0] | "\(.status) \(.conclusion) \(.headSha)"' 2>/dev/null || true)
+          echo "TESTS_STATE=$s" >> "$GITHUB_ENV"
 
       - name: Calcola gli score
         env:

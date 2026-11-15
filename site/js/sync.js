@@ -1,5 +1,5 @@
 "use strict";
-/* ------------------------------------------------------------ sync: the meal plan and your settings on every device */
+/* ------------------------------------------------------------ sync: your settings and gear on every device */
 // The journal already travels to the server one entry at a time. A few settings (fuelling, reminders, gear, the carbs
 // you set for a ride) used to stay on the device where you made them. Each of those is one value with the time it was last changed:
 // a change goes out through the same encrypted mailbox, comes back inside the published data, and the newest copy wins.
