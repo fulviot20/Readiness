@@ -326,45 +326,71 @@ function kmPeriod(mode){const t=todayISO(),n=new Date(t+"T12:00");
   if(mode==="month"){const m0=isoD(new Date(n.getFullYear(),n.getMonth(),1,12)),p0=isoD(new Date(n.getFullYear(),n.getMonth()-1,1,12)),p1=isoD(new Date(n.getFullYear(),n.getMonth(),0,12));
     return [m0,t,n.toLocaleDateString("en-GB",{month:"long"}),[p0,p1,"last month"]];}
   if(mode==="year") return [`${t.slice(0,4)}-01-01`,t,t.slice(0,4)+" so far",[`${+t.slice(0,4)-1}-01-01`,`${+t.slice(0,4)-1}-12-31`,"last year"]];
+  if(mode==="custom"){const r=kmCustom();return [r.from,r.to,`${fmtDay(r.from,{day:"numeric",month:"short",year:"numeric"})} – ${fmtDay(r.to,{day:"numeric",month:"short",year:"numeric"})}`,null];}
   const all=Object.keys(DATA.km||{}).sort();return [all[0]||t,t,all.length?`Since ${fmtDay(all[0],{day:"numeric",month:"short",year:"numeric"})}`:"All",null];}
+const kmCustom=()=>{const r=lsJSON("rd_kmr",null),t=todayISO();return r&&r.from&&r.to?r:{from:isoAdd(t,-29),to:t};};
+const kmFirst=()=>Object.keys(DATA.km||{}).sort()[0]||todayISO();
+/* gear: a bike, shoes or a part (chain, tyres, pads...) counted from the day it went on */
+const GEAR_PRESET=[["Chain","Cycling",3000],["Tyres","Cycling",4000],["Brake pads","Cycling",2500],["Brake discs","Cycling",15000],
+  ["Cassette","Cycling",9000],["Bar tape","Cycling",0],["Bike","Cycling",0],["Running shoes","Running",700]];
 const gearAll=()=>lsJSON("rd_gear",[]);
-const gearKm=g=>(g.base||0)+(kmRange(g.from,g.to||null)[g.sport]||0);
+function kmInRange(from,to){let s=0;for(const [d,v] of Object.entries(DATA.km_in||{})) if(d>=from&&(!to||d<=to)) s+=v;return s;}
+const gearKm=g=>(g.base||0)+(kmRange(g.from,g.to||null)[g.sport]||0)-(g.sport==="Cycling"&&g.indoor===false?kmInRange(g.from,g.to||null):0);
 function distanceSection(){
   if(!DATA.km) return "";
   const [a,b,label,prev]=kmPeriod(kmMode),o=kmRange(a,b),po=prev?kmRange(prev[0],prev[1]):null;
   const ks=[...KM_SPORTS.filter(k=>o[k]||(po&&po[k])),...Object.keys(o).filter(k=>!KM_SPORTS.includes(k)&&o[k]>=1)];
-  const max=Math.max(1,...ks.map(k=>o[k]||0));
-  const G=gearAll();
+  const max=Math.max(1,...ks.map(k=>o[k]||0)),tot=ks.reduce((s,k)=>s+(o[k]||0),0);
+  const ind=o.Cycling?kmInRange(a,b):0,cr=kmCustom();
+  // active gear first (by start date, newest first), retired after
+  const G=gearAll().map((g,i)=>({g,i})).sort((x,y)=>(!!x.g.to-!!y.g.to)||(x.g.to?(y.g.to>x.g.to?1:-1):(y.g.from>x.g.from?1:-1)));
+  const card=({g,i})=>{const km=gearKm(g),lim=g.limit||0,over=lim&&km>=lim;
+      return `<button class="gear-c${g.to?" ret":""}" data-gi="${i}"><div><b>${esc(g.name)}</b><span>${esc(KM_NAME[g.sport]||g.sport)} · ${g.to?`${fmtDay(g.from,{day:"numeric",month:"short",year:"numeric"})} – ${fmtDay(g.to,{day:"numeric",month:"short",year:"numeric"})}`:`since ${fmtDay(g.from,{day:"numeric",month:"short",year:"numeric"})}`}${g.sport==="Cycling"&&g.indoor===false?" · outdoor only":""}</span>
+        ${lim&&!g.to?`<div class="en-bar"><i style="width:${Math.min(100,km/lim*100)}%;background:${over?"var(--amber)":sportCol(g.sport)}"></i></div>`:""}${over&&!g.to?`<span class="gear-w">Due for a change</span>`:""}</div><em>${kmTxt(km)}<small> km${lim&&!g.to?` / ${fmtK(lim)}`:""}</small></em></button>`;};
+  const act=G.filter(x=>!x.g.to),ret=G.filter(x=>x.g.to);
   return `<section class="sec" id="kmsec"><div class="sec-h"><h2>Distance</h2><span>Bike and on foot</span></div>
     <div class="card vol">
-      <div class="range">${[["week","Week"],["month","Month"],["year","Year"],["all","All"]].map(([k,n])=>`<button data-km="${k}" class="${kmMode===k?"on":""}">${n}</button>`).join("")}</div>
-      <div class="vol-read"><span>${esc(label)}</span></div>
+      <div class="range">${[["week","Week"],["month","Month"],["year","Year"],["all","All"],["custom","Dates"]].map(([k,n])=>`<button data-km="${k}" class="${kmMode===k?"on":""}">${n}</button>`).join("")}</div>
+      ${kmMode==="custom"?`<div class="km-dates"><label><span>From</span><input type="date" id="km-f" value="${cr.from}" min="${kmFirst()}" max="${todayISO()}"></label><label><span>To</span><input type="date" id="km-t" value="${cr.to}" min="${kmFirst()}" max="${todayISO()}"></label></div>`:""}
+      <div class="vol-read"><span>${esc(label)}</span>${ks.length>1?`<b>${kmTxt(tot)}<small style="font-size:14px;color:var(--muted)"> km</small></b>`:""}</div>
       ${ks.length?ks.map(k=>{const v=o[k]||0,pv=po?po[k]||0:null;
-        return `<div class="km-r"><i style="background:${sportCol(k)}"></i><span>${esc(KM_NAME[k]||k)}</span><em><u style="width:${v/max*100}%;background:${sportCol(k)}"></u></em><b>${kmTxt(v)}<small> km</small></b>${pv!=null?`<small class="km-p">${kmTxt(pv)} ${esc(prev[2])}</small>`:""}</div>`;}).join("")
+        return `<div class="km-r"><i style="background:${sportCol(k)}"></i><span>${esc(KM_NAME[k]||k)}</span><em><u style="width:${v/max*100}%;background:${sportCol(k)}"></u></em><b>${kmTxt(v)}<small> km</small></b>${pv!=null?`<small class="km-p">${kmTxt(pv)} ${esc(prev[2])}</small>`:k==="Cycling"&&ind>=1?`<small class="km-p">${kmTxt(v-ind)} outdoor · ${kmTxt(ind)} indoor</small>`:""}</div>`;}).join("")
         :`<p class="muted-s">No distance in this period.</p>`}
     </div>
-    <div class="sec-h" style="margin-top:18px"><h2>Gear</h2><span>Km since you started using it</span></div>
-    <div class="gear-l">${G.map((g,i)=>{const km=gearKm(g),lim=g.limit||0;
-      return `<button class="gear-c${g.to?" ret":""}" data-gi="${i}"><div><b>${esc(g.name)}</b><span>${esc(KM_NAME[g.sport]||g.sport)} · since ${fmtDay(g.from,{day:"numeric",month:"short",year:"numeric"})}${g.to?` · retired ${fmtDay(g.to,{day:"numeric",month:"short"})}`:""}</span>
-        ${lim?`<div class="en-bar"><i style="width:${Math.min(100,km/lim*100)}%;background:${km>=lim?"var(--amber)":sportCol(g.sport)}"></i></div>`:""}</div><em>${kmTxt(km)}<small> km${lim?` / ${fmtK(lim)}`:""}</small></em></button>`;}).join("")}
-      <button class="nudge" id="gear-add"><b>+ Add shoes or a bike</b><span>e.g. new running shoes from 19 Oct: see how many km they've done</span></button></div>
+    <div class="sec-h" style="margin-top:18px"><h2>Gear</h2><span>Km since it went on</span></div>
+    <div class="gear-l">${act.map(card).join("")}
+      <button class="nudge" id="gear-add"><b>+ Add a part, a bike or shoes</b><span>Chain, tyres, brake pads or discs from the day you fitted them: see how many km they've done</span></button>
+      ${ret.length?`<details class="gear-old"><summary>Replaced and retired (${ret.length})</summary>${ret.map(card).join("")}</details>`:""}</div>
   </section>`;
 }
-function openGear(i){
-  const G=gearAll(),g=i!=null?G[i]:{name:"",sport:"Running",from:todayISO()};
-  openSheet(`<div class="sh-top"><h2>${i!=null?"Edit gear":"New gear"}</h2>${X}</div>
-    <p class="sh-desc">Km are counted from your Garmin activities of that sport from the start date on.</p>
-    <div class="field"><label for="g-n">Name</label><input id="g-n" type="text" value="${esc(g.name)}" placeholder="e.g. Pegasus 41"></div>
+function openGear(i,preset){
+  const G=gearAll(),g=i!=null?G[i]:{name:"",sport:"Cycling",from:todayISO(),...(preset||{})};
+  const isBike=g.sport==="Cycling";
+  openSheet(`<div class="sh-top"><h2>${i!=null?esc(g.name):"New gear"}</h2>${X}</div>
+    ${i==null?`<div class="gear-pre">${GEAR_PRESET.map(([n,sp,l],k)=>`<button data-gp="${k}" class="${g.name===n?"on":""}">${n}</button>`).join("")}</div>`:""}
+    <p class="sh-desc">Km are counted from your Garmin activities of that sport from the day it went on.</p>
+    <div class="field"><label for="g-n">Name</label><input id="g-n" type="text" value="${esc(g.name)}" placeholder="e.g. Chain, Pegasus 41, Tarmac"></div>
     <div class="field"><label for="g-s">Used for</label><select id="g-s">${KM_SPORTS.map(k=>`<option value="${k}"${g.sport===k?" selected":""}>${KM_NAME[k]}</option>`).join("")}</select></div>
-    <div class="ath-log" style="grid-template-columns:1fr 1fr"><div class="field"><label for="g-f">Using it since</label><input id="g-f" type="date" value="${g.from}" max="${todayISO()}"></div>
+    <label class="gear-in" id="g-iw"${isBike?"":" hidden"}><input type="checkbox" id="g-i"${g.indoor===false?"":" checked"}><span><b>Count indoor rides</b><small>Turn off for parts that stay on the road bike while you ride the trainer</small></span></label>
+    <div class="ath-log" style="grid-template-columns:1fr 1fr"><div class="field"><label for="g-f">Fitted on</label><input id="g-f" type="date" value="${g.from}" max="${todayISO()}"></div>
       <div class="field"><label for="g-b">Km already done</label><input id="g-b" type="number" inputmode="decimal" value="${g.base||""}" placeholder="0"></div></div>
-    <div class="field"><label for="g-l">Replace at (km, optional)</label><input id="g-l" type="number" inputmode="numeric" value="${g.limit||""}" placeholder="e.g. 700 for running shoes"></div>
+    <div class="field"><label for="g-l">Change at (km, optional)</label><input id="g-l" type="number" inputmode="numeric" value="${g.limit||""}" placeholder="e.g. 3000 for a chain"></div>
     ${i!=null?`<div class="kv"><span>Km so far</span><b>${kmTxt(gearKm(g))} km</b></div>`:""}
+    ${i!=null&&!g.to?`<div class="gear-rep"><div class="field"><label for="g-rd">Replaced it with a new one on</label><input id="g-rd" type="date" value="${todayISO()}" min="${isoAdd(g.from,1)}" max="${todayISO()}"></div><button class="btn" id="g-rp">Replaced</button></div>
+      <p class="gear-note">The old one is kept in the history with its km; the new one starts from that day.</p>`:""}
     <div class="savebar" style="margin-top:16px">${i!=null?`<button class="btn quiet" id="g-r">${g.to?"Back in use":"Retire it"}</button>`:"<span></span>"}<button class="btn" id="g-ok">Save</button></div>
     ${i!=null?`<button class="pl-q" id="g-x" style="color:var(--rose)">Delete</button>`:""}`);
   const save=v=>{syncSet("rd_gear",v);closeSheet();render();};
-  $("g-ok").onclick=()=>{const name=$("g-n").value.trim(),from=$("g-f").value;if(!name||!from) return toast("Name and start date");
-    const n={...g,name,sport:$("g-s").value,from,base:+String($("g-b").value).replace(",",".")||0,limit:+$("g-l").value||0};const A=[...G];if(i!=null) A[i]=n; else A.push(n);buzz(10);save(A);toast("Saved");};
+  $("g-s").onchange=()=>{$("g-iw").hidden=$("g-s").value!=="Cycling";};
+  document.querySelectorAll("[data-gp]").forEach(b=>b.onclick=()=>{const [n,sp,l]=GEAR_PRESET[+b.dataset.gp];buzz(4);
+    document.querySelectorAll("[data-gp]").forEach(x=>x.classList.toggle("on",x===b));
+    $("g-n").value=n;$("g-s").value=sp;$("g-l").value=l||"";$("g-iw").hidden=sp!=="Cycling";});
+  const read=()=>({...g,name:$("g-n").value.trim(),sport:$("g-s").value,from:$("g-f").value,base:+String($("g-b").value).replace(",",".")||0,limit:+$("g-l").value||0,
+    indoor:$("g-s").value==="Cycling"&&!$("g-i").checked?false:undefined});
+  $("g-ok").onclick=()=>{const n=read();if(!n.name||!n.from) return toast("Name and date");
+    if(n.indoor===undefined) delete n.indoor;const A=[...G];if(i!=null) A[i]=n; else A.push(n);buzz(10);save(A);toast("Saved");};
+  const rp=$("g-rp");if(rp) rp.onclick=()=>{const d=$("g-rd").value;if(!d||d<=g.from) return toast("Pick the day you changed it");
+    const A=[...G];A[i]={...g,to:isoAdd(d,-1)};const nw={...g,from:d,base:0};delete nw.to;A.push(nw);buzz(12);save(A);toast(`New ${g.name.toLowerCase()} from ${fmtDay(d,{day:"numeric",month:"short"})}`);};
   const r=$("g-r");if(r) r.onclick=()=>{const A=[...G];A[i]={...g};if(g.to) delete A[i].to; else A[i].to=todayISO();save(A);};
   const x=$("g-x");if(x) x.onclick=()=>{const A=[...G];A.splice(i,1);save(A);toast("Deleted");};
 }
@@ -372,6 +398,9 @@ function bindDistance(){
   document.querySelectorAll("#kmsec [data-km]").forEach(b=>b.onclick=()=>{kmMode=b.dataset.km;LS.set("rd_kmv",kmMode);buzz(4);$("kmsec").outerHTML=distanceSection();bindDistance();});
   document.querySelectorAll("#kmsec [data-gi]").forEach(b=>b.onclick=()=>openGear(+b.dataset.gi));
   const a=$("gear-add");if(a) a.onclick=()=>openGear(null);
+  const f=$("km-f"),t=$("km-t");
+  if(f&&t){const ch=()=>{let a=f.value,b=t.value;if(!a||!b) return;if(a>b) [a,b]=[b,a];LS.set("rd_kmr",JSON.stringify({from:a,to:b}));
+      $("kmsec").outerHTML=distanceSection();bindDistance();};f.onchange=ch;t.onchange=ch;}
 }
 
 let fitPick=null;
@@ -420,10 +449,11 @@ function renderTraining(){
     <span class="tb">${ASK}<button class="gear" id="gear" aria-label="Settings">${GEAR}</button></span></div>
   ${pageBar("training")}
   ${PG.training==="week"?(()=>{const t=(DATA.days||[]).find(d=>d.date===todayISO());return t?sessions(t):"";})()+weekReviewSection()+streakCard()+weekSection():""}
+  ${PG.training==="cal"?calendarPage():""}
   ${PG.training==="month"?monthPage()+intensitySection()+volumeSection()+distanceSection():""}
-  ${PG.training==="fitness"?powerSection()+durabilitySection()+markersSection()+fitnessSection():""}
+  ${PG.training==="fitness"?powerSection()+bestSection()+durabilitySection()+markersSection()+fitnessSection():""}
   <p class="foot">Updated ${esc(new Date(DATA.generated_at).toLocaleString("en-GB",{weekday:"long",hour:"2-digit",minute:"2-digit"}))}</p>`;
-  $("gear").onclick=openSettings; bindSessions(); bindVolume(); bindDistance(); bindFitness(); bindMonthPage(); bindIntensity();
+  $("gear").onclick=openSettings; bindSessions(); bindVolume(); bindDistance(); bindFitness(); bindMonthPage(); bindIntensity(); bindCalendar(); bindBest();
   document.querySelectorAll(".mk[data-mk]").forEach(b=>b.onclick=()=>openMarker(b.dataset.mk));
 }
 

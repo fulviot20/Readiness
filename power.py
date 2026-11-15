@@ -19,7 +19,7 @@ FIT_DURS = [180, 300, 480, 600, 720, 900, 1200]       # 3-20 min: the range wher
 KJ_STEPS = [1000, 1500, 2000, 2500, 3000, 3500, 4000]
 BANDS = [(0, 55, "Recovery"), (55, 70, "Easy endurance"), (70, 80, "Intensive endurance"),
          (80, 90, "Tempo"), (90, 105, "Threshold"), (105, 999, "VO2max and above")]
-POWER_DAYS = 200          # how far back ride streams are read
+POWER_DAYS = 400          # how far back ride streams are read
 MAX_FETCH = 30            # new rides read per run (the rest follow on the next runs)
 
 
@@ -182,3 +182,81 @@ def refresh(cache, activities, today, fetch_streams, have_streams=None):
         # a ride without usable power is remembered too, so it isn't read again every run
         store[aid] = dict(s or {}, d=(a.get("start_date_local") or "")[:10], name=a.get("name"))
     return done
+
+
+# ---------------------------------------------------------------- best efforts
+BEST_DURS = [5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200]
+
+
+def parse_curves(raw):
+    """Intervals power-curves response -> {curve id: {label, start, end, pts: {secs: [watts, activity id]}}}."""
+    items = raw.get("list") if isinstance(raw, dict) else raw
+    out = {}
+    for c in items or []:
+        if not isinstance(c, dict) or not c.get("id"):
+            continue
+        secs, vals = c.get("secs") or [], c.get("values") or c.get("watts") or []
+        acts = c.get("activity_id") or []
+        pos = {s: i for i, s in enumerate(secs)}
+        pts = {}
+        for d in BEST_DURS:
+            i = pos.get(d)
+            if i is not None and i < len(vals) and vals[i]:
+                pts[str(d)] = [round(vals[i]), acts[i] if i < len(acts) else None]
+        if pts:
+            out[str(c["id"])] = {"label": c.get("label"), "start": (c.get("start_date_local") or "")[:10] or None,
+                                 "end": (c.get("end_date_local") or "")[:10] or None, "pts": pts}
+    return out
+
+
+def best(raw, store, activities, today, known, fetch_act=None, top_n=5):
+    """Best efforts for the durations in BEST_DURS.
+
+    curves   this season / last season / all time from Intervals, each with the ride and its date
+    top      your best rides of this season for each duration (from our own summaries)
+    monthly  best of each of the last 12 months for each duration
+    known: cache {activity id: [date, name]} for rides older than the activity list."""
+    curves = parse_curves(raw) if raw else {}
+    rides = [dict(v, id=k) for k, v in (store or {}).items() if v and v.get("mmp")]
+    if not curves and not rides:
+        return None
+    acts = {str(a.get("id")): [(a.get("start_date_local") or "")[:10], a.get("name")] for a in activities or []}
+    acts.update({r["id"]: [r["d"], r.get("name")] for r in rides})
+    fetched = 0
+    for c in curves.values():
+        for d, pt in c["pts"].items():
+            aid = str(pt[1]) if pt[1] else None
+            info = acts.get(aid) or known.get(aid) if aid else None
+            if aid and not info and fetch_act and fetched < 12:
+                try:
+                    a = fetch_act(aid)
+                    info = known[aid] = [(a.get("start_date_local") or "")[:10], a.get("name")]
+                except SystemExit:
+                    pass
+                fetched += 1
+            pt.extend(info or [None, None])
+    s0 = (curves.get("s0") or {}).get("start")
+    season = s0 or (today - dt.timedelta(days=365)).isoformat()
+    top = {}
+    for d in BEST_DURS:
+        k = str(d)
+        got = sorted(((r["mmp"][k], r["d"], r["id"], r.get("name")) for r in rides
+                      if r["d"] >= season and r["mmp"].get(k)), reverse=True)
+        if got:
+            top[k] = [list(g) for g in got[:top_n]]
+    months_ = []
+    y, m = today.year, today.month
+    for _ in range(12):
+        months_.append(f"{y}-{m:02d}")
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    months_.reverse()
+    monthly = {}
+    for d in BEST_DURS:
+        k = str(d)
+        row = []
+        for mo in months_:
+            v = [r["mmp"][k] for r in rides if r["d"][:7] == mo and r["mmp"].get(k)]
+            row.append(max(v) if v else None)
+        if any(row):
+            monthly[k] = row
+    return {"durs": BEST_DURS, "curves": curves, "season": season, "top": top, "months": months_, "monthly": monthly}

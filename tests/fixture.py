@@ -121,8 +121,24 @@ def build_data(today=TODAY):
     data["garmin_key"] = {"expires": "2027-11-03", "error": False}
     data["dayflow"] = dayflow.build(gdays, data["days"], today, 186)
     data["monthly"] = months.build(wellness, activities, gdays, data["days"], data["fitness"], today)
-    data["power"] = power.build(power_store(activities), activities, today)
+    store = power_store(activities)
+    data["power"] = power.build(store, activities, today)
+    data["power"]["best"] = power.best(fake_curves(store, today), store, activities, today, {})
     return data
+
+
+def fake_curves(store, today):
+    """An Intervals power-curves response built from the synthetic rides (all time a bit above this season)."""
+    env = {}
+    for k, r in store.items():
+        for d, v in (r.get("mmp") or {}).items():
+            if v > env.get(int(d), (0, None))[0]:
+                env[int(d)] = (v, k)
+    secs = sorted(env)
+    mk = lambda cid, f, start: {"id": cid, "label": cid, "start_date_local": start + "T00:00:00", "secs": secs,
+                                "values": [round(env[s][0] * f) for s in secs], "activity_id": [env[s][1] for s in secs]}
+    return {"list": [mk("s0", 1, (today - dt.timedelta(days=75)).isoformat()), mk("s1", .97, "2025-10-01"),
+                     mk("all", 1.04, "2019-01-01")]}
 
 
 def power_store(activities, cp=285, wp=22000):

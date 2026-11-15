@@ -79,7 +79,7 @@ function goPage(tab,pg){
 function animIn(c){const a=$("app");a.classList.remove("enter","swl","swr");void a.offsetWidth;a.classList.add(c);}
 // Each tab is split into a few short pages, picked from a row of pills that stays at the top while you scroll
 const PAGES={today:[["overview","Score"],["day","Day"]],
-  training:[["week","Week"],["month","Month"],["fitness","Fitness"]],
+  training:[["week","Week"],["cal","Calendar"],["month","Month"],["fitness","Fitness"]],
   athlete:[["profile","Profile"],["plan","Food"]]};
 // pages that were folded into another one: old links and saved positions still land in the right place
 const PG_ALIAS={today:{journal:"day"},training:{volume:"month"},athlete:{balance:"profile",weight:"profile",diary:"plan"}};

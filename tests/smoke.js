@@ -156,7 +156,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (!document.querySelector("#app > .sec .signals") || !document.querySelector("#app .checkin")) throw new Error("signals and check-in should be visible on Score");
       if (document.querySelector("details#more")) throw new Error("nothing should be hidden in a More block");
       setPage("today", "journal"); if (PG.today !== "day" || !document.getElementById("journal")) throw new Error("journal not on the Day page");
-      setTab("training"); if (document.querySelectorAll(".pbar [data-pg]").length !== 3) throw new Error("Training should have three pages");
+      setTab("training"); if (document.querySelectorAll(".pbar [data-pg]").length !== 4) throw new Error("Training should have four pages");
       setPage("training", "volume"); if (PG.training !== "month") throw new Error("Hours should live on the Month page");
       setTab("athlete"); if (document.querySelectorAll(".pbar [data-pg]").length !== 2) throw new Error("Athlete should have two pages");
       setPage("athlete", "balance"); if (PG.athlete !== "profile") throw new Error("old balance link should open Profile");
@@ -183,6 +183,27 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css
       if (document.getElementById("ins-t")?.textContent !== "Test insight.") throw new Error("saved insight not shown");
       if (!insightFacts().today_plan.length) throw new Error("insight facts miss today's plan");
       localStorage.removeItem("rd_gemini"); }],
+    // calendar: a day with a session shows it under the grid, a week total shows the week; months move
+    ["calendar", () => { setTab("training"); setPage("training", "cal");
+      const d = document.querySelector(".cal-d.has"); if (!d) throw new Error("no session in the calendar");
+      d.click(); if (!document.querySelector("#cal-list .cal-c")) throw new Error("day sessions not listed");
+      document.querySelector("#cal-list .cal-c").click(); if (!document.getElementById("sheet").classList.contains("open")) throw new Error("session sheet not opened"); closeSheet();
+      document.querySelector(".cal-w").click(); if (!document.querySelector("#cal-list .sec-h")) throw new Error("week not listed");
+      document.getElementById("cal-p").click(); if (!document.querySelector(".cal-g")) throw new Error("previous month broken"); }],
+    // distance between two dates, gear replaced on a day keeps the old part in the history
+    ["distance-gear", () => { setPage("training", "month"); localStorage.setItem("rd_kmr", JSON.stringify({from: isoAdd(todayISO(), -20), to: todayISO()}));
+      kmMode = "custom"; render(); if (!document.getElementById("km-f")) throw new Error("no date range");
+      const t = window.toast; window.toast = () => {};
+      openGear(null, {name: "Chain", sport: "Cycling", limit: 3000, from: isoAdd(todayISO(), -40)}); document.getElementById("g-i").checked = false; document.getElementById("g-ok").click();
+      const i = gearAll().findIndex(g => g.name === "Chain"); if (i < 0 || gearAll()[i].indoor !== false) throw new Error("chain not saved");
+      openGear(i); document.getElementById("g-rd").value = isoAdd(todayISO(), -10); document.getElementById("g-rp").click();
+      const G = gearAll().filter(g => g.name === "Chain"); if (G.length !== 2 || !G.some(g => g.to) || !G.some(g => !g.to && g.base === 0)) throw new Error("replace did not split the chain");
+      if (!document.querySelector(".gear-old")) throw new Error("old chain not in the history");
+      localStorage.removeItem("rd_gear"); window.toast = t; kmMode = "month"; }],
+    // best efforts: switching duration redraws the tiles
+    ["best-efforts", () => { setPage("training", "fitness"); if (!document.querySelector("#bestsec .be-t")) throw new Error("no best efforts");
+      const b = [...document.querySelectorAll("#bestsec [data-bd]")].find(x => x.dataset.bd === "1200"); b.click();
+      if (!document.querySelector('#bestsec [data-bd="1200"].on') || !document.querySelector("#bestsec .be-t.all")) throw new Error("duration pick broken"); }],
     ["today", () => setTab("today")],
   ]) await step(n, fn);
   const info = await p.evaluate(() => { PG.today = "day"; render(); const dayflow = !!document.getElementById("df-sec");

@@ -134,6 +134,17 @@ def test_long_ride_does_not_empty_the_reserve():
     assert e[95] >= 85 and 15 <= e[149] <= 40 and min(x for x in e if x is not None) > 5
 
 
+def test_calendar_and_indoor_km():
+    acts = [{"id": "a", "start_date_local": "2026-11-14T08:00:00", "type": "Ride", "name": "Out", "moving_time": 7200,
+             "distance": 60000, "icu_training_load": 120.4},
+            {"id": "b", "start_date_local": "2026-11-15T18:00:00", "type": "VirtualRide", "name": "Zwift", "moving_time": 3600,
+             "distance": 35000, "trainer": True},
+            {"id": "c", "start_date_local": "2026-11-15T07:00:00", "type": "WeightTraining", "name": "Gym", "moving_time": 1800}]
+    cal = readiness.calendar(acts)
+    assert [c["id"] for c in cal] == ["a", "c", "b"] and cal[0]["load"] == 120 and cal[0]["km"] == 60.0 and "km" not in cal[1]
+    assert readiness.distance_indoor(acts) == {"2026-11-15": 35.0}
+
+
 # ---------------------------------------------------------------- crypto and output
 def test_encrypt_roundtrip(data):
     enc = readiness.encrypt({"a": 1, "b": [1, 2]}, PASS)

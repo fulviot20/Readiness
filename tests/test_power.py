@@ -60,3 +60,22 @@ def test_refresh_limits_and_remembers():
     assert len(calls) == power.MAX_FETCH and calls[0] == "r0"
     power.refresh(cache, acts, today, fetch)
     assert len(calls) == 40 and len(cache["power"]) == 40
+
+
+def test_best_efforts_from_curves_and_rides():
+    import datetime as dt
+    today = dt.date(2026, 11, 15)
+    raw = {"list": [{"id": "s0", "start_date_local": "2026-09-01T00:00:00", "secs": [1, 5, 300, 1200],
+                     "values": [900, 850, 353, 280], "activity_id": ["i1", "i1", "i2", "old"]},
+                    {"id": "all", "secs": [300], "values": [380], "activity_id": ["old"]}]}
+    store = {"i2": {"d": "2026-10-03", "name": "Hill reps", "mmp": {"300": 353, "1200": 270}},
+             "i3": {"d": "2026-11-10", "name": "Tempo", "mmp": {"300": 330, "1200": 280}},
+             "i4": {"d": "2026-08-20", "name": "Before the season", "mmp": {"300": 360}}}
+    known = {}
+    b = power.best(raw, store, [], today, known, lambda i: {"start_date_local": "2024-06-01T09:00:00", "name": "Stelvio"})
+    s0 = b["curves"]["s0"]["pts"]
+    assert s0["300"] == [353, "i2", "2026-10-03", "Hill reps"] and "1" not in s0
+    assert b["curves"]["all"]["pts"]["300"] == [380, "old", "2024-06-01", "Stelvio"] and known["old"][1] == "Stelvio"
+    # this season's top rides start on the season's first day: the August ride is left out
+    assert [t[2] for t in b["top"]["300"]] == ["i2", "i3"]
+    assert b["months"][-1] == "2026-11" and b["monthly"]["300"][-1] == 330 and b["monthly"]["300"][-4] == 360

@@ -728,6 +728,37 @@ def distance(activities):
     return out
 
 
+def distance_indoor(activities):
+    """Indoor cycling km per day (trainer, Zwift): gear such as a road chain may leave them out."""
+    out = {}
+    for a in activities:
+        d, km = (a.get("start_date_local") or "")[:10], (a.get("distance") or 0) / 1000
+        if d and km >= 0.05 and sport_name(a.get("type")) == "Cycling" and (a.get("trainer") or "Virtual" in (a.get("type") or "")):
+            out[d] = round(out.get(d, 0) + km, 2)
+    return out
+
+
+def calendar(activities):
+    """Every session since 1 January of last year, compact, for the calendar in Training."""
+    out = []
+    for a in sorted(activities, key=lambda a: a.get("start_date_local") or ""):
+        d = (a.get("start_date_local") or "")[:10]
+        m = round((a.get("moving_time") or a.get("elapsed_time") or 0) / 60)
+        if not d or m <= 0:
+            continue
+        first = lambda *ks: next((a[k] for k in ks if a.get(k) not in (None, 0)), None)
+        row = {"d": d, "id": a.get("id"), "n": a.get("name"), "s": sport_name(a.get("type")), "m": m,
+               "t": (a.get("start_date_local") or "")[11:16] or None,
+               "km": round(a["distance"] / 1000, 1) if (a.get("distance") or 0) >= 50 else None,
+               "load": round(a["icu_training_load"]) if a.get("icu_training_load") else None,
+               "w": first("icu_average_watts", "average_watts"), "np": first("icu_weighted_avg_watts", "weighted_average_watts"),
+               "hr": first("average_heartrate"), "el": round(a["total_elevation_gain"]) if a.get("total_elevation_gain") else None,
+               "kj": round(a["icu_joules"] / 1000) if a.get("icu_joules") else None,
+               "feel": a.get("feel"), "rpe": a.get("icu_rpe"), "in": bool(a.get("trainer")) or None}
+        out.append({k: v for k, v in row.items() if v is not None})
+    return out
+
+
 def week_summary(done, plans, today, n=6):
     """Current week day by day (done vs planned) plus totals for the last n weeks."""
     monday = today - dt.timedelta(days=today.weekday())
@@ -971,7 +1002,8 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
             "calibration": {"mu": emu if eng else mu, "sigma": esig if eng else sigma,
                             "n": len(eraws) if eng else len(raws)},
             "weights": engine.WEIGHTS if eng else WEIGHTS, "days": days, "upcoming": upcoming, "weeks": weeks,
-            "volume": volume(activities), "km": distance(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals",
+            "volume": volume(activities), "km": distance(activities), "km_in": distance_indoor(activities),
+            "calendar": calendar(activities), "validation": validation(days), "source": "garmin" if gdays else "intervals",
             "fitness": fit, "energy": energy.build(gdays, days, today)}
 
 
@@ -1031,6 +1063,25 @@ def main():
     except Exception as e:
         data["power"] = None
         print("power summary skipped:", type(e).__name__)
+    # best efforts: this season, last season and all time from Intervals, plus the history from our own ride summaries
+    if not os.environ.get("FIXTURE_DIR"):
+        aid = os.environ.get("INTERVALS_ATHLETE_ID") or "0"
+        for curves in ("s0,s1,all", "s0,s1"):
+            try:
+                raw = fetch(f"athlete/{aid}/power-curves.json", {"type": "Ride", "curves": curves})
+                if power.parse_curves(raw):
+                    cache["curves"] = raw
+                    break
+            except SystemExit as e:
+                print(f"power curves ({curves}) skipped: {str(e)[:80]}")
+    try:
+        best = power.best(cache.get("curves"), cache.get("power"), activities, today, cache.setdefault("best_acts", {}),
+                          None if os.environ.get("FIXTURE_DIR") else
+                          lambda i: fetch(f"activity/{i}", {}))
+        if best:
+            data["power"] = dict(data["power"] or {}, best=best)
+    except Exception as e:
+        print("best efforts skipped:", type(e).__name__)
     try:
         data["monthly"] = months.build(wellness, activities, gdays, data["days"], data["fitness"], today)
     except Exception as e:
