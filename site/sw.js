@@ -58,6 +58,7 @@ self.addEventListener("fetch", e => {
   if (u.hostname === "fonts.gstatic.com") return e.respondWith(fixed(e, FONTS));
   if (u.hostname === "fonts.googleapis.com") return e.respondWith(refreshed(e, FONTS));
   if (u.origin !== self.location.origin || /\/(data\.enc|stamp\.json|sw\.js)$/.test(u.pathname)) return;
+  if (u.searchParams.has("vc")) return;    // the app checking for a new version: always the network, never saved
   if (e.request.mode === "navigate") return e.respondWith(page(e));
   if (u.searchParams.has("v")) return e.respondWith(fixed(e, SHELL));
   e.respondWith(refreshed(e, SHELL));
