@@ -8,6 +8,9 @@ Energy reserve (0-100), our own model on the raw heart rate, run continuously ov
   effort   every minute above 30% of heart-rate reserve drains like Banister TRIMP: harder minutes
            cost exponentially more (0.3 points per TRIMP unit: an hour of endurance riding ~18,
            an hour at tempo ~30)
+  scale    every drain is weighed by how much is left (x level / 75): a full tank empties a bit
+           faster, a low one ever more slowly, so the reserve tends towards zero but never sits on it.
+           A 4.5-hour endurance ride (TRIMP ~320) takes a fresh 90 down to about 25, not to 0.
 Slots where the watch saw nothing count as awake and still.
 
 Stress (0-100), estimated from heart rate because Garmin's personal API has no stress series:
@@ -24,6 +27,7 @@ SHOW_DAYS = 7
 BASE_DRAIN = 2.0 / 12          # per 5-minute slot
 SLEEP_FILL = 0.22              # share of the room left filled per hour of good sleep
 TRIMP_COST = 0.3
+SCALE = 75.0                   # drains are weighed by level / SCALE
 
 
 def _slot(ms):
@@ -141,10 +145,12 @@ def build(gdays, days, today, hrmax, now_slot=None):
                 top = 0.3 * (hrmax - rest)
                 stress.append(None if not h else -1 if x >= 0.3 else
                               round(max(0.0, min(1.0, (h - rest - 5) / max(top - 5, 10))) * 100))
+                cost = 0.0
                 if x >= 0.3:
-                    level -= TRIMP_COST * SLOT_MIN * x * 0.64 * math.exp(1.92 * x) + BASE_DRAIN
+                    cost = TRIMP_COST * SLOT_MIN * x * 0.64 * math.exp(1.92 * x) + BASE_DRAIN
                 elif x > 0.08 or not h:
-                    level -= BASE_DRAIN
+                    cost = BASE_DRAIN
+                level *= math.exp(-cost / SCALE)
             level = max(0.0, min(100.0, level))
             series.append(round(level, 1))
         runs = []

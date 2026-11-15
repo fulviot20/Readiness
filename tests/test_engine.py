@@ -122,6 +122,18 @@ def test_session_heart_rate_replaces_the_wrist(data):
     assert f["hr"][215] == 60 and f["hr"][220] == 160 and f["peak"] == 171 and f["stress"][220] == -1
 
 
+def test_long_ride_does_not_empty_the_reserve():
+    # 4.5 hours at ~131 bpm (rest 44, max 186: TRIMP ~320) after a full night: low, never zero
+    d = "2026-11-15"
+    hr5 = [50] * 96 + [131] * 54 + [70] * 138
+    t0 = int(dt.datetime(2026, 11, 14, 23, tzinfo=dt.timezone.utc).timestamp() * 1000)
+    gd = {"2026-11-14": {"hr": {"hr5": [55] * 288, "rest_used": 44}},
+          d: {"hr": {"hr5": hr5, "rest_used": 44}, "sleep": {"start": t0, "end": t0 + 9 * 3600000}}}
+    days = [{"date": d, "sleep_score": {"score": 90}}]
+    e = dayflow.build(gd, days, dt.date(2026, 11, 15), 186)["days"][d]["energy"]
+    assert e[95] >= 85 and 15 <= e[149] <= 40 and min(x for x in e if x is not None) > 5
+
+
 # ---------------------------------------------------------------- crypto and output
 def test_encrypt_roundtrip(data):
     enc = readiness.encrypt({"a": 1, "b": [1, 2]}, PASS)
