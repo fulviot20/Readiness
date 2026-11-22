@@ -62,6 +62,33 @@ def _smooth(v):
     return out
 
 
+GAP_FILL = 4                   # gaps up to 4 slots (20 min) are bridged, longer ones (watch off) stay empty
+
+
+def _bridge(h5, upto=None):
+    """Fill short holes in the 5-minute series by straight lines between the readings either side.
+
+    Garmin's all-day series has frequent missing 2-minute samples (strap loose, movement, the watch
+    pausing the optical sensor when still); Garmin Connect draws across them, so do we. A hole longer
+    than GAP_FILL slots means the watch really saw nothing and is left as a gap."""
+    v = list(h5)
+    last = len(v) - 1 if upto is None else min(upto, len(v) - 1)
+    k = 0
+    while k <= last:
+        if v[k] is not None:
+            k += 1
+            continue
+        j = k
+        while j <= last and v[j] is None:
+            j += 1
+        if k > 0 and j <= last and j - k <= GAP_FILL:
+            a, b = v[k - 1], v[j]
+            for m in range(k, j):
+                v[m] = round(a + (b - a) * (m - k + 1) / (j - k + 1))
+        k = j
+    return v
+
+
 def _workout_hr(days):
     """Heart rate recorded by the sessions themselves, per 5-minute slot: {date: {slot: bpm}} and the peak of each day.
 
@@ -126,6 +153,8 @@ def build(gdays, days, today, hrmax, now_slot=None):
             h5 = list(h5)
             for k, v in session_hr[d].items():
                 h5[k] = v
+        if h5:
+            h5 = _bridge(h5, now_slot if d == today.isoformat() else None)
         rest = hr.get("rest_used") or ((gdays.get(d) or {}).get("daily") or {}).get("rhr") or 55
         nxt = (dt.date.fromisoformat(d) + dt.timedelta(days=1)).isoformat()
         f_morning, f_evening = fill(d), fill(nxt)      # a night is scored on the date it ends

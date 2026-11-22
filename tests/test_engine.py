@@ -378,3 +378,12 @@ def test_breathing_high_one_night_alone_no_alarm():
     gdays[t]["sleep"]["resp"] = 17.5
     data = readiness.build(wellness, activities, [], {}, TODAY, {}, {}, gdays)
     assert not data["days"][-1]["alarm"]
+
+
+def test_hr_gaps_bridged_only_when_short():
+    import dayflow
+    v = [60, None, None, 70] + [None] * 5 + [80]
+    out = dayflow._bridge(v)
+    assert out[:4] == [60, 63, 67, 70]          # short hole filled
+    assert out[4:9] == [None] * 5               # long hole (watch off) left empty
+    assert dayflow._bridge([None, 60, None, 62], upto=2)[2] is None   # nothing after "now" to bridge to
