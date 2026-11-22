@@ -948,17 +948,26 @@ def build(wellness, activities, events, answers, today, streams=None, notes=None
             else:
                 resp_hi = resp_hi and (prev_resp or (hz is not None and hz < -1) or (rz is not None and rz < -1))
         alarm = resp_hi or pair
-        if alarm:
-            base = min(base, 49)
         mod, sick = modifier(answers.get(d))
+        # A single night out of range with a check-in saying you feel well and have no symptoms is often a late,
+        # heavy meal or a late night, not illness: the alarm stays (and counts in validation) but doesn't cap
+        # the score. A second night in a row keeps the cap.
+        ans = answers.get(d) or {}
+        pdate = (dt.date.fromisoformat(d) - dt.timedelta(days=1)).isoformat()
+        prev_alarm = bool(days and days[-1]["date"] == pdate and days[-1].get("alarm"))
+        lifted = alarm and not sick and not prev_alarm and (ans.get("feel") or 0) >= 4
+        if alarm and not lifted:
+            base = min(base, 49)
         final = clip(base + mod, 1, 100)
-        if sick or alarm:
+        if sick or (alarm and not lifted):
             final = min(final, 49)
         name, advice = band(final)
         warn = ("Breathing rate during sleep is well above your normal: often the first sign of a cold. " if resp_hi
                 else "Low HRV and high sleeping heart rate together: a classic early warning. " if alarm
                 else "Short night: HRV, heart rate and breathing reflect the missing sleep. " if short and any(flags)
                 else "")
+        if lifted:
+            warn += "You feel well, so the score isn't capped for one night: if it repeats tomorrow it will be. "
         item.update({
             "score": round(final), "base": round(base), "mod": round(mod), "alarm": alarm,
             "band": name, "advice": advice, "model": model, "legacy": legacy(d),
