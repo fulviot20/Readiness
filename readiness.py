@@ -1107,8 +1107,11 @@ def main():
     with open("site/widget.enc", "w") as f:
         json.dump(encrypt(widget_data(data), pw, data_salt(pw)), f)
     stable = {k: v for k, v in data.items() if k != "generated_at"}
+    fp = hashlib.sha256(json.dumps(stable, sort_keys=True).encode()).hexdigest() + "\n"
     with open("data.hash", "w") as f:
-        f.write(hashlib.sha256(json.dumps(stable, sort_keys=True).encode()).hexdigest() + "\n")
+        f.write(fp)
+    with open("site/deployed.txt", "w") as f:    # the workflow reads it back from the live site to spot a failed deploy
+        f.write(fp)
     # self-check, public log: only presence and plausibility flags, never values
     for d in data["days"][-4:]:
         ss, sk, c = d.get("sleep_score") or {}, d.get("strain") or {}, d.get("comp") or {}

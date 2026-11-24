@@ -7,3 +7,4 @@ site/widget.enc
 android/.gradle/
 android/app/build/
 android/build/
+site/deployed.txt
