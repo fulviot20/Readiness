@@ -50,6 +50,8 @@ jobs:
           INTERVALS_ATHLETE_ID: ${{ secrets.INTERVALS_ATHLETE_ID }}
           READINESS_PASSPHRASE: ${{ secrets.READINESS_PASSPHRASE }}
           GARMIN_API_KEY: ${{ secrets.GARMIN_API_KEY }}
+          GOOGLE_SA_KEY: ${{ secrets.GOOGLE_SA_KEY }}
+          GCAL_ID: ${{ secrets.GCAL_ID }}
         run: |
           pip install --quiet cryptography pywebpush
           python readiness.py

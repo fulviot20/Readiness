@@ -105,7 +105,9 @@ def build(gdays, days, today, height=None, sex=None):
                         "kcal": x.get("kcal_total"), "active": x.get("kcal_active"), "resting": x.get("kcal_resting")})
 
     now = (gdays.get(t) or {}).get("daily") or {}
-    out = {"history": history, "bmr": round(bmr) if bmr else None}
+    out = {"history": history, "bmr": round(bmr) if bmr else None,
+           "hourly_active": round(hourly) if hourly else None,      # also used by nutrition.py before today's data arrives
+           "per_min": {k: round(v, 2) for k, v in per_min.items()}}
     if now.get("kcal_active") is None or not bmr:
         return out
     h = _hour(now.get("asof"))

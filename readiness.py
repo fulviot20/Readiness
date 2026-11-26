@@ -31,8 +31,10 @@ import power
 import fitness
 import fuel
 import garmin
+import gcal
 import mailbox
 import months
+import nutrition
 import push
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -1086,6 +1088,21 @@ def main():
     except Exception as e:
         data["dayflow"] = None
         print("dayflow skipped:", type(e).__name__)
+    # today's intake targets, recomputed on every run, and the Google Calendar event that carries them
+    try:
+        wts = {w["date"]: w["kg"] for w in data["athlete"]["weights"]}
+        wts.update((mail.get("metrics") or {}).get("weight") or {})
+        data["nutrition"] = nutrition.build(data, list(wts.items()), dt.datetime.now(TZ))
+    except Exception as e:
+        data["nutrition"] = None
+        print("nutrition skipped:", type(e).__name__, str(e)[:120])
+    if data.get("nutrition") and os.environ.get("GOOGLE_SA_KEY") and os.environ.get("GCAL_ID"):
+        try:
+            title, desc = nutrition.event_text(data["nutrition"])
+            print("calendar:", gcal.upsert(os.environ["GOOGLE_SA_KEY"], os.environ["GCAL_ID"], data["today"], title, desc, cache))
+        except Exception as e:
+            code = getattr(e, "code", "")
+            print("calendar skipped:", type(e).__name__, code)
     oldest = (today - dt.timedelta(days=400)).isoformat()
     data["journal"] = {"days": {d: o for d, o in (mail.get("journal") or {}).items() if d >= oldest},
                        "tags": mail.get("jtags")}

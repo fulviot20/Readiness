@@ -49,3 +49,7 @@ Si procede un punto alla volta; quando uno è fatto si spunta.
 - [x] 31. Giro di rifinitura: ogni tocco porta da qualche parte (controllo automatico su tutte le pagine e i fogli), testi ripuliti dai riferimenti al cibo
 - [x] 32. L'app si aggiorna da sola quando esce una nuova versione; avviso quando i controlli automatici falliscono
 - [ ] 6. Validazione dello score con i dati veri (in corso): feel su Intervals e note "Score doesn't feel right?" con costanza
+
+## Target del giorno su Google Calendar (26/11/2026)
+- [x] 33. Piano del mattino come quello su TrainingPeaks, ma da Intervals: evento giornaliero su Google Calendar con kcal, carboidrati (quanti in bici), proteine e grassi; ricalcolato a ogni giro (ogni 10'): segue la seduta reale (più dura o più facile del previsto), la giornata più o meno attiva, le sedute non fatte; tiene conto dell'obiettivo 59–61 kg (al massimo ~1 kg al mese) con il deficit spostato sui giorni facili (nutrition.py, gcal.py)
+- [ ] 34. Calorie segnate da FatSecret nel consuntivo (serve l'account sviluppatore FatSecret)
